@@ -21,8 +21,9 @@
 	<modules>
 		<module>incite-util</module>
 		<module>incite-ignite</module>
+        <module>incite-rs</module>
 		<module>incite-distro</module>
-	</modules>
+    </modules>
 
 	<properties>
 		<java.version>11</java.version>
@@ -31,11 +32,14 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<camel.version>3.7.5</camel.version>
 		<ignite.version>2.10.0</ignite.version>
+		<jackson.version></jackson.version>
 		<junit.version>4.13.2</junit.version>
 		<kotlin.code.style>official</kotlin.code.style>
 		<kotlin.version>1.5.21</kotlin.version>
+		<kotlin-coroutines.version>1.5.1</kotlin-coroutines.version>
 		<spark.version>3.1.2</spark.version>
 		<spring-boot.version>2.4.9</spring-boot.version>
+		<zeroturnaround.version>1.14</zeroturnaround.version>
 	</properties>
 
 	<dependencies>
