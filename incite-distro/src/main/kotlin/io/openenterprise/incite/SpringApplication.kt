@@ -1,8 +1,9 @@
 package io.openenterprise.incite
 
-import org.apache.ignite.springframework.boot.autoconfigure.IgniteAutoConfiguration
+import io.openenterprise.ignite.springframework.boot.autoconfigure.IgniteAutoConfiguration
 import org.springframework.boot.SpringBootConfiguration
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
+import org.springframework.boot.autoconfigure.jersey.JerseyAutoConfiguration
 import org.springframework.boot.autoconfigure.web.servlet.ServletWebServerFactoryAutoConfiguration
 import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer
@@ -10,7 +11,7 @@ import org.springframework.context.annotation.ComponentScan
 
 @SpringBootConfiguration
 @ComponentScan(basePackages = ["io.openenterprise.incite.context"])
-@ImportAutoConfiguration(classes = [IgniteAutoConfiguration::class, ServletWebServerFactoryAutoConfiguration::class])
+@ImportAutoConfiguration(classes = [IgniteAutoConfiguration::class, JerseyAutoConfiguration::class, ServletWebServerFactoryAutoConfiguration::class])
 class SpringApplication : SpringBootServletInitializer() {
 
     companion object {
