@@ -24,6 +24,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>io.openenterprise</groupId>
+            <artifactId>incite-service</artifactId>
+            <version>${parent.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-core</artifactId>
             <version>${ignite.version}</version>

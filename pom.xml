@@ -21,9 +21,11 @@
 	<modules>
 		<module>incite-util</module>
 		<module>incite-ignite</module>
+		<module>incite-data</module>
+		<module>incite-service</module>
         <module>incite-rs</module>
 		<module>incite-distro</module>
-    </modules>
+	</modules>
 
 	<properties>
 		<java.version>11</java.version>
