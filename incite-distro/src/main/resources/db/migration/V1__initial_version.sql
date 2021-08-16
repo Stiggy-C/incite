@@ -5,4 +5,4 @@ create table if not exists route(
     createdDateTime timestamp not null,
     updatedBy varchar,
     updatedDateTime timestamp
-) with "TEMPLATE=default";
+) with "TEMPLATE=incite_default";

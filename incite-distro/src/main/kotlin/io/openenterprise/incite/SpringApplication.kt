@@ -1,6 +1,6 @@
 package io.openenterprise.incite
 
-import io.openenterprise.ignite.springframework.boot.autoconfigure.IgniteAutoConfiguration
+import io.openenterprise.springframework.boot.autoconfigure.ignite.IgniteAutoConfiguration
 import org.springframework.boot.SpringBootConfiguration
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration

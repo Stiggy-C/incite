@@ -33,6 +33,7 @@
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<camel.version>3.7.5</camel.version>
+		<commons-lagn3.version>3.12.0</commons-lagn3.version>
 		<flyway.version>7.11.4</flyway.version>
 		<ignite.version>2.10.0</ignite.version>
 		<junit.version>4.13.2</junit.version>
@@ -46,10 +47,17 @@
 
 	<dependencies>
 		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+			<version>${commons-lagn3.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>org.glassfish.hk2.external</groupId>
 			<artifactId>javax.inject</artifactId>
 			<version>2.4.0</version>
 		</dependency>
+
+
 	</dependencies>
 
 	<dependencyManagement>
