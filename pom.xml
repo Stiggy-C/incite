@@ -21,9 +21,11 @@
 	<modules>
 		<module>incite-util</module>
 		<module>incite-ignite</module>
+		<module>incite-data</module>
+		<module>incite-service</module>
         <module>incite-rs</module>
 		<module>incite-distro</module>
-    </modules>
+	</modules>
 
 	<properties>
 		<java.version>11</java.version>
@@ -31,8 +33,8 @@
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<camel.version>3.7.5</camel.version>
+		<flyway.version>7.11.4</flyway.version>
 		<ignite.version>2.10.0</ignite.version>
-		<jackson.version></jackson.version>
 		<junit.version>4.13.2</junit.version>
 		<kotlin.code.style>official</kotlin.code.style>
 		<kotlin.version>1.5.21</kotlin.version>

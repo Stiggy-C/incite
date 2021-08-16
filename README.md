@@ -1,6 +1,6 @@
-# incite
+# Incite
 
-### What is incite?
+### What is Incite?
 Incite is a distributed data platform. It consists of the following,
 * Basic integration bus (powered by Apache Camel)
 * HTAP capable database (powered by Apache Ignite)
