@@ -3,6 +3,7 @@ package io.openenterrpise.rs
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.openenterprise.data.domain.AbstractMutableEntity
 import io.openenterprise.service.AbstractMutableEntityService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import java.io.Serializable
@@ -11,7 +12,7 @@ import javax.persistence.EntityNotFoundException
 import javax.ws.rs.container.AsyncResponse
 import javax.ws.rs.core.Response
 
-class AbstractAbstractMutableEntityResourceImpl<T : AbstractMutableEntity<ID>, ID : Serializable> :
+abstract class AbstractAbstractMutableEntityResourceImpl<T : AbstractMutableEntity<ID>, ID : Serializable> :
     AbstractAbstractEntityResourceImpl<T, ID>(), AbstractMutableEntityResource<T, ID> {
 
     @Inject
@@ -21,7 +22,7 @@ class AbstractAbstractMutableEntityResourceImpl<T : AbstractMutableEntity<ID>, I
     lateinit var objectMapper: ObjectMapper
 
     override fun update(id: ID, entity: T, asyncResponse: AsyncResponse) {
-        GlobalScope.launch {
+        GlobalScope.launch(Dispatchers.IO) {
             try {
                 val persistedEntity = abstractEntityService.retrieve(id)
 
@@ -29,14 +30,15 @@ class AbstractAbstractMutableEntityResourceImpl<T : AbstractMutableEntity<ID>, I
                     asyncResponse.resume(EntityNotFoundException())
                 }
 
-                // TODO merge entity into persistedEntity
+                val jsonString = objectMapper.writeValueAsString(entity)
+                val updatedEntity = objectMapper.readerForUpdating(persistedEntity).readValue<T>(jsonString)
 
-                abstractMutableEntityService.update(persistedEntity!!)
+                abstractMutableEntityService.update(updatedEntity)
             } catch (e: Exception) {
                 asyncResponse.resume(e)
             }
 
-            asyncResponse.resume(Response.status(Response.Status.CREATED).entity(entity).build())
+            asyncResponse.resume(Response.status(Response.Status.NO_CONTENT).build())
         }
     }
 }
