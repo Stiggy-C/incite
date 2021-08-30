@@ -13,11 +13,11 @@ import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.SparkSession
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.util.ClassUtils
 import org.zeroturnaround.zip.ZipUtil
 import java.io.File
 import java.io.IOException
-import java.time.OffsetDateTime
 import java.util.*
 import javax.cache.Cache
 import javax.inject.Inject
@@ -49,18 +49,23 @@ open class ClusteringFunction {
             try {
                 jsonNode = objectMapper.readTree(jsonOrSql)
             } catch (e: IOException) {
+                // Given is not a JSON string assuming it is an SQL query for now
             }
 
             val dataset = if (jsonNode == null) {
                 clusteringFunction.executeQuery(jsonOrSql)
             } else {
                 val sparkSession = getBean(SparkSession::class.java)
-                val path =
-                    "${FileUtils.getTempDirectoryPath()}/incite/ml/temp/${RandomStringUtils.randomAlphanumeric(16)}.json"
+                val tempJsonFilePath = "${FileUtils.getTempDirectoryPath()}/incite/ml/temp/${UUID.randomUUID()}.json"
+                val tempJsonFile = File(tempJsonFilePath)
 
-                objectMapper.writeValue(File(path), jsonNode)
+                objectMapper.writeValue(tempJsonFile, jsonNode)
 
-                sparkSession.read().json(path)
+                try {
+                    sparkSession.read().json(tempJsonFilePath)
+                } finally {
+                    FileUtils.deleteQuietly(tempJsonFile)
+                }
             }
 
             @Suppress("UNCHECKED_CAST")
@@ -81,6 +86,9 @@ open class ClusteringFunction {
 
     @Named("mlModelsCache")
     lateinit var mlModelsCache: Cache<UUID, File>
+
+    @Value("\${ignite.sqlConfiguration.sqlSchemas}")
+    lateinit var schemas: Array<String>
 
     @Inject
     lateinit var sparkSession: SparkSession
@@ -112,7 +120,7 @@ open class ClusteringFunction {
             .format("jdbc")
             .option("query", sql)
             .option("driver", "org.apache.ignite.IgniteJdbcThinDriver")
-            .option("url", "jdbc:ignite:thin://localhost:10800")
+            .option("url", "jdbc:ignite:thin://localhost:10800/${schemas[0]}?lazy=true")
             .option("user", "ignite")
             .option("password", "ignite")
             .load();

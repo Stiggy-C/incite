@@ -1,6 +1,10 @@
 package io.openenterprise.incite.context
 
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import io.openenterprise.springframework.jdbc.support.IgniteStartupValidator
 import org.apache.ignite.IgniteCluster
 import org.apache.ignite.IgniteJdbcThinDataSource
 import org.apache.ignite.cache.CachingProvider
@@ -25,31 +29,12 @@ class ApplicationConfiguration {
     }
 
     @Bean
-    @ConditionalOnBean(IgniteCluster::class)
-    @Primary
-    fun datasource(@Value("\${ignite.sqlConfiguration.sqlSchemas}") schemas: Array<String>): DataSource {
-        val igniteJdbcThinDataSource = IgniteJdbcThinDataSource()
-        igniteJdbcThinDataSource.password = "ignite"
-        igniteJdbcThinDataSource.username = "ignite"
-        igniteJdbcThinDataSource.schema = schemas[0]
-
-        igniteJdbcThinDataSource.setUrl("jdbc:ignite:thin://localhost:10800")
-
-        return igniteJdbcThinDataSource
-    }
-
-    @Bean
-    fun databaseStartupValidator(dataSource: DataSource): DatabaseStartupValidator {
-        val databaseStartupValidator = DatabaseStartupValidator()
-        databaseStartupValidator.setInterval(3)
-        databaseStartupValidator.setValidationQuery("SET LOCK_MODE = 3")
-
-        return databaseStartupValidator
-    }
-
-    @Bean
     fun objectMapper(): ObjectMapper {
         return ObjectMapper()
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+            .findAndRegisterModules()
+            .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
     }
 
     @Bean
