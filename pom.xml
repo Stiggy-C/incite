@@ -7,7 +7,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>2.4.9</version>
+		<version>2.5.4</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 
@@ -20,7 +20,9 @@
 
 	<modules>
 		<module>incite-util</module>
+		<module>incite-camel</module>
 		<module>incite-ignite</module>
+		<module>incite-spring-boot-starter-spark</module>
 		<module>incite-data</module>
 		<module>incite-service</module>
         <module>incite-rs</module>
@@ -32,7 +34,7 @@
 		<maven.compiler.source>${java.version}</maven.compiler.source>
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<camel.version>3.7.5</camel.version>
+		<camel.version>3.11.1</camel.version>
 		<commons-lagn3.version>3.12.0</commons-lagn3.version>
 		<flyway.version>7.11.4</flyway.version>
 		<ignite.version>2.10.0</ignite.version>

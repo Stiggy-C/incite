@@ -23,8 +23,24 @@
     <dependencies>
         <dependency>
             <groupId>io.openenterprise</groupId>
+            <artifactId>incite-camel</artifactId>
+            <version>${parent.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.openenterprise</groupId>
+            <artifactId>incite-ignite</artifactId>
+            <version>${parent.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.openenterprise</groupId>
             <artifactId>incite-data</artifactId>
             <version>${parent.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.camel</groupId>
+            <artifactId>camel-core</artifactId>
+            <version>${camel.version}</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 

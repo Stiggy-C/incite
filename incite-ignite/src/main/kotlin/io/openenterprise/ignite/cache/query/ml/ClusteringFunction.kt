@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.openenterprise.springframework.context.ApplicationContextUtil
 import org.apache.commons.io.FileUtils
-import org.apache.commons.lang3.RandomStringUtils
+import org.apache.commons.lang3.reflect.MethodUtils
 import org.apache.ignite.cache.query.annotations.QuerySqlFunction
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.clustering.KMeans
@@ -14,7 +14,6 @@ import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.SparkSession
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.util.ClassUtils
 import org.zeroturnaround.zip.ZipUtil
 import java.io.File
 import java.io.IOException
@@ -33,7 +32,7 @@ open class ClusteringFunction {
         fun buildKMeanModel(sql: String, featuresColumns: String, k: Int, maxIteration: Int, seed: Long): String {
             val applicationContext = ApplicationContextUtil.getApplicationContext()!!
             val clusteringFunction = applicationContext.getBean(ClusteringFunction::class.java)
-            val dataset = clusteringFunction.executeQuery(sql)
+            val dataset = clusteringFunction.loadDataset(sql)
             val kMeansModel = clusteringFunction.buildKMeansModel(dataset, featuresColumns, k, maxIteration, seed)
 
             return clusteringFunction.putModelToCache(kMeansModel).toString()
@@ -53,7 +52,7 @@ open class ClusteringFunction {
             }
 
             val dataset = if (jsonNode == null) {
-                clusteringFunction.executeQuery(jsonOrSql)
+                clusteringFunction.loadDataset(jsonOrSql)
             } else {
                 val sparkSession = getBean(SparkSession::class.java)
                 val tempJsonFilePath = "${FileUtils.getTempDirectoryPath()}/incite/ml/temp/${UUID.randomUUID()}.json"
@@ -115,17 +114,6 @@ open class ClusteringFunction {
         return transformedDataset.schema().json()
     }
 
-    protected fun executeQuery(sql: String): Dataset<Row> {
-        return sparkSession.read()
-            .format("jdbc")
-            .option("query", sql)
-            .option("driver", "org.apache.ignite.IgniteJdbcThinDriver")
-            .option("url", "jdbc:ignite:thin://localhost:10800/${schemas[0]}?lazy=true")
-            .option("user", "ignite")
-            .option("password", "ignite")
-            .load();
-    }
-
     @Suppress("UNCHECKED_CAST")
     protected fun <T : Model<T>> getModelFromCache(uuid: UUID, clazz: Class<Model<T>>): Model<T> {
         val path = "${FileUtils.getTempDirectoryPath()}/incite/ml/$uuid"
@@ -134,8 +122,18 @@ open class ClusteringFunction {
 
         ZipUtil.unpack(zipFile, directory)
 
-        val loadMethod = ClassUtils.getStaticMethod(clazz, "load", String::class.java)
-        return loadMethod!!.invoke(directory.path) as Model<T>
+        return MethodUtils.invokeStaticMethod(clazz, "load", directory.path) as Model<T>
+    }
+
+    protected fun loadDataset(sql: String): Dataset<Row> {
+        return sparkSession.read()
+            .format("jdbc")
+            .option("query", sql)
+            .option("driver", "org.apache.ignite.IgniteJdbcThinDriver")
+            .option("url", "jdbc:ignite:thin://localhost:10800/${schemas[0]}?lazy=true")
+            .option("user", "ignite")
+            .option("password", "ignite")
+            .load()
     }
 
     protected fun putModelToCache(model: MLWritable): UUID {

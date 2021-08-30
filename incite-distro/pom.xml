@@ -28,11 +28,6 @@
         </dependency>
         <dependency>
             <groupId>io.openenterprise</groupId>
-            <artifactId>incite-ignite</artifactId>
-            <version>${parent.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.openenterprise</groupId>
             <artifactId>incite-rs</artifactId>
             <version>${parent.version}</version>
             <exclusions>
@@ -43,6 +38,16 @@
             </exclusions>
         </dependency>
         <dependency>
+            <groupId>io.openenterprise</groupId>
+            <artifactId>incite-spring-boot-starter-spark</artifactId>
+            <version>${parent.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.camel.springboot</groupId>
+            <artifactId>camel-spring-boot-starter</artifactId>
+            <version>${camel.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-compress</artifactId>
             <version>${ignite.version}</version>
@@ -51,11 +56,6 @@
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-spring</artifactId>
             <version>${ignite.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-spring-boot-autoconfigure-ext</artifactId>
-            <version>1.0.0</version>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>
