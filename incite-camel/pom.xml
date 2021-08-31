@@ -25,6 +25,12 @@
 
     <dependencies>
         <dependency>
+            <groupId>io.openenterprise</groupId>
+            <artifactId>incite-data</artifactId>
+            <version>${parent.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>org.apache.camel</groupId>
             <artifactId>camel-yaml-dsl</artifactId>
             <version>${camel.version}</version>

@@ -4,4 +4,17 @@ import io.openenterprise.incite.data.domain.Route
 import io.openenterprise.service.AbstractMutableEntityService
 import java.util.*
 
-interface RouteService: AbstractMutableEntityService<Route, UUID>
+interface RouteService: AbstractMutableEntityService<Route, UUID> {
+
+    fun addRoute(id: UUID)
+
+    fun removeRoute(id: UUID)
+
+    fun resumeRoute(id: UUID)
+
+    fun startRoute(id: UUID)
+
+    fun stopRoute(id: UUID)
+
+    fun suspendRoute(id: UUID)
+}

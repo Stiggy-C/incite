@@ -8,13 +8,11 @@ import javax.ws.rs.PathParam
 import javax.ws.rs.container.AsyncResponse
 import javax.ws.rs.container.Suspended
 
-@Path("/ignite")
-interface IgniteResource {
+@Path("/cluster")
+interface ClusterResource {
 
-    @Path("/cluster/cluster-state/{clusterState}")
+    @Path("/cluster-state/{clusterState}")
     @POST
-    fun changeClusterState(
-        @PathParam("clusterState") clusterState: ClusterState,
-        @Suspended asyncResponse: AsyncResponse
-    )
+    fun changeState(@PathParam("clusterState") clusterState: ClusterState, @Suspended asyncResponse: AsyncResponse)
+
 }

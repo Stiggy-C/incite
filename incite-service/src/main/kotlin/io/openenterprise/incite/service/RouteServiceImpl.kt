@@ -1,23 +1,84 @@
 package io.openenterprise.incite.service
 
+import io.openenterprise.camel.dsl.yaml.YamlRoutesBuilderLoader
 import io.openenterprise.incite.data.domain.Route
+import io.openenterprise.incite.data.domain.YamlRoute
 import io.openenterprise.service.AbstractAbstractMutableEntityServiceImpl
+import org.apache.camel.impl.DefaultCamelContext
+import org.apache.commons.lang.StringUtils
+import org.apache.commons.lang3.BooleanUtils.isFalse
 import org.apache.ignite.IgniteMessaging
+import org.slf4j.LoggerFactory
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Duration
 import java.util.*
 import java.util.stream.Collectors
+import javax.annotation.PostConstruct
 import javax.inject.Inject
 import javax.inject.Named
+import javax.persistence.DiscriminatorValue
 
 @Named
 class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<Route, UUID>() {
+
+    companion object {
+
+        val LOG = LoggerFactory.getLogger(RouteServiceImpl::class.java)
+
+    }
+
+    @Inject
+    lateinit var defaultCamelContext: DefaultCamelContext
 
     @Inject
     lateinit var igniteMessaging: IgniteMessaging
 
     @Inject
     lateinit var transactionTemplate: TransactionTemplate
+
+    @Inject
+    lateinit var yamlRoutesBuilderLoader: YamlRoutesBuilderLoader
+
+    override fun addRoute(id: UUID) {
+        val route = abstractEntityRepository.getOne(id)
+
+        val routeBuilder = when (route.javaClass.getAnnotation(DiscriminatorValue::class.java).value) {
+            "YAML" -> {
+                yamlRoutesBuilderLoader.builder(route as YamlRoute)
+            }
+            else -> {
+                throw NotImplementedError()
+            }
+        }
+
+        defaultCamelContext.addRoutes(routeBuilder)
+    }
+
+    override fun removeRoute(id: UUID) {
+        defaultCamelContext.removeRoute(id.toString())
+    }
+
+    override fun resumeRoute(id: UUID) {
+        defaultCamelContext.resumeRoute(id.toString())
+    }
+
+    override fun startRoute(id: UUID) {
+        val hasRoute = defaultCamelContext.routes.stream().anyMatch { StringUtils.equals(id.toString(), it.routeId) }
+
+        if (isFalse(hasRoute)) {
+            this.addRoute(id)
+        }
+
+        defaultCamelContext.startRoute(id.toString())
+    }
+
+    override fun stopRoute(id: UUID) {
+        defaultCamelContext.stopRoute(id.toString())
+    }
+
+    override fun suspendRoute(id: UUID) {
+        defaultCamelContext.suspendRoute(id.toString())
+    }
 
     override fun create(entity: Route): Route {
         transactionTemplate.execute { super.create(entity) }
@@ -50,5 +111,27 @@ class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<
     override fun update(entity: Route) {
         transactionTemplate.execute { super.update(entity) }
         igniteMessaging.sendOrdered("route_updated", entity.id, Duration.ofMinutes(1).toMillis())
+    }
+
+    @PostConstruct
+    fun postConstruct() {
+        igniteMessaging.remoteListen("route_created") { nodeId, id ->
+            LOG.info("{} received {} from topic, {}", nodeId, id, "route_created")
+            this.startRoute(id as UUID)
+            true
+        }
+        igniteMessaging.remoteListen("route_deleted") { nodeId, id ->
+            LOG.info("{} received {} from topic, {}", nodeId, id, "route_deleted")
+            this.stopRoute(id as UUID)
+            this.removeRoute(id)
+            true
+        }
+        igniteMessaging.remoteListen("route_updated") { nodeId, id ->
+            LOG.info("{} received {} from topic, {}", nodeId, id, "route_updated")
+            this.stopRoute(id as UUID)
+            this.removeRoute(id)
+            this.startRoute(id)
+            true
+        }
     }
 }
