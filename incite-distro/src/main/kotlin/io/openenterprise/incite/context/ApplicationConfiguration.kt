@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
+import org.apache.ignite.Ignite
+import org.apache.ignite.IgniteCluster
+import org.apache.ignite.IgniteMessaging
 import org.apache.ignite.cache.CachingProvider
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -15,6 +18,13 @@ class ApplicationConfiguration {
     @Bean
     fun cachingProvider(): CacheManager {
         return CachingProvider().cacheManager
+    }
+
+    @Bean
+    fun igniteMessaging(ignite: Ignite, igniteCluster: IgniteCluster): IgniteMessaging {
+        val clusterGroup = igniteCluster.forPredicate { node -> !node.isClient }.forPredicate { node -> !node.isDaemon }
+
+        return ignite.message(clusterGroup)
     }
 
     @Bean

@@ -1,5 +1,6 @@
 package io.openenterprise.incite.rs
 
+import io.openenterprise.incite.service.MessagingService
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.apache.ignite.Ignite
@@ -15,10 +16,10 @@ import javax.ws.rs.core.Response
 
 @Named
 @Path("/messaging")
-class MessagingResourceImpl(
-    @Inject private var ignite: Ignite,
-    @Inject private var igniteCluster: IgniteCluster
-) : MessagingResource {
+class MessagingResourceImpl : MessagingResource {
+
+    @Inject
+    private lateinit var messagingService: MessagingService
 
     @Path("/topics/{topic}")
     @Consumes(MediaType.TEXT_PLAIN)
@@ -31,25 +32,7 @@ class MessagingResourceImpl(
     ) {
         GlobalScope.launch {
             try {
-                val igniteMessaging =
-                    if (replicated) {
-                        ignite.message(igniteCluster.forPredicate { node -> !node.isClient && !node.isDaemon })
-                    } else {
-                        ignite.message(
-                            igniteCluster.forNodeId(
-                                igniteCluster.nodes().stream().filter { node -> !node.isClient && !node.isDaemon }
-                                    .findFirst()
-                                    .get()
-                                    .id()
-                            )
-                        )
-                    }
-
-                if (ordered) {
-                    igniteMessaging.sendOrdered(topic, message, Duration.ofSeconds(5).toMillis())
-                } else {
-                    igniteMessaging.send(topic, message)
-                }
+                messagingService.produce(topic, message, ordered, replicated)
             } catch (e: Exception) {
                 asyncResponse.resume(e)
             }

@@ -19,7 +19,7 @@ import javax.ws.rs.core.Response
 @Path("/cluster")
 class ClusterResourceImpl(@Inject private var igniteCluster: IgniteCluster) : ClusterResource {
 
-    @Path("/cluster-state/{clusterState}")
+    @Path("/state/{clusterState}")
     @POST
     override fun changeState(
         @PathParam("clusterState") clusterState: ClusterState,

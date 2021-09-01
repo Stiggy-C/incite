@@ -4,10 +4,13 @@ import io.openenterprise.camel.dsl.yaml.YamlRoutesBuilderLoader
 import io.openenterprise.incite.data.domain.Route
 import io.openenterprise.incite.data.domain.YamlRoute
 import io.openenterprise.service.AbstractAbstractMutableEntityServiceImpl
+import org.apache.camel.CamelContext
 import org.apache.camel.impl.DefaultCamelContext
+import org.apache.camel.impl.engine.AbstractCamelContext
 import org.apache.commons.lang.StringUtils
 import org.apache.commons.lang3.BooleanUtils.isFalse
 import org.apache.ignite.IgniteMessaging
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Duration
@@ -23,12 +26,12 @@ class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<
 
     companion object {
 
-        val LOG = LoggerFactory.getLogger(RouteServiceImpl::class.java)
+        val LOG: Logger = LoggerFactory.getLogger(RouteServiceImpl::class.java)
 
     }
 
     @Inject
-    lateinit var defaultCamelContext: DefaultCamelContext
+    lateinit var camelContext: CamelContext
 
     @Inject
     lateinit var igniteMessaging: IgniteMessaging
@@ -51,33 +54,33 @@ class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<
             }
         }
 
-        defaultCamelContext.addRoutes(routeBuilder)
+        camelContext.addRoutes(routeBuilder)
     }
 
     override fun removeRoute(id: UUID) {
-        defaultCamelContext.removeRoute(id.toString())
+        camelContext.removeRoute(id.toString())
     }
 
     override fun resumeRoute(id: UUID) {
-        defaultCamelContext.resumeRoute(id.toString())
+        (camelContext as AbstractCamelContext).resumeRoute(id.toString())
     }
 
     override fun startRoute(id: UUID) {
-        val hasRoute = defaultCamelContext.routes.stream().anyMatch { StringUtils.equals(id.toString(), it.routeId) }
+        val hasRoute = camelContext.routes.stream().anyMatch { StringUtils.equals(id.toString(), it.routeId) }
 
         if (isFalse(hasRoute)) {
             this.addRoute(id)
         }
 
-        defaultCamelContext.startRoute(id.toString())
+        (camelContext as AbstractCamelContext).startRoute(id.toString())
     }
 
     override fun stopRoute(id: UUID) {
-        defaultCamelContext.stopRoute(id.toString())
+        (camelContext as AbstractCamelContext).stopRoute(id.toString())
     }
 
     override fun suspendRoute(id: UUID) {
-        defaultCamelContext.suspendRoute(id.toString())
+        (camelContext as AbstractCamelContext).suspendRoute(id.toString())
     }
 
     override fun create(entity: Route): Route {

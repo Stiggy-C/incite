@@ -11,7 +11,7 @@ import javax.ws.rs.container.Suspended
 @Path("/cluster")
 interface ClusterResource {
 
-    @Path("/cluster-state/{clusterState}")
+    @Path("/state/{clusterState}")
     @POST
     fun changeState(@PathParam("clusterState") clusterState: ClusterState, @Suspended asyncResponse: AsyncResponse)
 
