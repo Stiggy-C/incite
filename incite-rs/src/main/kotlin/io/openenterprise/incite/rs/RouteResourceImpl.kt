@@ -2,8 +2,6 @@ package io.openenterprise.incite.rs
 
 import io.openenterprise.incite.data.domain.Route
 import io.openenterrpise.rs.AbstractAbstractMutableEntityResourceImpl
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import java.util.*
 import javax.inject.Named
 import javax.ws.rs.*

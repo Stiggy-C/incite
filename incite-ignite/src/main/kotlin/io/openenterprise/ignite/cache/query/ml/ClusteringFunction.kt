@@ -2,21 +2,25 @@ package io.openenterprise.ignite.cache.query.ml
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.openenterprise.spark.sql.DatasetUtils
 import io.openenterprise.springframework.context.ApplicationContextUtil
 import org.apache.commons.io.FileUtils
-import org.apache.commons.lang3.RandomStringUtils
+import org.apache.commons.io.IOUtils
+import org.apache.commons.lang3.StringUtils
+import org.apache.commons.lang3.reflect.MethodUtils
 import org.apache.ignite.cache.query.annotations.QuerySqlFunction
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.clustering.KMeans
 import org.apache.spark.ml.clustering.KMeansModel
+import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.SparkSession
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.util.ClassUtils
 import org.zeroturnaround.zip.ZipUtil
 import java.io.File
+import java.io.FileWriter
 import java.io.IOException
 import java.util.*
 import javax.cache.Cache
@@ -33,7 +37,7 @@ open class ClusteringFunction {
         fun buildKMeanModel(sql: String, featuresColumns: String, k: Int, maxIteration: Int, seed: Long): String {
             val applicationContext = ApplicationContextUtil.getApplicationContext()!!
             val clusteringFunction = applicationContext.getBean(ClusteringFunction::class.java)
-            val dataset = clusteringFunction.executeQuery(sql)
+            val dataset = clusteringFunction.loadDataset(sql)
             val kMeansModel = clusteringFunction.buildKMeansModel(dataset, featuresColumns, k, maxIteration, seed)
 
             return clusteringFunction.putModelToCache(kMeansModel).toString()
@@ -46,6 +50,7 @@ open class ClusteringFunction {
             val objectMapper = getBean(ObjectMapper::class.java)
 
             var jsonNode: JsonNode? = null
+            var tempJsonFile: File? = null
             try {
                 jsonNode = objectMapper.readTree(jsonOrSql)
             } catch (e: IOException) {
@@ -53,19 +58,16 @@ open class ClusteringFunction {
             }
 
             val dataset = if (jsonNode == null) {
-                clusteringFunction.executeQuery(jsonOrSql)
+                clusteringFunction.loadDataset(jsonOrSql)
             } else {
-                val sparkSession = getBean(SparkSession::class.java)
                 val tempJsonFilePath = "${FileUtils.getTempDirectoryPath()}/incite/ml/temp/${UUID.randomUUID()}.json"
-                val tempJsonFile = File(tempJsonFilePath)
+                tempJsonFile = File(tempJsonFilePath)
 
-                objectMapper.writeValue(tempJsonFile, jsonNode)
+                val fileWriter = FileWriter(tempJsonFile, Charsets.UTF_8, false)
+                IOUtils.write(jsonOrSql, fileWriter)
 
-                try {
-                    sparkSession.read().json(tempJsonFilePath)
-                } finally {
-                    FileUtils.deleteQuietly(tempJsonFile)
-                }
+                val sparkSession = getBean(SparkSession::class.java)
+                sparkSession.read().json(tempJsonFilePath)
             }
 
             @Suppress("UNCHECKED_CAST")
@@ -74,7 +76,11 @@ open class ClusteringFunction {
                 KMeansModel::class.java as Class<Model<KMeansModel>>
             ) as KMeansModel
 
-            return clusteringFunction.kMeansPredict(dataset, kMeansModel)
+            try {
+                return DatasetUtils.toJson(kMeansModel.transform(dataset))
+            } finally {
+                FileUtils.deleteQuietly(tempJsonFile)
+            }
         }
 
         @JvmStatic
@@ -101,29 +107,14 @@ open class ClusteringFunction {
         seed: Long
     ): KMeansModel {
         val kMeans = KMeans()
-        kMeans.featuresCol = featuresColumns
         kMeans.k = k
         kMeans.maxIter = maxIteration
         kMeans.seed = seed
 
-        return kMeans.fit(dataset)
-    }
+        val transformedDataset = VectorAssembler().setInputCols(StringUtils.split(featuresColumns, ","))
+            .setOutputCol(kMeans.featuresCol).transform(dataset)
 
-    fun kMeansPredict(dataset: Dataset<Row>, kMeansModel: KMeansModel): String {
-        val transformedDataset = kMeansModel.transform(dataset)
-
-        return transformedDataset.schema().json()
-    }
-
-    protected fun executeQuery(sql: String): Dataset<Row> {
-        return sparkSession.read()
-            .format("jdbc")
-            .option("query", sql)
-            .option("driver", "org.apache.ignite.IgniteJdbcThinDriver")
-            .option("url", "jdbc:ignite:thin://localhost:10800/${schemas[0]}?lazy=true")
-            .option("user", "ignite")
-            .option("password", "ignite")
-            .load();
+        return kMeans.fit(transformedDataset)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -134,8 +125,18 @@ open class ClusteringFunction {
 
         ZipUtil.unpack(zipFile, directory)
 
-        val loadMethod = ClassUtils.getStaticMethod(clazz, "load", String::class.java)
-        return loadMethod!!.invoke(directory.path) as Model<T>
+        return MethodUtils.invokeStaticMethod(clazz, "load", directory.path) as Model<T>
+    }
+
+    protected fun loadDataset(sql: String): Dataset<Row> {
+        return sparkSession.read()
+            .format("jdbc")
+            .option("query", sql)
+            .option("driver", "org.apache.ignite.IgniteJdbcThinDriver")
+            .option("url", "jdbc:ignite:thin://localhost:10800/${schemas[0]}?lazy=true")
+            .option("user", "ignite")
+            .option("password", "ignite")
+            .load()
     }
 
     protected fun putModelToCache(model: MLWritable): UUID {

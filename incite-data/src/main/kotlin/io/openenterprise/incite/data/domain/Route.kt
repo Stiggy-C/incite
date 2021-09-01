@@ -1,14 +1,29 @@
 package io.openenterprise.incite.data.domain
 
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonTypeInfo
 import io.openenterprise.data.domain.AbstractMutableEntity
 import java.util.*
-import javax.persistence.Entity
-import javax.persistence.PrePersist
+import javax.persistence.*
 
-@Entity
-class Route: AbstractMutableEntity<UUID>() {
+@MappedSuperclass
+@DiscriminatorColumn(name = "type")
+@Inheritance(strategy = InheritanceType.SINGLE_TABLE)
+@JsonTypeInfo(
+    use = JsonTypeInfo.Id.NAME,
+    include = JsonTypeInfo.As.PROPERTY,
+    property = "type"
+)
+@JsonSubTypes(
+    value = [
+        JsonSubTypes.Type(value = SpringXmlRoute::class, name = "SpringXML"),
+        JsonSubTypes.Type(value = YamlRoute::class, name = "YAML")
+    ]
+)
+abstract class Route : AbstractMutableEntity<UUID>() {
 
-    var yaml: String? = null
+    @Version
+    var version: Long? = null
 
     @PrePersist
     override fun prePersist() {

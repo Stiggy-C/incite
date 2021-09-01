@@ -8,20 +8,19 @@ import org.apache.ignite.IgniteCluster
 import org.apache.ignite.IgniteJdbcThinDataSource
 import org.apache.ignite.configuration.IgniteConfiguration
 import org.flywaydb.core.Flyway
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.beans.factory.config.BeanDefinition
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.Primary
-import org.springframework.context.annotation.Role
+import org.springframework.context.annotation.*
 
 @Configuration
+@ComponentScan("io.openenterprise.ignite.cache.query.ml")
+@ConditionalOnClass(Ignite::class)
 @EnableConfigurationProperties
-@Role(BeanDefinition.ROLE_INFRASTRUCTURE)
 class IgniteAutoConfiguration : org.apache.ignite.springframework.boot.autoconfigure.IgniteAutoConfiguration() {
+
 
     @ConditionalOnBean(Flyway::class)
     fun flywayDependsOnPostProcessor(): FlywayDependsOnPostProcessor {
@@ -30,6 +29,7 @@ class IgniteAutoConfiguration : org.apache.ignite.springframework.boot.autoconfi
 
     @Bean
     @ConditionalOnMissingBean(IgniteCluster::class)
+    @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
     protected fun igniteCluster(ignite: Ignite): IgniteCluster {
         val igniteCluster = ignite.cluster()
 
@@ -59,13 +59,14 @@ class IgniteAutoConfiguration : org.apache.ignite.springframework.boot.autoconfi
     @ConditionalOnBean(IgniteCluster::class)
     @Primary
     fun igniteJdbcThinDataSource(
-        @Value("\${ignite.sqlConfiguration.sqlSchemas}") schemas: Array<String>
+       igniteConfiguration: IgniteConfiguration
     ): IgniteJdbcThinDataSource {
         val igniteJdbcThinDataSource = IgniteJdbcThinDataSource()
         igniteJdbcThinDataSource.password = "ignite"
         igniteJdbcThinDataSource.username = "ignite"
 
-        igniteJdbcThinDataSource.setUrl("jdbc:ignite:thin://localhost:10800/${schemas[0]}")
+        igniteJdbcThinDataSource.setUrl(
+            "jdbc:ignite:thin://localhost:10800/${igniteConfiguration.sqlConfiguration.sqlSchemas[0]}")
 
         return igniteJdbcThinDataSource
     }

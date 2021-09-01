@@ -1,6 +1,7 @@
 package io.openenterprise.incite
 
 import io.openenterprise.springframework.boot.autoconfigure.ignite.IgniteAutoConfiguration
+import io.openenterprise.springframework.boot.autoconfigure.spark.SparkAutoConfiguration
 import org.springframework.boot.SpringBootConfiguration
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
@@ -17,7 +18,8 @@ import org.springframework.context.annotation.ComponentScan
 @ImportAutoConfiguration(
     classes = [
         DataSourceAutoConfiguration::class, FlywayAutoConfiguration::class, HibernateJpaAutoConfiguration::class,
-        IgniteAutoConfiguration::class, JerseyAutoConfiguration::class, ServletWebServerFactoryAutoConfiguration::class
+        IgniteAutoConfiguration::class, JerseyAutoConfiguration::class, ServletWebServerFactoryAutoConfiguration::class,
+        SparkAutoConfiguration::class
     ]
 )
 class SpringApplication : SpringBootServletInitializer() {
