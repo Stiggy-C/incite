@@ -38,6 +38,7 @@
 		<commons-lagn3.version>3.12.0</commons-lagn3.version>
 		<flyway.version>7.11.4</flyway.version>
 		<ignite.version>2.10.0</ignite.version>
+		<jackson.version>2.11.4</jackson.version>
 		<junit.version>4.13.2</junit.version>
 		<kotlin.code.style>official</kotlin.code.style>
 		<kotlin.version>1.5.30</kotlin.version>

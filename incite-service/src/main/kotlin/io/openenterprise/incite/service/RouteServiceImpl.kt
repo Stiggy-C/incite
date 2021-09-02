@@ -4,12 +4,14 @@ import io.openenterprise.camel.dsl.yaml.YamlRoutesBuilderLoader
 import io.openenterprise.incite.data.domain.Route
 import io.openenterprise.incite.data.domain.YamlRoute
 import io.openenterprise.service.AbstractAbstractMutableEntityServiceImpl
+import io.openenterprise.springframework.context.ApplicationContextUtil
 import org.apache.camel.CamelContext
 import org.apache.camel.impl.DefaultCamelContext
 import org.apache.camel.impl.engine.AbstractCamelContext
 import org.apache.commons.lang.StringUtils
 import org.apache.commons.lang3.BooleanUtils.isFalse
 import org.apache.ignite.IgniteMessaging
+import org.apache.ignite.lang.IgniteBiPredicate
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.transaction.support.TransactionTemplate
@@ -118,23 +120,45 @@ class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<
 
     @PostConstruct
     fun postConstruct() {
-        igniteMessaging.remoteListen("route_created") { nodeId, id ->
+        igniteMessaging.remoteListen("route_created", RouteCreatedEventHandler())
+        igniteMessaging.remoteListen("route_deleted", RouteDeletedEventHandler())
+        igniteMessaging.remoteListen("route_updated", RouteUpdatedEventHandler())
+    }
+
+    private class RouteCreatedEventHandler: IgniteBiPredicate<UUID, UUID> {
+
+        override fun apply(nodeId: UUID?, id: UUID?): Boolean {
             LOG.info("{} received {} from topic, {}", nodeId, id, "route_created")
-            this.startRoute(id as UUID)
-            true
+            ApplicationContextUtil.getApplicationContext()!!.getBean(RouteService::class.java).startRoute(id as UUID)
+
+            return true
         }
-        igniteMessaging.remoteListen("route_deleted") { nodeId, id ->
+    }
+
+    private class RouteDeletedEventHandler: IgniteBiPredicate<UUID, UUID> {
+
+        override fun apply(nodeId: UUID?, id: UUID?): Boolean {
             LOG.info("{} received {} from topic, {}", nodeId, id, "route_deleted")
-            this.stopRoute(id as UUID)
-            this.removeRoute(id)
-            true
+
+            val routeService = ApplicationContextUtil.getApplicationContext()!!.getBean(RouteService::class.java)
+            routeService.stopRoute(id as UUID)
+            routeService.removeRoute(id)
+
+            return true
         }
-        igniteMessaging.remoteListen("route_updated") { nodeId, id ->
+    }
+
+    private class RouteUpdatedEventHandler: IgniteBiPredicate<UUID, UUID> {
+
+        override fun apply(nodeId: UUID?, id: UUID?): Boolean {
             LOG.info("{} received {} from topic, {}", nodeId, id, "route_updated")
-            this.stopRoute(id as UUID)
-            this.removeRoute(id)
-            this.startRoute(id)
-            true
+
+            val routeService = ApplicationContextUtil.getApplicationContext()!!.getBean(RouteService::class.java)
+            routeService.stopRoute(id as UUID)
+            routeService.removeRoute(id)
+            routeService.startRoute(id)
+
+            return true
         }
     }
 }

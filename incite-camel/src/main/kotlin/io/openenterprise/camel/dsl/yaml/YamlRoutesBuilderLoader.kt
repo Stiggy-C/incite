@@ -6,7 +6,9 @@ import org.apache.camel.model.RouteDefinition
 import org.apache.commons.lang3.reflect.TypeUtils
 import org.snakeyaml.engine.v2.api.LoadSettings
 import org.snakeyaml.engine.v2.api.lowlevel.Compose
+import javax.inject.Named
 
+@Named
 class YamlRoutesBuilderLoader: org.apache.camel.dsl.yaml.YamlRoutesBuilderLoader() {
 
     fun builder(yamlRoute: YamlRoute): RouteBuilder {
