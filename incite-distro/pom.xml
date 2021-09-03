@@ -43,8 +43,8 @@
             <version>${parent.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.apache.camel</groupId>
-            <artifactId>camel-ignite</artifactId>
+            <groupId>org.apache.camel.springboot</groupId>
+            <artifactId>camel-ignite-starter</artifactId>
             <version>${camel.version}</version>
         </dependency>
         <dependency>
