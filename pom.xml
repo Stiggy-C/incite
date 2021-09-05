@@ -44,7 +44,7 @@
 		<kotlin.version>1.5.30</kotlin.version>
 		<kotlin-coroutines.version>1.5.1</kotlin-coroutines.version>
 		<spark.version>3.1.2</spark.version>
-		<spring-boot.version>2.4.9</spring-boot.version>
+		<spring-boot.version>2.5.4</spring-boot.version>
 		<zeroturnaround.version>1.14</zeroturnaround.version>
 	</properties>
 

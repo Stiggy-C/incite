@@ -7,5 +7,6 @@ import javax.persistence.Entity
 @DiscriminatorValue("YAML")
 class YamlRoute: Route() {
 
-    var yaml: String? = null
+    lateinit var yaml: String
+
 }

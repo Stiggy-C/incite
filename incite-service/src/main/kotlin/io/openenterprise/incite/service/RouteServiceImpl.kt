@@ -49,7 +49,8 @@ class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<
 
         val routeBuilder = when (route.javaClass.getAnnotation(DiscriminatorValue::class.java).value) {
             "YAML" -> {
-                yamlRoutesBuilderLoader.builder(route as YamlRoute)
+                val yamlRoute = route as YamlRoute
+                yamlRoutesBuilderLoader.builder(yamlRoute.id.toString(), yamlRoute.yaml)
             }
             else -> {
                 throw NotImplementedError()

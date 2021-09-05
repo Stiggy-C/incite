@@ -7,6 +7,6 @@ import javax.persistence.Entity
 @DiscriminatorValue("SpringXML")
 class SpringXmlRoute : Route() {
 
-    var xml: String? = null
+    lateinit var xml: String
 
 }
