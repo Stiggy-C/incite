@@ -5,7 +5,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import io.openenterprise.incite.data.domain.Route
 import io.openenterprise.incite.data.domain.SpringXmlRoute
 import io.openenterprise.incite.data.domain.YamlRoute
-import io.openenterrpise.rs.AbstractAbstractMutableEntityResourceImpl
+import io.openenterprise.rs.AbstractAbstractMutableEntityResourceImpl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -32,7 +32,7 @@ class RouteResourceImpl : RouteResource, AbstractAbstractMutableEntityResourceIm
     @POST
     @Consumes(value = [MediaType.TEXT_PLAIN, MediaType.TEXT_XML])
     @Produces(MediaType.APPLICATION_JSON)
-    override fun create(body: String, asyncResponse: AsyncResponse) {
+    override fun create(body: String, @Suspended asyncResponse: AsyncResponse) {
         GlobalScope.launch(Dispatchers.IO) {
             val route: Route?
 
@@ -56,25 +56,25 @@ class RouteResourceImpl : RouteResource, AbstractAbstractMutableEntityResourceIm
         }
     }
 
-    override fun create(entity: Route, @Suspended asyncResponse: AsyncResponse) {
+    override fun create(entity: Route, asyncResponse: AsyncResponse) {
         asyncResponse.resume(Response.status(Response.Status.NOT_IMPLEMENTED).build())
     }
 
-    @Path("/{id}")
     @POST
+    @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
     override fun retrieve(@PathParam("id") id: UUID, @Suspended asyncResponse: AsyncResponse) {
         super.retrieve(id, asyncResponse)
     }
 
-    @Path("/{id}")
     @DELETE
+    @Path("/{id}")
     override fun delete(@PathParam("id") id: UUID, @Suspended asyncResponse: AsyncResponse) {
         super.delete(id, asyncResponse)
     }
 
-    @Path("/{id}")
     @PATCH
+    @Path("/{id}")
     @Consumes("application/merge-patch+json")
     override fun update(@PathParam("id") id: UUID, entity: Route, @Suspended asyncResponse: AsyncResponse) {
         super.update(id, entity, asyncResponse)

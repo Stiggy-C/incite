@@ -21,6 +21,7 @@ class MessagingResourceImpl : MessagingResource {
     @Inject
     private lateinit var messagingService: MessagingService
 
+    @POST
     @Path("/topics/{topic}")
     @Consumes(MediaType.TEXT_PLAIN)
     override fun produce(

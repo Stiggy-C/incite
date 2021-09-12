@@ -45,7 +45,7 @@ class YamlRoutesBuilderLoaderTest {
     fun testComplex() {
         val routeId = UUID.randomUUID().toString();
         val yaml = "route:\n" +
-                "    from: \"ignite-messaging:sample_event_topic?ignite='#{ignite}'\"\n" +
+                "    from: \"ignite-messaging:sample_event_0?ignite='#{ignite}'\"\n" +
                 "    steps:\n" +
                 "        - idempotent-consumer:\n" +
                 "            expression: \n" +
@@ -60,11 +60,11 @@ class YamlRoutesBuilderLoaderTest {
                 "                    spel: \"#{request.body.type == 'guest_complain'}\"\n" +
                 "                    steps:\n" +
                 "                        - set-body:\n" +
-                "                            simple: \"insert into sample_event(guestId, content, isComplain, createdDateTime) values ('\${body.guestId}', '\${body.content}', true, '\${body.createdDateTime}')\"\n" +
+                "                            simple: \"insert into sample_event_0(id, guestId, content, eventType, isComplain, createdDateTime) values (UUID(), '\${body.guestId}', '\${body.content}', '\${body.eventType}', true, '\${body.createdDateTime}')\"\n" +
                 "            otherwise:\n" +
                 "                steps:\n" +
                 "                    - set-body:\n" +
-                "                        simple: \"insert into sample_event(guestId, content, isComplain, createdDateTime) values ('\${body.guestId}', '\${body.content}', false, '\${body.createdDateTime}')\"\n" +
+                "                        simple: \"insert into sample_event_0(id, guestId, content, eventType, isComplain, createdDateTime) values (UUID(), '\${body.guestId}', '\${body.content}', '\${body.eventType}', false, '\${body.createdDateTime}')\"\n" +
                 "        - to: \"jdbc:igniteJdbcThinDataSource\""
 
         val routeBuilder = yamlRoutesBuilderLoader.builder(routeId, yaml)

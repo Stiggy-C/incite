@@ -1,4 +1,4 @@
-package io.openenterrpise.rs
+package io.openenterprise.rs
 
 import io.openenterprise.data.domain.AbstractEntity
 import java.io.Serializable

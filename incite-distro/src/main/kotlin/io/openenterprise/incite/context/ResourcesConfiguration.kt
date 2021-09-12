@@ -4,5 +4,5 @@ import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-@ComponentScan("io.openenterprise.incite.rs")
+@ComponentScan(basePackages = ["io.openenterprise.glassfish.jersey.spring", "io.openenterprise.incite.rs"])
 class ResourcesConfiguration

@@ -1,4 +1,4 @@
-package io.openenterrpise.rs
+package io.openenterprise.rs
 
 import io.openenterprise.data.domain.AbstractEntity
 import io.openenterprise.service.AbstractEntityService
@@ -9,7 +9,8 @@ import javax.inject.Inject
 import javax.ws.rs.container.AsyncResponse
 import javax.ws.rs.core.Response
 
-abstract class AbstractAbstractEntityResourceImpl<T: AbstractEntity<ID>, ID: Serializable> : AbstractEntityResource<T, ID> {
+abstract class AbstractAbstractEntityResourceImpl<T: AbstractEntity<ID>, ID: Serializable> :
+    AbstractEntityResource<T, ID> {
 
     @Inject
     lateinit var abstractEntityService: AbstractEntityService<T, ID>

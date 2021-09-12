@@ -1,4 +1,4 @@
-package io.openenterrpise.rs
+package io.openenterprise.rs
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.openenterprise.data.domain.AbstractMutableEntity

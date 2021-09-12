@@ -1,7 +1,7 @@
 package io.openenterprise.incite.rs
 
 import io.openenterprise.incite.data.domain.Route
-import io.openenterrpise.rs.AbstractMutableEntityResource
+import io.openenterprise.rs.AbstractMutableEntityResource
 import java.util.*
 import javax.ws.rs.Consumes
 import javax.ws.rs.POST
