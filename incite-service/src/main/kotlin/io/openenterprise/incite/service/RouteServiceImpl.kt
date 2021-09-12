@@ -45,7 +45,7 @@ class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<
     lateinit var yamlRoutesBuilderLoader: YamlRoutesBuilderLoader
 
     override fun addRoute(id: UUID) {
-        val route = abstractEntityRepository.getOne(id)
+        val route = abstractEntityRepository.getById(id)
 
         val routeBuilder = when (route.javaClass.getAnnotation(DiscriminatorValue::class.java).value) {
             "YAML" -> {
