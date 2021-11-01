@@ -21,8 +21,9 @@ import org.springframework.context.annotation.ComponentScan
 )
 @ImportAutoConfiguration(
     classes = [
-        DataSourceAutoConfiguration::class, FlywayAutoConfiguration::class, HibernateJpaAutoConfiguration::class,
-        JerseyAutoConfiguration::class, ServletWebServerFactoryAutoConfiguration::class
+        DataSourceAutoConfiguration::class, FlywayAutoConfiguration::class,
+        HibernateJpaAutoConfiguration::class, JerseyAutoConfiguration::class,
+        ServletWebServerFactoryAutoConfiguration::class
     ]
 )
 class SpringApplication : SpringBootServletInitializer() {

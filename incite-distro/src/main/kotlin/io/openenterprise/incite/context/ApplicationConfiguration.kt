@@ -6,23 +6,34 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import org.apache.ignite.Ignite
 import org.apache.ignite.IgniteCluster
 import org.apache.ignite.IgniteMessaging
 import org.apache.ignite.cache.CachingProvider
 import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionManager
 import org.springframework.transaction.support.TransactionTemplate
+import org.springframework.web.servlet.config.annotation.EnableWebMvc
 import javax.cache.CacheManager
 
 @Configuration
+@ComponentScan(basePackages = ["io.openenterprise.springframework.context"])
+@EnableWebMvc
 class ApplicationConfiguration {
 
     @Bean
     fun cachingProvider(): CacheManager {
         return CachingProvider().cacheManager
+    }
+
+    @Bean
+    fun coroutineScope(): CoroutineScope {
+        return CoroutineScope(Dispatchers.Default)
     }
 
     @Bean

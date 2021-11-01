@@ -1,4 +1,4 @@
-package io.openenterprise.incite.rs
+package io.openenterprise.incite.ws.rs
 
 import javax.ws.rs.*
 import javax.ws.rs.container.AsyncResponse

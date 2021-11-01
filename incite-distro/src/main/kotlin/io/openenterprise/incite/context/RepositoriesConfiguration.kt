@@ -6,5 +6,5 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories
 
 @Configuration
 @EnableJpaRepositories("io.openenterprise.incite.data.repository")
-@EntityScan("io.openenterprise.data.domain", "io.openenterprise.incite.data")
+@EntityScan("io.openenterprise.data.domain", "io.openenterprise.incite.data.domain")
 class RepositoriesConfiguration

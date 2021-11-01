@@ -1,11 +1,11 @@
-package io.openenterprise.rs
+package io.openenterprise.ws.rs
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.openenterprise.data.domain.AbstractMutableEntity
 import io.openenterprise.service.AbstractMutableEntityService
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import org.springframework.beans.factory.annotation.Autowired
 import java.io.Serializable
 import javax.inject.Inject
 import javax.persistence.EntityNotFoundException
@@ -15,14 +15,14 @@ import javax.ws.rs.core.Response
 abstract class AbstractAbstractMutableEntityResourceImpl<T : AbstractMutableEntity<ID>, ID : Serializable> :
     AbstractAbstractEntityResourceImpl<T, ID>(), AbstractMutableEntityResource<T, ID> {
 
-    @Inject
+    @Autowired
     lateinit var abstractMutableEntityService: AbstractMutableEntityService<T, ID>
 
-    @Inject
+    @Autowired
     lateinit var objectMapper: ObjectMapper
 
     override fun update(id: ID, entity: T, asyncResponse: AsyncResponse) {
-        GlobalScope.launch(Dispatchers.IO) {
+        coroutineScope.launch(Dispatchers.IO) {
             try {
                 val persistedEntity = abstractEntityService.retrieve(id)
 

@@ -20,7 +20,7 @@ import javax.persistence.*
         JsonSubTypes.Type(value = YamlRoute::class, name = "YAML")
     ]
 )
-abstract class Route : AbstractMutableEntity<UUID>() {
+abstract class Route : AbstractMutableEntity<String>() {
 
     @Version
     var version: Long? = null
@@ -29,6 +29,6 @@ abstract class Route : AbstractMutableEntity<UUID>() {
     override fun prePersist() {
         super.prePersist()
 
-        id = UUID.randomUUID()
+        id = UUID.randomUUID().toString()
     }
 }

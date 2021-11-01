@@ -6,4 +6,4 @@ import org.springframework.stereotype.Repository
 import java.util.*
 
 @Repository
-interface RouteRepository: AbstractEntityRepository<Route, UUID>
+interface RouteRepository: AbstractEntityRepository<Route, String>

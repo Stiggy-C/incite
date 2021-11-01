@@ -2,25 +2,37 @@ package io.openenterprise.incite.context
 
 import io.openenterprise.glassfish.jersey.spring.SpringBridgeFeature
 import org.glassfish.jersey.server.ResourceConfig
+import org.reflections.Reflections
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.DependsOn
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import java.util.stream.Collectors
 import javax.annotation.PostConstruct
 import javax.ws.rs.ApplicationPath
 import javax.ws.rs.Path
 
 @ApplicationPath("/rs")
-@ConditionalOnBean(ResourcesConfiguration::class)
 @Configuration
-class JerseyConfiguration(private var applicationContext: ApplicationContext) : ResourceConfig() {
+@DependsOn("jaxRsConfiguration")
+@Order(Ordered.LOWEST_PRECEDENCE)
+class JerseyConfiguration : ResourceConfig() {
+
+    @Autowired
+    private lateinit var applicationContext: ApplicationContext
 
     @PostConstruct
     fun postConstruct() {
-        registerInstances(applicationContext.getBean(SpringBridgeFeature::class.java))
-        registerInstances(
-            applicationContext.getBeansWithAnnotation(Path::class.java).values.stream().collect(Collectors.toSet())
+        // Providers:
+        registerInstances(SpringBridgeFeature(applicationContext))
+
+        // Resources:
+        registerClasses(
+            Reflections("io.openenterprise.incite.ws.rs").getTypesAnnotatedWith(Path::class.java).stream()
+                .filter { !it.isInterface }
+                .collect(Collectors.toSet())
         )
     }
 }

@@ -14,6 +14,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.*
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 
 @Configuration
 @ComponentScan("io.openenterprise.ignite.cache.query.ml")
@@ -21,15 +23,13 @@ import org.springframework.context.annotation.*
 @EnableConfigurationProperties
 class IgniteAutoConfiguration : org.apache.ignite.springframework.boot.autoconfigure.IgniteAutoConfiguration() {
 
-
+    @Bean
     @ConditionalOnBean(Flyway::class)
     fun flywayDependsOnPostProcessor(): FlywayDependsOnPostProcessor {
         return FlywayDependsOnPostProcessor()
     }
 
     @Bean
-    @ConditionalOnMissingBean(IgniteCluster::class)
-    @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
     protected fun igniteCluster(ignite: Ignite): IgniteCluster {
         val igniteCluster = ignite.cluster()
 
@@ -58,15 +58,15 @@ class IgniteAutoConfiguration : org.apache.ignite.springframework.boot.autoconfi
     @Bean
     @ConditionalOnBean(IgniteCluster::class)
     @Primary
-    fun igniteJdbcThinDataSource(
-       igniteConfiguration: IgniteConfiguration
-    ): IgniteJdbcThinDataSource {
+    fun igniteJdbcThinDataSource(igniteCluster: IgniteCluster): IgniteJdbcThinDataSource {
+        val igniteConfiguration = igniteCluster.ignite().configuration()
         val igniteJdbcThinDataSource = IgniteJdbcThinDataSource()
         igniteJdbcThinDataSource.password = "ignite"
         igniteJdbcThinDataSource.username = "ignite"
 
         igniteJdbcThinDataSource.setUrl(
-            "jdbc:ignite:thin://localhost:10800/${igniteConfiguration.sqlConfiguration.sqlSchemas[0]}")
+            "jdbc:ignite:thin://localhost:10800/${igniteConfiguration.sqlConfiguration.sqlSchemas[0]}"
+        )
 
         return igniteJdbcThinDataSource
     }

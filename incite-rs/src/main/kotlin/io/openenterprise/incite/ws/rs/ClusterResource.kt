@@ -1,4 +1,4 @@
-package io.openenterprise.incite.rs
+package io.openenterprise.incite.ws.rs
 
 import org.apache.ignite.cluster.ClusterState
 import org.springframework.web.bind.annotation.PathVariable

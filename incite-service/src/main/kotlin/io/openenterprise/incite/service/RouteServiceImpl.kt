@@ -24,7 +24,7 @@ import javax.inject.Named
 import javax.persistence.DiscriminatorValue
 
 @Named
-class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<Route, UUID>() {
+class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<Route, String>() {
 
     companion object {
 
@@ -45,7 +45,7 @@ class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<
     lateinit var yamlRoutesBuilderLoader: YamlRoutesBuilderLoader
 
     override fun addRoute(id: UUID) {
-        val route = abstractEntityRepository.getById(id)
+        val route = abstractEntityRepository.getById(id.toString())
 
         val routeBuilder = when (route.javaClass.getAnnotation(DiscriminatorValue::class.java).value) {
             "YAML" -> {
@@ -109,7 +109,7 @@ class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<
         this.delete(entity.id!!)
     }
 
-    override fun delete(id: UUID) {
+    override fun delete(id: String) {
         transactionTemplate.execute { super.delete(id) }
         igniteMessaging.sendOrdered("route_deleted", id, Duration.ofMinutes(1).toMillis())
     }

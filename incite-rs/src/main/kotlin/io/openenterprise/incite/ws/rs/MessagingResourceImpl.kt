@@ -1,10 +1,13 @@
-package io.openenterprise.incite.rs
+package io.openenterprise.incite.ws.rs
 
 import io.openenterprise.incite.service.MessagingService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.apache.ignite.Ignite
 import org.apache.ignite.IgniteCluster
+import org.springframework.beans.factory.annotation.Autowired
 import java.time.Duration
 import javax.inject.Inject
 import javax.inject.Named
@@ -18,7 +21,10 @@ import javax.ws.rs.core.Response
 @Path("/messaging")
 class MessagingResourceImpl : MessagingResource {
 
-    @Inject
+    @Autowired
+    private lateinit var coroutineScope:CoroutineScope
+
+    @Autowired
     private lateinit var messagingService: MessagingService
 
     @POST
@@ -31,7 +37,7 @@ class MessagingResourceImpl : MessagingResource {
         @QueryParam("replicated") @DefaultValue("true") replicated: Boolean,
         @Suspended asyncResponse: AsyncResponse
     ) {
-        GlobalScope.launch {
+        coroutineScope.launch {
             try {
                 messagingService.produce(topic, message, ordered, replicated)
             } catch (e: Exception) {

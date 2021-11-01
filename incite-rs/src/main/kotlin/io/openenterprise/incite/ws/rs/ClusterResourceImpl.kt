@@ -1,11 +1,14 @@
-package io.openenterprise.incite.rs
+package io.openenterprise.incite.ws.rs
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.apache.ignite.Ignite
 import org.apache.ignite.IgniteCluster
 import org.apache.ignite.IgniteException
 import org.apache.ignite.cluster.ClusterState
+import org.springframework.beans.factory.annotation.Autowired
 import javax.inject.Inject
 import javax.inject.Named
 import javax.ws.rs.POST
@@ -17,7 +20,13 @@ import javax.ws.rs.core.Response
 
 @Named
 @Path("/cluster")
-class ClusterResourceImpl(@Inject private var igniteCluster: IgniteCluster) : ClusterResource {
+class ClusterResourceImpl : ClusterResource {
+
+    @Autowired
+    private lateinit var coroutineScope: CoroutineScope
+
+    @Autowired
+    private lateinit var igniteCluster: IgniteCluster
 
     @Path("/state/{clusterState}")
     @POST
@@ -25,7 +34,7 @@ class ClusterResourceImpl(@Inject private var igniteCluster: IgniteCluster) : Cl
         @PathParam("clusterState") clusterState: ClusterState,
         @Suspended asyncResponse: AsyncResponse
     ) {
-        GlobalScope.launch {
+        coroutineScope.launch {
             try {
                 igniteCluster.state(clusterState)
             } catch (igniteException: IgniteException) {
