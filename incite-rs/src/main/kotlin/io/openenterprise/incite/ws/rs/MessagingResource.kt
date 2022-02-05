@@ -17,5 +17,4 @@ interface MessagingResource {
         @QueryParam("replicated") @DefaultValue("true") replicated: Boolean,
         @Suspended asyncResponse: AsyncResponse
     )
-
 }

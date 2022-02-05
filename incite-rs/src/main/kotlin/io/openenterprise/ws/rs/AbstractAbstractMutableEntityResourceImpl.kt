@@ -7,7 +7,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.springframework.beans.factory.annotation.Autowired
 import java.io.Serializable
-import javax.inject.Inject
 import javax.persistence.EntityNotFoundException
 import javax.ws.rs.container.AsyncResponse
 import javax.ws.rs.core.Response

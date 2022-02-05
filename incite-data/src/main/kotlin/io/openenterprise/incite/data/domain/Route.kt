@@ -32,3 +32,17 @@ abstract class Route : AbstractMutableEntity<String>() {
         id = UUID.randomUUID().toString()
     }
 }
+
+@Entity
+@DiscriminatorValue("SpringXML")
+class SpringXmlRoute : Route() {
+
+    lateinit var xml: String
+}
+
+@Entity
+@DiscriminatorValue("YAML")
+class YamlRoute: Route() {
+
+    lateinit var yaml: String
+}

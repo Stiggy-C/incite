@@ -11,13 +11,14 @@
     </parent>
 
     <artifactId>incite-distro</artifactId>
-    <version>${parent.version}</version>
+    <version>0.0.1-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>io.openenterprise incite-distro</name>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <kotlin.code.style>official</kotlin.code.style>
     </properties>
 
     <dependencies>
@@ -27,9 +28,14 @@
             <version>${jackson.version}</version>
         </dependency>
         <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>1.4.197</version>
+        </dependency>
+        <dependency>
             <groupId>io.openenterprise</groupId>
             <artifactId>incite-rs</artifactId>
-            <version>${parent.version}</version>
+            <version>${project.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.jetbrains.kotlinx</groupId>
@@ -42,13 +48,13 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>io.openenterprise</groupId>
-            <artifactId>incite-spring-boot-starter-spark</artifactId>
-            <version>${parent.version}</version>
+            <groupId>org.apache.camel.springboot</groupId>
+            <artifactId>camel-ignite-starter</artifactId>
+            <version>${camel.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.camel.springboot</groupId>
-            <artifactId>camel-ignite-starter</artifactId>
+            <artifactId>camel-kafka-starter</artifactId>
             <version>${camel.version}</version>
         </dependency>
         <dependency>
@@ -62,19 +68,9 @@
             <version>${camel.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-compress</artifactId>
-            <version>${ignite.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-spring</artifactId>
-            <version>${ignite.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <version>1.4.197</version>
+            <groupId>org.codehaus.janino</groupId>
+            <artifactId>janino</artifactId>
+            <version>[3.0.16]</version>
         </dependency>
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
@@ -89,7 +85,7 @@
         <dependency>
             <groupId>org.reflections</groupId>
             <artifactId>reflections</artifactId>
-            <version>0.9.12</version>
+            <version>${reflections.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -161,6 +157,15 @@
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-maven-plugin</artifactId>
                 <version>${kotlin.version}</version>
+                <executions>
+                    <execution>
+                        <id>compile</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
                 <configuration>
                     <args>
                         <arg>-Xjsr305=strict</arg>

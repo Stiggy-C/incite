@@ -2,14 +2,8 @@ package io.openenterprise.incite.ws.rs
 
 import io.openenterprise.incite.service.MessagingService
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import org.apache.ignite.Ignite
-import org.apache.ignite.IgniteCluster
 import org.springframework.beans.factory.annotation.Autowired
-import java.time.Duration
-import javax.inject.Inject
 import javax.inject.Named
 import javax.ws.rs.*
 import javax.ws.rs.container.AsyncResponse

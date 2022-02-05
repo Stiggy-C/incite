@@ -23,7 +23,7 @@ abstract class AbstractAbstractEntityServiceImpl<T: AbstractEntity<ID>, ID: Seri
 
     @Transactional(readOnly = true)
     override fun retrieve(id: ID): T? {
-        return abstractEntityRepository.getOne(id)
+        return abstractEntityRepository.getById(id)
     }
 
     @Transactional
@@ -35,5 +35,4 @@ abstract class AbstractAbstractEntityServiceImpl<T: AbstractEntity<ID>, ID: Seri
     override fun delete(id: ID) {
         abstractEntityRepository.deleteById(id)
     }
-
 }

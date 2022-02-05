@@ -10,7 +10,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.springframework.beans.factory.annotation.Autowired
 import java.io.IOException
-import java.util.*
 import javax.inject.Named
 import javax.ws.rs.*
 import javax.ws.rs.container.AsyncResponse
@@ -46,7 +45,7 @@ class RouteResourceImpl : RouteResource, AbstractAbstractMutableEntityResourceIm
 
                 route = yamlRoute
             } else {
-                asyncResponse.resume(Response.status(Response.Status.NOT_IMPLEMENTED).build())
+                asyncResponse.resume(Response.status(501).build())
 
                 return@launch
             }

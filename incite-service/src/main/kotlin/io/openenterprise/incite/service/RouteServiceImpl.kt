@@ -4,9 +4,8 @@ import io.openenterprise.camel.dsl.yaml.YamlRoutesBuilderLoader
 import io.openenterprise.incite.data.domain.Route
 import io.openenterprise.incite.data.domain.YamlRoute
 import io.openenterprise.service.AbstractAbstractMutableEntityServiceImpl
-import io.openenterprise.springframework.context.ApplicationContextUtil
+import io.openenterprise.springframework.context.ApplicationContextUtils
 import org.apache.camel.CamelContext
-import org.apache.camel.impl.DefaultCamelContext
 import org.apache.camel.impl.engine.AbstractCamelContext
 import org.apache.commons.lang.StringUtils
 import org.apache.commons.lang3.BooleanUtils.isFalse
@@ -130,7 +129,7 @@ class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<
 
         override fun apply(nodeId: UUID?, id: UUID?): Boolean {
             LOG.info("{} received {} from topic, {}", nodeId, id, "route_created")
-            ApplicationContextUtil.getApplicationContext()!!.getBean(RouteService::class.java).startRoute(id as UUID)
+            ApplicationContextUtils.getApplicationContext()!!.getBean(RouteService::class.java).startRoute(id as UUID)
 
             return true
         }
@@ -141,7 +140,7 @@ class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<
         override fun apply(nodeId: UUID?, id: UUID?): Boolean {
             LOG.info("{} received {} from topic, {}", nodeId, id, "route_deleted")
 
-            val routeService = ApplicationContextUtil.getApplicationContext()!!.getBean(RouteService::class.java)
+            val routeService = ApplicationContextUtils.getApplicationContext()!!.getBean(RouteService::class.java)
             routeService.stopRoute(id as UUID)
             routeService.removeRoute(id)
 
@@ -154,7 +153,7 @@ class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<
         override fun apply(nodeId: UUID?, id: UUID?): Boolean {
             LOG.info("{} received {} from topic, {}", nodeId, id, "route_updated")
 
-            val routeService = ApplicationContextUtil.getApplicationContext()!!.getBean(RouteService::class.java)
+            val routeService = ApplicationContextUtils.getApplicationContext()!!.getBean(RouteService::class.java)
             routeService.stopRoute(id as UUID)
             routeService.removeRoute(id)
             routeService.startRoute(id)

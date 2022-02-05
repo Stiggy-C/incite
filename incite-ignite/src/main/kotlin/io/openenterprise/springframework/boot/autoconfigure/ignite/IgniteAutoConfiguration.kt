@@ -6,7 +6,9 @@ import org.apache.commons.lang.StringUtils
 import org.apache.ignite.Ignite
 import org.apache.ignite.IgniteCluster
 import org.apache.ignite.IgniteJdbcThinDataSource
+import org.apache.ignite.configuration.ClientConnectorConfiguration
 import org.apache.ignite.configuration.IgniteConfiguration
+import org.apache.ignite.configuration.SqlConfiguration
 import org.flywaydb.core.Flyway
 import org.springframework.beans.factory.config.BeanDefinition
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
@@ -16,6 +18,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.*
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
+import java.util.Objects.isNull
 
 @Configuration
 @ComponentScan("io.openenterprise.ignite.cache.query.ml")
@@ -58,14 +61,19 @@ class IgniteAutoConfiguration : org.apache.ignite.springframework.boot.autoconfi
     @Bean
     @ConditionalOnBean(IgniteCluster::class)
     @Primary
-    fun igniteJdbcThinDataSource(igniteCluster: IgniteCluster): IgniteJdbcThinDataSource {
-        val igniteConfiguration = igniteCluster.ignite().configuration()
+    fun igniteJdbcThinDataSource(ignite: Ignite): IgniteJdbcThinDataSource {
+        val igniteConfiguration = ignite.configuration()
+        val clientConnectorConfiguration = igniteConfiguration.clientConnectorConfiguration
+        val clientConnectorPort =
+            if (isNull(clientConnectorConfiguration)) ClientConnectorConfiguration.DFLT_PORT else clientConnectorConfiguration!!.port
+        val sqlConfiguration = igniteConfiguration.sqlConfiguration
+        val sqlSchema = if (sqlConfiguration.sqlSchemas.isEmpty()) "incite" else sqlConfiguration.sqlSchemas[0]
+
         val igniteJdbcThinDataSource = IgniteJdbcThinDataSource()
         igniteJdbcThinDataSource.password = "ignite"
         igniteJdbcThinDataSource.username = "ignite"
-
         igniteJdbcThinDataSource.setUrl(
-            "jdbc:ignite:thin://localhost:10800/${igniteConfiguration.sqlConfiguration.sqlSchemas[0]}"
+            "jdbc:ignite:thin://localhost:${clientConnectorPort}/${sqlSchema}?lazy=true"
         )
 
         return igniteJdbcThinDataSource

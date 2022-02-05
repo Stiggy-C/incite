@@ -4,13 +4,6 @@
 	<modelVersion>4.0.0</modelVersion>
 	<packaging>pom</packaging>
 
-	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>2.5.4</version>
-		<relativePath/> <!-- lookup parent from repository -->
-	</parent>
-
 	<groupId>io.openenterprise</groupId>
 	<artifactId>incite</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
@@ -21,8 +14,8 @@
 	<modules>
 		<module>incite-util</module>
 		<module>incite-camel</module>
+		<module>incite-spark</module>
 		<module>incite-ignite</module>
-		<module>incite-spring-boot-starter-spark</module>
 		<module>incite-data</module>
 		<module>incite-service</module>
         <module>incite-rs</module>
@@ -35,17 +28,21 @@
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<javax.el.version>3.0.0</javax.el.version>
-		<camel.version>3.11.2</camel.version>
+		<camel.version>3.11.5</camel.version>
 		<commons-lagn3.version>3.12.0</commons-lagn3.version>
 		<flyway.version>7.11.4</flyway.version>
-		<ignite.version>2.11.0</ignite.version>
-		<jackson.version>2.12.4</jackson.version>
+		<ignite.version>2.12.0</ignite.version>
+		<jackson.version>2.12.6</jackson.version>
 		<junit.version>4.13.2</junit.version>
 		<kotlin.code.style>official</kotlin.code.style>
-		<kotlin.version>1.5.31</kotlin.version>
+		<kotlin.version>1.5.32</kotlin.version>
 		<kotlin-coroutines.version>1.5.2-native-mt</kotlin-coroutines.version>
-		<spark.version>3.1.2</spark.version>
-		<spring-boot.version>2.5.4</spring-boot.version>
+		<mockito.version>4.3.1</mockito.version>
+		<reflections.version>0.10.2</reflections.version>
+		<snakeyaml.version>1.30</snakeyaml.version>
+		<spark.version>2.4.8</spark.version>
+		<spring-boot.version>2.5.8</spring-boot.version>
+		<testcontainers.version>1.16.3</testcontainers.version>
 		<zeroturnaround.version>1.14</zeroturnaround.version>
 	</properties>
 

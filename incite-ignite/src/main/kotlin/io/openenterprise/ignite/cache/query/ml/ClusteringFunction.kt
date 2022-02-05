@@ -3,12 +3,15 @@ package io.openenterprise.ignite.cache.query.ml
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.openenterprise.spark.sql.DatasetUtils
-import io.openenterprise.springframework.context.ApplicationContextUtil
+import io.openenterprise.springframework.context.ApplicationContextUtils
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.IOUtils
+import org.apache.commons.io.output.FileWriterWithEncoding
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.reflect.MethodUtils
 import org.apache.ignite.cache.query.annotations.QuerySqlFunction
+import org.apache.ignite.configuration.ClientConnectorConfiguration
+import org.apache.ignite.configuration.IgniteConfiguration
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.clustering.KMeans
 import org.apache.spark.ml.clustering.KMeansModel
@@ -34,13 +37,13 @@ open class ClusteringFunction {
 
         @JvmStatic
         @QuerySqlFunction(alias = "build_k_means_model")
-        fun buildKMeanModel(sql: String, featuresColumns: String, k: Int, maxIteration: Int, seed: Long): String {
-            val applicationContext = ApplicationContextUtil.getApplicationContext()!!
+        fun buildKMeanModel(sql: String, featuresColumns: String, k: Int, maxIteration: Int, seed: Long): UUID {
+            val applicationContext = ApplicationContextUtils.getApplicationContext()!!
             val clusteringFunction = applicationContext.getBean(ClusteringFunction::class.java)
             val dataset = clusteringFunction.loadDataset(sql)
             val kMeansModel = clusteringFunction.buildKMeansModel(dataset, featuresColumns, k, maxIteration, seed)
 
-            return clusteringFunction.putModelToCache(kMeansModel).toString()
+            return clusteringFunction.putModelToCache(kMeansModel)
         }
 
         @JvmStatic
@@ -63,7 +66,7 @@ open class ClusteringFunction {
                 val tempJsonFilePath = "${FileUtils.getTempDirectoryPath()}/incite/ml/temp/${UUID.randomUUID()}.json"
                 tempJsonFile = File(tempJsonFilePath)
 
-                val fileWriter = FileWriter(tempJsonFile, Charsets.UTF_8, false)
+                val fileWriter = FileWriterWithEncoding(tempJsonFile, Charsets.UTF_8, false)
                 IOUtils.write(jsonOrSql, fileWriter)
 
                 val sparkSession = getBean(SparkSession::class.java)
@@ -85,7 +88,7 @@ open class ClusteringFunction {
 
         @JvmStatic
         protected fun <T> getBean(clazz: Class<T>): T {
-            val applicationContext = ApplicationContextUtil.getApplicationContext()!!
+            val applicationContext = ApplicationContextUtils.getApplicationContext()!!
             return applicationContext.getBean(clazz)
         }
     }
@@ -93,8 +96,8 @@ open class ClusteringFunction {
     @Named("mlModelsCache")
     lateinit var mlModelsCache: Cache<UUID, File>
 
-    @Value("\${ignite.sqlConfiguration.sqlSchemas}")
-    lateinit var schemas: Array<String>
+    @Inject
+    lateinit var igniteConfiguration: IgniteConfiguration
 
     @Inject
     lateinit var sparkSession: SparkSession
@@ -129,11 +132,17 @@ open class ClusteringFunction {
     }
 
     protected fun loadDataset(sql: String): Dataset<Row> {
+        val clientConnectorConfiguration = igniteConfiguration.clientConnectorConfiguration
+        val clientConnectorPort =
+            if (Objects.isNull(clientConnectorConfiguration)) ClientConnectorConfiguration.DFLT_PORT else clientConnectorConfiguration!!.port
+        val sqlConfiguration = igniteConfiguration.sqlConfiguration
+        val sqlSchema = if (sqlConfiguration.sqlSchemas.isEmpty()) "incite" else sqlConfiguration.sqlSchemas[0]
+
         return sparkSession.read()
             .format("jdbc")
             .option("query", sql)
             .option("driver", "org.apache.ignite.IgniteJdbcThinDriver")
-            .option("url", "jdbc:ignite:thin://localhost:10800/${schemas[0]}?lazy=true")
+            .option("url", "jdbc:ignite:thin://localhost:${clientConnectorPort}/${sqlSchema}?lazy=true")
             .option("user", "ignite")
             .option("password", "ignite")
             .load()
