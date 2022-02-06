@@ -3,41 +3,37 @@ package io.openenterprise.spark.sql
 import org.apache.spark.sql.Dataset
 import java.util.*
 import java.util.stream.Collectors
-import java.util.stream.StreamSupport
 
 class DatasetUtils {
 
     companion object {
 
         @JvmStatic
-        fun toJson(dataset: Dataset<*>): String {
-            val result = StringBuilder()
-            result.append("[")
+        val jsonStringsMap = HashMap<UUID, StringBuilder>()
 
-            if (dataset.count() > 0) {
-                val numberOfPartitions = when (dataset.count()) {
-                    in 0..10000 -> 1
-                    in 10001 .. 100000 -> 5
-                    in 100001 .. 1000000 -> 10
-                    in 1000001 .. 10000000 -> 20
-                    in 10000001 .. 100000000 -> 40
-                    else -> 100
-                }
-                dataset.toJSON().repartition(numberOfPartitions).foreachPartition {
-                    val jsonString = StreamSupport.stream(
-                        Spliterators.spliteratorUnknownSize(it, Spliterator.ORDERED), false
-                    )
-                        .collect(Collectors.joining(","))
+        @JvmStatic
+        fun <T> toJson(dataset: Dataset<T>): String {
+            val session = UUID.randomUUID()
+            jsonStringsMap[session] = StringBuilder()
+            jsonStringsMap[session]!!.append("[")
 
-                    result.append("$jsonString,")
-                }
-
-                result.dropLast(1)
+            dataset.repartition(200).toJSON().foreachPartition {
+                jsonStringsMap[session]!!.append(it.asSequence().toList().stream().collect(Collectors.joining(",")))
+                jsonStringsMap[session]!!.append(",")
             }
 
-            result.append("]")
+            val lastCommaIndex = jsonStringsMap[session]!!.lastIndexOf(",")
+            if (lastCommaIndex == jsonStringsMap[session]!!.length - 1) {
+                jsonStringsMap[session]!!.deleteCharAt(lastCommaIndex)
+            }
 
-            return result.toString()
+            jsonStringsMap[session]!!.append("]")
+
+            val jsonString = jsonStringsMap[session]!!.toString()
+
+            jsonStringsMap.remove(session)
+
+            return jsonString
         }
     }
 }

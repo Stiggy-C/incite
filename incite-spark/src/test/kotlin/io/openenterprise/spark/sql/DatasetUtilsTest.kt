@@ -1,5 +1,7 @@
 package io.openenterprise.spark.sql
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ArrayNode
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Encoders
 import org.apache.spark.sql.SparkSession
@@ -24,8 +26,12 @@ class DatasetUtilsTest {
 
         val dataset = sparkSession.createDataset(list, Encoders.bean(TestObject::class.java))
         val jsonString = DatasetUtils.toJson(dataset)
-
         Assert.assertNotNull(jsonString)
+
+        val objectMapper = ObjectMapper()
+        val jsonNode = objectMapper.readTree(jsonString)
+
+        Assert.assertTrue(jsonNode is ArrayNode)
     }
 
     class TestObject() {
