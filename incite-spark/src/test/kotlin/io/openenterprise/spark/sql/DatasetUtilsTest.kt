@@ -2,26 +2,23 @@ package io.openenterprise.spark.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
-import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Encoders
 import org.apache.spark.sql.SparkSession
 import org.junit.Assert
 import org.junit.Test
-import scala.collection.JavaConversions
 import java.util.*
-import kotlin.test.assertNotNull
 
 class DatasetUtilsTest {
 
     @Test
     fun toJson() {
         val list = arrayListOf<TestObject>()
-        val random = Random()
+        Random()
         val sparkSession =
             SparkSession.builder().appName(DatasetUtilsTest::class.java.simpleName).master("local[1]").orCreate
 
         for (i in 0..1000000) {
-            list.add(TestObject(UUID.randomUUID().toString(), random.nextLong()))
+            list.add(TestObject(UUID.randomUUID().toString(), i.toLong()))
         }
 
         val dataset = sparkSession.createDataset(list, Encoders.bean(TestObject::class.java))
