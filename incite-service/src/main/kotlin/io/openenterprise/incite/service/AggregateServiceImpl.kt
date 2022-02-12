@@ -3,12 +3,15 @@ package io.openenterprise.incite.service
 import com.google.common.collect.ImmutableMap
 import io.openenterprise.incite.AggregateContext
 import io.openenterprise.incite.data.domain.*
-import io.openenterprise.incite.spark.service.DatasetService
+import io.openenterprise.incite.spark.sql.DatasetWriter
+import io.openenterprise.incite.spark.sql.service.DatasetService
 import io.openenterprise.incite.spark.sql.streaming.DatasetStreamingWriter
 import io.openenterprise.service.AbstractAbstractMutableEntityServiceImpl
 import org.apache.commons.lang3.BooleanUtils.isFalse
 import org.apache.commons.lang3.StringUtils
 import org.apache.ignite.Ignite
+import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.Row
 import org.slf4j.LoggerFactory
 import org.springframework.expression.spel.standard.SpelExpressionParser
 import org.springframework.expression.spel.support.StandardEvaluationContext
@@ -72,70 +75,20 @@ class AggregateServiceImpl(
         }
 
         // Step 1: Load all the org.apache.spark.sql.Dataset's from sources
-        val datasets = aggregate.sources.stream()
-            .map {
-                when (it) {
-                    is JdbcSource -> {
-                        val variables: Map<String, Any> =
-                            if (aggregate.lastRunDateTime == null) {
-                                ImmutableMap.of()
-                            } else {
-                                ImmutableMap.of("lastRunDateTime", aggregate.lastRunDateTime as Any)
-                            }
+        val variables: Map<String, Any> =
+            if (aggregate.lastRunDateTime == null) {
+                ImmutableMap.of()
+            } else {
+                ImmutableMap.of("lastRunDateTime", aggregate.lastRunDateTime as Any)
+            }
 
-                        manipulateQuery(it, variables)
-                    }
-                    else -> it
-                }
-            }
-            .map {
-                datasetService.load(it)
-            }
-            .collect(
-                Collectors.toList()
-            )
+        val datasets = loadSources(aggregate.sources, variables)
 
         // Step 2: Join others in datasets to datasets[0]
-        var result = datasets[0]
-
-        aggregate.joins.stream()
-            .forEach {
-                val leftDataset = result.alias("left")
-                val rightDataset = datasets[it.rightIndex].alias("right")
-                val leftColumn = it.leftColumn
-                val rightColumn = it.rightColumn
-
-                val columns = if (StringUtils.equalsIgnoreCase(leftColumn, rightColumn)) {
-                    JavaConversions.asScalaBuffer(listOf(it.leftColumn)).seq()
-                } else {
-                    JavaConversions.asScalaBuffer(listOf("left.${it.leftColumn}", "right.${it.rightColumn}")).seq()
-                }
-
-                result = leftDataset.join(rightDataset, columns, it.type.name)
-            }
+        val result = joinSources(datasets, aggregate.joins)
 
         // Step 3: Write joint dataset to sinks
-        val sinks = if (isStreaming) {
-            aggregate.sinks.stream()
-                .map { (if (it is NonStreamingSink) StreamingWrapper(it) else it) as StreamingSink }
-                .collect(Collectors.toList())
-        } else {
-            aggregate.sinks
-        }
-
-        val writers = sinks.stream()
-            .map {
-                when (it) {
-                    is NonStreamingSink -> {
-                        datasetService.write(result, it)
-                    }
-                    is StreamingSink -> {
-                        datasetService.write(result, it)
-                    }
-                    else -> throw UnsupportedOperationException()
-                }
-            }
-            .collect(Collectors.toSet())
+        val writers = writeSinks(result, aggregate.sinks, isStreaming)
 
         val aggregateContext = AggregateContext(result, writers)
         aggregateContexts[aggregate.id!!] = aggregateContext
@@ -180,11 +133,82 @@ class AggregateServiceImpl(
         return result
     }
 
+    internal fun joinSources(datasets: List<Dataset<Row>>, joins: List<Join>): Dataset<Row> {
+        var result = datasets[0]
+
+        joins.stream()
+            .forEach {
+                val leftDataset = result.alias("left")
+                val rightDataset = datasets[it.rightIndex].alias("right")
+                val leftColumn = it.leftColumn
+                val rightColumn = it.rightColumn
+
+                val columns = if (StringUtils.equalsIgnoreCase(leftColumn, rightColumn)) {
+                    JavaConversions.asScalaBuffer(listOf(it.leftColumn)).seq()
+                } else {
+                    JavaConversions.asScalaBuffer(listOf("left.${it.leftColumn}", "right.${it.rightColumn}")).seq()
+                }
+
+                result = leftDataset.join(rightDataset, columns, it.type.name)
+            }
+
+        return result
+    }
+
+    internal fun loadSources(sources: List<Source>, variables: Map<String, *>): List<Dataset<Row>> {
+        return sources.stream()
+            .map {
+                when (it) {
+                    is JdbcSource -> {
+                        manipulateSqlQuery(it, variables)
+                    }
+                    else -> it
+                }
+            }
+            .map {
+                datasetService.load(it)
+            }
+            .collect(
+                Collectors.toList()
+            )
+    }
+
+    internal fun writeSinks(result: Dataset<Row>, sinks: List<Sink>, streamingWrite: Boolean): Set<DatasetWriter<*>> {
+        @Suppress("NAME_SHADOWING")
+        val sinks = if (streamingWrite) {
+            sinks.stream()
+                .map { (if (it is NonStreamingSink) StreamingWrapper(it) else it) as StreamingSink }
+                .collect(Collectors.toList())
+        } else {
+            sinks.stream().peek {
+                if (it is StreamingSink) {
+                    it.streamingWrite = false
+                }
+            }.collect(Collectors.toList())
+        }
+
+        val writers = sinks.stream()
+            .map {
+                when (it) {
+                    is NonStreamingSink -> {
+                        datasetService.write(result, it)
+                    }
+                    is StreamingSink -> {
+                        datasetService.write(result, it)
+                    }
+                    else -> throw UnsupportedOperationException()
+                }
+            }
+            .collect(Collectors.toSet())
+
+        return writers
+    }
+
     private fun getLockName(aggregate: Aggregate): String {
         return "${Aggregate::class.java.name}#${aggregate.id}"
     }
 
-    private fun manipulateQuery(jdbcSource: JdbcSource, variables: Map<String, *>): JdbcSource {
+    private fun manipulateSqlQuery(jdbcSource: JdbcSource, variables: Map<String, *>): JdbcSource {
         val source = jdbcSource.clone() as JdbcSource
 
         val evaluationContext = StandardEvaluationContext()

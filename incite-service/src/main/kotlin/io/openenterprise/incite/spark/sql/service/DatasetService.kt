@@ -1,4 +1,4 @@
-package io.openenterprise.incite.spark.service
+package io.openenterprise.incite.spark.sql.service
 
 import io.openenterprise.incite.data.domain.NonStreamingSink
 import io.openenterprise.incite.data.domain.Source

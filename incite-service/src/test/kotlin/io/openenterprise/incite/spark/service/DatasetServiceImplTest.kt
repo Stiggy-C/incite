@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableMap
 import com.google.common.collect.Sets
 import io.openenterprise.ignite.spark.IgniteContext
 import io.openenterprise.incite.data.domain.*
+import io.openenterprise.incite.spark.sql.service.DatasetService
 import io.openenterprise.springframework.context.ApplicationContextUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

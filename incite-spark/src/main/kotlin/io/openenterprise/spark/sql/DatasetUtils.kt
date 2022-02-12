@@ -1,15 +1,36 @@
 package io.openenterprise.spark.sql
 
 import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.SparkSession
 import java.util.*
 import java.util.stream.Collectors
 
-class DatasetUtils {
+sealed class DatasetUtils {
 
     companion object {
 
         @JvmStatic
         val jsonStringsMap = HashMap<UUID, StringBuilder>()
+
+        @JvmStatic
+        fun load(
+            sparkSession: SparkSession,
+            sql: String,
+            driverClass: String,
+            url: String,
+            username: String,
+            password: String
+        ): Dataset<Row> {
+            return sparkSession.read()
+                .format("jdbc")
+                .option("query", sql)
+                .option("driver", driverClass)
+                .option("url", url)
+                .option("user", username)
+                .option("password", password)
+                .load()
+        }
 
         @JvmStatic
         fun <T> toJson(dataset: Dataset<T>): String {

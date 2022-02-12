@@ -9,7 +9,7 @@ import com.google.common.collect.ImmutableMap
 import io.openenterprise.ignite.spark.IgniteContext
 import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.data.repository.AggregateRepository
-import io.openenterprise.incite.spark.service.DatasetService
+import io.openenterprise.incite.spark.sql.service.DatasetService
 import io.openenterprise.incite.spark.service.DatasetServiceImplTest
 import io.openenterprise.incite.spark.sql.streaming.DatasetStreamingWriter
 import io.openenterprise.springframework.context.ApplicationContextUtils

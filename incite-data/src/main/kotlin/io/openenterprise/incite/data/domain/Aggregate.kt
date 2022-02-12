@@ -8,7 +8,8 @@ import java.util.*
 import javax.persistence.*
 
 @Entity
-class Aggregate : AbstractMutableEntity<String>() {
+@Inheritance(strategy=InheritanceType.TABLE_PER_CLASS)
+open class Aggregate : AbstractMutableEntity<String>() {
 
     var description: String? = null
 
