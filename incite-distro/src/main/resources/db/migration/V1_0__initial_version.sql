@@ -5,8 +5,33 @@ create table if not exists aggregate(
     fixedDelay bigint,
     lastRunDateTime timestamp,
     sinks varchar,
-    sources varchar
-) with "TEMPLATE=default";
+    sources varchar,
+    created_by varchar(320) not null,
+    created_date_time timestamp not null,
+    updated_by varchar(320),
+    updated_date_time timestamp
+) with "template=default";
+
+create table if not exists cluster_analysis(
+    id UUID primary key,
+    description varchar,
+    joins varchar,
+    fixedDelay bigint,
+    lastRunDateTime timestamp,
+    sinks varchar,
+    sources varchar,
+    created_by varchar(320) not null,
+    created_date_time timestamp not null,
+    updated_by varchar(320),
+    updated_date_time timestamp
+)  with "template=default";
+
+create table if not exists cluster_analysis_model(
+    id UUID primary key,
+    cluster_analysis_id UUID,
+    created_by varchar(320) not null,
+    created_date_time timestamp not null
+) with "template=default,affinity_key=cluster_analysis_id"
 
 create table if not exists route(
     id UUID primary key,
@@ -18,4 +43,4 @@ create table if not exists route(
     created_date_time timestamp not null,
     updated_by varchar(320),
     updated_date_time timestamp
-) with "TEMPLATE=default";
+) with "template=default";

@@ -8,36 +8,54 @@ import org.apache.spark.ml.clustering.KMeansModel
 import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.OffsetDateTime
 import java.util.*
 import java.util.stream.Collectors
 import javax.inject.Inject
 import javax.inject.Named
+import javax.persistence.EntityNotFoundException
 
 @Named
 class ClusterAnalysisServiceImpl(
     @Inject private val aggregateService: AggregateService,
-    @Inject private val clusterAnalysisFunction: ClusterAnalysisFunction
+    @Inject private val clusterAnalysisFunction: ClusterAnalysisFunction,
+    @Inject private val transactionTemplate: TransactionTemplate
 ) :
     ClusterAnalysisService,
     AbstractAbstractMutableEntityServiceImpl<ClusterAnalysis, String>() {
 
     override fun buildKMeansModel(clusterAnalysis: ClusterAnalysis): KMeansModel {
         assert(aggregateService is AggregateServiceImpl)
+        assert(clusterAnalysis.id != null)
         assert(clusterAnalysis.algorithm is KMeans)
 
         val aggregateServiceImpl = aggregateService as AggregateServiceImpl
         val datasets = aggregateServiceImpl.loadSources(clusterAnalysis.sources, Collections.emptyMap<String, Any>())
         val aggregatedDataset = aggregateServiceImpl.joinSources(datasets, clusterAnalysis.joins)
         val kMeans = clusterAnalysis.algorithm as KMeans
-
-        return clusterAnalysisFunction.buildKMeansModel(
+        val kMeansModel = clusterAnalysisFunction.buildKMeansModel(
             aggregatedDataset,
             kMeans.featureColumns.stream().collect(Collectors.joining(",")),
             kMeans.k,
             kMeans.maxIteration,
             kMeans.seed
         )
+        val kMeansModelId = putToCache(kMeansModel)
+        val clusterAnalysisService = this
+        val clusterAnalysisModel = ClusterAnalysis.Model()
+        clusterAnalysisModel.id = kMeansModelId.toString()
+
+        transactionTemplate.execute {
+            val refreshedClusterAnalysis = clusterAnalysisService.retrieve(clusterAnalysis.id!!)
+                ?: throw EntityNotFoundException()
+
+            refreshedClusterAnalysis.models.add(clusterAnalysisModel)
+
+            clusterAnalysisService.update(refreshedClusterAnalysis)
+        }
+
+        return kMeansModel
     }
 
     override fun <T : MLWritable> getFromCache(modelId: UUID, clazz: Class<T>): T =
