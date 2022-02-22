@@ -9,10 +9,10 @@ import org.apache.commons.io.IOUtils
 import org.apache.commons.io.output.FileWriterWithEncoding
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.reflect.MethodUtils
+import org.apache.ignite.Ignite
 import org.apache.ignite.IgniteJdbcThinDriver
 import org.apache.ignite.cache.query.annotations.QuerySqlFunction
 import org.apache.ignite.configuration.ClientConnectorConfiguration
-import org.apache.ignite.configuration.IgniteConfiguration
 import org.apache.spark.ml.clustering.KMeans
 import org.apache.spark.ml.clustering.KMeansModel
 import org.apache.spark.ml.feature.VectorAssembler
@@ -33,42 +33,52 @@ open class ClusterAnalysisFunction {
 
     companion object {
 
+        /**
+         * Build a [org.apache.spark.ml.clustering.KMeansModel] from given input.
+         *
+         * @return The [java.util.UUID] of the model
+         */
         @JvmStatic
         @QuerySqlFunction(alias = "build_k_means_model")
         fun buildKMeansModel(sql: String, featuresColumns: String, k: Int, maxIteration: Int, seed: Long): UUID {
-            val clusterAnalysisFunction = getInstance()
+            val clusterAnalysisFunction = getFunctionInstance()
             val dataset = clusterAnalysisFunction.loadDataset(sql)
             val kMeansModel = clusterAnalysisFunction.buildKMeansModel(dataset, featuresColumns, k, maxIteration, seed)
 
             return clusterAnalysisFunction.putToCache(kMeansModel)
         }
 
+        /**
+         * Perform KMeans predict with given model and given json or SQL query.
+         *
+         * @return Result in JSON format
+         */
         @JvmStatic
         @QuerySqlFunction(alias = "k_means_predict")
-        fun kMeansPredict(uuid: String, jsonOrSql: String): String {
-            val clusterAnalysisFunction = getInstance()
-            val kMeansModel = clusterAnalysisFunction.getFromCache(UUID.fromString(uuid), KMeansModel::class.java)
+        fun kMeansPredict(modelId: String, jsonOrSql: String): String {
+            val clusterAnalysisFunction = getFunctionInstance()
+            val kMeansModel = clusterAnalysisFunction.getFromCache(UUID.fromString(modelId), KMeansModel::class.java)
             val dataset = clusterAnalysisFunction.kMeansPredict(jsonOrSql, kMeansModel)
 
             return DatasetUtils.toJson(dataset)
         }
 
-        @JvmStatic
-        protected fun getInstance(): ClusterAnalysisFunction =
+        protected fun getFunctionInstance(): ClusterAnalysisFunction =
             ApplicationContextUtils.getApplicationContext()!!.getBean(ClusterAnalysisFunction::class.java)
     }
 
     @Inject
-    lateinit var igniteConfiguration: IgniteConfiguration
+    protected lateinit var ignite: Ignite
 
+    @Inject
     @Named("mlModelsCache")
-    lateinit var modelsCache: Cache<UUID, File>
+    protected lateinit var modelsCache: Cache<UUID, File>
 
     @Inject
-    lateinit var objectMapper: ObjectMapper
+    protected lateinit var objectMapper: ObjectMapper
 
     @Inject
-    lateinit var sparkSession: SparkSession
+    protected lateinit var sparkSession: SparkSession
 
     fun buildKMeansModel(
         dataset: Dataset<Row>,
@@ -142,6 +152,7 @@ open class ClusterAnalysisFunction {
     }
 
     protected fun loadDataset(sql: String): Dataset<Row> {
+        val igniteConfiguration = ignite.configuration()
         val clientConnectorConfiguration = igniteConfiguration.clientConnectorConfiguration
         val clientConnectorPort =
             if (Objects.isNull(clientConnectorConfiguration)) ClientConnectorConfiguration.DFLT_PORT else clientConnectorConfiguration!!.port

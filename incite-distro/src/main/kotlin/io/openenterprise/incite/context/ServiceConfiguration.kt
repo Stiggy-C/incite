@@ -4,5 +4,5 @@ import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-@ComponentScan("io.openenterprise.incite.service")
+@ComponentScan("io.openenterprise.incite.service", "io.openenterprise.incite.spark.sql.service")
 class ServiceConfiguration

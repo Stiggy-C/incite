@@ -12,11 +12,10 @@ import java.util.*
 )
 @JsonSubTypes(
     value = [
-        JsonSubTypes.Type(value = EmbeddedIgniteSink::class, name = "embedded-ignite"),
-        JsonSubTypes.Type(value = IgniteSink::class, name = "ignite"),
-        JsonSubTypes.Type(value = JdbcSink::class, name = "jdbc"),
-        JsonSubTypes.Type(value = KafkaSink::class, name = "kafka"),
-        JsonSubTypes.Type(value = StreamingWrapper::class, name = "streaming-wrapper")
+        JsonSubTypes.Type(value = EmbeddedIgniteSink::class, name = "EmbeddedIgniteSink"),
+        JsonSubTypes.Type(value = IgniteSink::class, name = "IgniteSink"),
+        JsonSubTypes.Type(value = JdbcSink::class, name = "JdbcSink"),
+        JsonSubTypes.Type(value = KafkaSink::class, name = "KafkaSink")
     ]
 )
 abstract class Sink {

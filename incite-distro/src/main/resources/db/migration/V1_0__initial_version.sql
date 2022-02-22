@@ -20,6 +20,7 @@ create table if not exists cluster_analysis(
     lastRunDateTime timestamp,
     sinks varchar,
     sources varchar,
+    latest_score
     created_by varchar(320) not null,
     created_date_time timestamp not null,
     updated_by varchar(320),
@@ -27,11 +28,13 @@ create table if not exists cluster_analysis(
 )  with "template=default";
 
 create table if not exists cluster_analysis_model(
-    id UUID primary key,
+    id UUID,
     cluster_analysis_id UUID,
+    last_silhouette real,
     created_by varchar(320) not null,
-    created_date_time timestamp not null
-) with "template=default,affinity_key=cluster_analysis_id"
+    created_date_time timestamp not null,
+    primary key(id, cluster_analysis_id)
+) with "template=default,affinity_key=cluster_analysis_id";
 
 create table if not exists route(
     id UUID primary key,

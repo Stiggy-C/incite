@@ -6,7 +6,7 @@ Incite is a distributed data platform. It provides the following features,
 * Data aggregation
 * Enterprise integration 
 * Hybrid transaction/analytical processing (HTAP) SQL database
-* Machine Learning with SQL query
+* Machine Learning (ML) with SQL query
 
 ### Data aggregation
 Data aggregation is to compile and combine data from different data-sources for different kind of data-processing. 
@@ -24,6 +24,33 @@ Incite is powered by Apache Ignite which is also a hybrid transaction/analytical
 This means that Incite is friendly to both analytical & transactional workload. One does not have to transfer data 
 stored by transactional operations to a standalone data warehouse to be analysed which saves resources and time.
 
-### Machine Learning with SQL query
+```properties
+## Example SpringBoot configuration
+spring.datasource.driver-class-name=org.apache.ignite.IgniteJdbcThinDriver
+spring.datasource.url=jdbc:ignite:thin://${incite.host}:${incite.port}/incite?lazy=true
+spring.datasource.username=${incite.username}
+spring.datasource.password=${incite.password}
+```
+
+### ML with SQL query
 Machine learning is a set of algorithms which provides insight of data. They can improve itself through the use of data.
-Incite allows running machine learning algorithm against data stored on incite by using SQL query. 
+Incite allows running machine learning algorithm against data stored on incite by using SQL query. Currently, Incite only
+supports the following ML algorithms.
+
+#### 1. Cluster analysis
+   * KMeans
+
+Example:
+```roomsql
+-- Build a model for the given ClusterAnalysis entity
+select build_cluster_analysis_model('2036cd45-557e-41ce-a157-e64253295032');
+-- Return the UUID of the built model
+
+-- Perform prediction for the given ClusterAnalysis entity and given sql query
+select cluster_analysis_predict('2036cd45-557e-41ce-a157-e64253295032', 'select * from sample_dataset');
+-- Return the result in JSON format
+```
+
+### Dynamic (ML) training (TODO)
+Often, ML algorithms require training to form a model for prediction ahead of time. This model may become obsolete as 
+new data is being ingested.

@@ -16,8 +16,8 @@ import javax.persistence.*
 )
 @JsonSubTypes(
     value = [
-        JsonSubTypes.Type(value = SpringXmlRoute::class, name = "SpringXML"),
-        JsonSubTypes.Type(value = YamlRoute::class, name = "YAML")
+        JsonSubTypes.Type(value = SpringXmlRoute::class, name = "SpringXmlRoute"),
+        JsonSubTypes.Type(value = YamlRoute::class, name = "YamlRoute")
     ]
 )
 abstract class Route : AbstractMutableEntity<String>() {

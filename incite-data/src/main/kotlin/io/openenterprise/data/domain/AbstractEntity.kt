@@ -14,9 +14,9 @@ abstract class AbstractEntity<ID: Serializable> {
     open var id: ID? = null
 
     @Size(max = 320)
-    var createdBy: String? = null
+    open var createdBy: String? = null
 
-    var createdDateTime: OffsetDateTime? = null
+    open var createdDateTime: OffsetDateTime? = null
 
     @PrePersist
     protected open fun prePersist() {

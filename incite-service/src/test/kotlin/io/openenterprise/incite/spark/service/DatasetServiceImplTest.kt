@@ -163,11 +163,11 @@ class DatasetServiceImplTest {
         }
 
         @Bean
-        protected fun igniteContext(
-            applicationContextUtils: ApplicationContextUtils,
-            @Qualifier("sparkSession") sparkSession: SparkSession
-        ): IgniteContext {
-            return IgniteContext(sparkSession.sparkContext())
+        protected fun igniteContext(applicationContext: ApplicationContext): IgniteContext {
+            val ignite = applicationContext.getBean(Ignite::class.java) as Ignite
+            val sparkSession = applicationContext.getBean("sparkSession", SparkSession::class) as SparkSession
+
+            return IgniteContext(ignite, sparkSession.sparkContext())
         }
 
         @Bean

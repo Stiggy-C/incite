@@ -10,8 +10,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 )
 @JsonSubTypes(
     value = [
-        JsonSubTypes.Type(value = JdbcSource::class, name = "jdbc"),
-        JsonSubTypes.Type(value = KafkaSource::class, name = "kafka")
+        JsonSubTypes.Type(value = JdbcSource::class, name = "JdbcSource"),
+        JsonSubTypes.Type(value = KafkaSource::class, name = "KafkaSource")
     ]
 )
 abstract class Source: Cloneable {

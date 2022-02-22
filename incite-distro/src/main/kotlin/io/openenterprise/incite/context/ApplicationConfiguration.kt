@@ -16,10 +16,10 @@ import org.apache.ignite.IgniteMessaging
 import org.apache.ignite.cache.CachingProvider
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.ignite.IgniteSparkSession
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.ComponentScan
-import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.Primary
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
+import org.springframework.context.ApplicationContext
+import org.springframework.context.annotation.*
+import org.springframework.expression.spel.standard.SpelExpressionParser
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.servlet.config.annotation.EnableWebMvc
@@ -31,18 +31,22 @@ import javax.cache.CacheManager
 class ApplicationConfiguration {
 
     @Bean
-    fun cachingProvider(): CacheManager {
-        return CachingProvider().cacheManager
-    }
+    fun cacheManager(cachingProvider: CachingProvider): CacheManager = cachingProvider.cacheManager
 
     @Bean
-    fun coroutineScope(): CoroutineScope {
-        return CoroutineScope(Dispatchers.Default)
-    }
+    fun cachingProvider(): CachingProvider = CachingProvider()
 
     @Bean
-    fun igniteContext(applicationContextUtils: ApplicationContextUtils, sparkSession: SparkSession): IgniteContext {
-        return IgniteContext(sparkSession.sparkContext())
+    fun coroutineScope(): CoroutineScope = CoroutineScope(Dispatchers.Default)
+
+    @Bean
+    @ConditionalOnBean(Ignite::class)
+    @DependsOn("sparkSession")
+    fun igniteContext(applicationContext: ApplicationContext): IgniteContext {
+        val ignite = applicationContext.getBean(Ignite::class.java)
+        val sparkSession = applicationContext.getBean("sparkSession", SparkSession::class.java)
+
+        return IgniteContext(ignite, sparkSession.sparkContext())
     }
 
     @Bean
@@ -52,10 +56,11 @@ class ApplicationConfiguration {
         return ignite.message(clusterGroup)
     }
 
-    @Bean
+    @Bean("igniteSparkSession")
+    @ConditionalOnBean(Ignite::class)
     @Primary
-    fun igniteSparkSession(igniteContext: IgniteContext, sparkSession: SparkSession): SparkSession {
-        val igniteSparkSession = IgniteSparkSession(igniteContext, sparkSession)
+    fun igniteSparkSession(igniteContext: IgniteContext): SparkSession {
+        val igniteSparkSession = IgniteSparkSession(igniteContext, igniteContext.sqlContext().sparkSession())
 
         try {
             return igniteSparkSession
@@ -65,26 +70,22 @@ class ApplicationConfiguration {
     }
 
     @Bean
-    fun objectMapper(): ObjectMapper {
-        return ObjectMapper()
-            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-            .findAndRegisterModules()
-            .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
-    }
+    fun objectMapper(): ObjectMapper = ObjectMapper()
+        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+        .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+        .findAndRegisterModules()
+        .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
 
     @Bean
-    fun transactionTemplate(platformTransactionManager: PlatformTransactionManager): TransactionTemplate {
-        return TransactionTemplate(platformTransactionManager)
-    }
+    protected fun spelExpressionParser(): SpelExpressionParser = SpelExpressionParser()
 
     @Bean
-    fun xmlMapper(): XmlMapper {
-        return XmlMapper.builder().findAndAddModules().build()
-    }
+    fun transactionTemplate(platformTransactionManager: PlatformTransactionManager): TransactionTemplate =
+        TransactionTemplate(platformTransactionManager)
 
     @Bean
-    fun yamlMapper(): YAMLMapper {
-        return YAMLMapper.builder().findAndAddModules().build()
-    }
+    fun xmlMapper(): XmlMapper = XmlMapper.builder().findAndAddModules().build()
+
+    @Bean
+    fun yamlMapper(): YAMLMapper = YAMLMapper.builder().findAndAddModules().build()
 }

@@ -6,6 +6,7 @@ import org.apache.spark.sql.SaveMode
 import java.time.OffsetDateTime
 import java.util.*
 import javax.persistence.*
+import kotlin.collections.ArrayList
 
 @Entity
 @Inheritance(strategy=InheritanceType.TABLE_PER_CLASS)
@@ -14,17 +15,17 @@ open class Aggregate : AbstractMutableEntity<String>() {
     var description: String? = null
 
     @Convert(converter = JoinsJsonAttributeConverter::class)
-    lateinit var joins: MutableList<Join>
+    var joins: MutableList<Join> = ArrayList()
 
     var fixedDelay: Long = 0
 
     var lastRunDateTime: OffsetDateTime? = null
 
     @Convert(converter = SinksJsonAttributeConverter::class)
-    lateinit var sinks: MutableList<Sink>
+    var sinks: MutableList<Sink>  = ArrayList()
 
     @Convert(converter = SourcesJsonAttributeConverter::class)
-    lateinit var sources: MutableList<Source>
+    var sources: MutableList<Source> = ArrayList()
 
     @PrePersist
     override fun prePersist() {

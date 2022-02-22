@@ -34,28 +34,14 @@ class ClusterAnalysisServiceImpl(
         val datasets = aggregateServiceImpl.loadSources(clusterAnalysis.sources, Collections.emptyMap<String, Any>())
         val aggregatedDataset = aggregateServiceImpl.joinSources(datasets, clusterAnalysis.joins)
         val kMeans = clusterAnalysis.algorithm as KMeans
-        val kMeansModel = clusterAnalysisFunction.buildKMeansModel(
+
+        return clusterAnalysisFunction.buildKMeansModel(
             aggregatedDataset,
             kMeans.featureColumns.stream().collect(Collectors.joining(",")),
             kMeans.k,
             kMeans.maxIteration,
             kMeans.seed
         )
-        val kMeansModelId = putToCache(kMeansModel)
-        val clusterAnalysisService = this
-        val clusterAnalysisModel = ClusterAnalysis.Model()
-        clusterAnalysisModel.id = kMeansModelId.toString()
-
-        transactionTemplate.execute {
-            val refreshedClusterAnalysis = clusterAnalysisService.retrieve(clusterAnalysis.id!!)
-                ?: throw EntityNotFoundException()
-
-            refreshedClusterAnalysis.models.add(clusterAnalysisModel)
-
-            clusterAnalysisService.update(refreshedClusterAnalysis)
-        }
-
-        return kMeansModel
     }
 
     override fun <T : MLWritable> getFromCache(modelId: UUID, clazz: Class<T>): T =
@@ -68,10 +54,7 @@ class ClusterAnalysisServiceImpl(
 
         assert(aggregateService is AggregateServiceImpl)
 
-        val model = clusterAnalysis.models.stream()
-            .sorted(Comparator.comparing<ClusterAnalysis.Model?, OffsetDateTime?> { it.createdDateTime }.reversed())
-            .findFirst().get()
-
+        val model = clusterAnalysis.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val dataset = kMeansPredict(jsonOrSql, UUID.fromString(model.id))
         val aggregateServiceImpl = aggregateService as AggregateServiceImpl
 

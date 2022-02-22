@@ -19,6 +19,7 @@ import org.springframework.context.annotation.*
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import java.util.Objects.isNull
+import javax.sql.DataSource
 
 @Configuration
 @ComponentScan("io.openenterprise.ignite.cache.query.ml")
@@ -26,11 +27,12 @@ import java.util.Objects.isNull
 @EnableConfigurationProperties
 class IgniteAutoConfiguration : org.apache.ignite.springframework.boot.autoconfigure.IgniteAutoConfiguration() {
 
-    @Bean
+    /*@Bean
     @ConditionalOnBean(Flyway::class)
+    @DependsOn("igniteJdbcThinDateSource")
     fun flywayDependsOnPostProcessor(): FlywayDependsOnPostProcessor {
         return FlywayDependsOnPostProcessor()
-    }
+    }*/
 
     @Bean
     protected fun igniteCluster(ignite: Ignite): IgniteCluster {
@@ -49,19 +51,18 @@ class IgniteAutoConfiguration : org.apache.ignite.springframework.boot.autoconfi
         return igniteCluster
     }
 
-    @Bean
-    @ConditionalOnBean(IgniteJdbcThinDataSource::class)
+    /*@Bean
     fun igniteDatabaseStartupValidator(igniteJdbcThinDataSource: IgniteJdbcThinDataSource): IgniteStartupValidator {
         val igniteStartupValidator = IgniteStartupValidator()
         igniteStartupValidator.setDataSource(igniteJdbcThinDataSource)
 
         return igniteStartupValidator
-    }
+    }*/
 
     @Bean
-    @ConditionalOnBean(IgniteCluster::class)
+    @DependsOn("igniteCluster")
     @Primary
-    fun igniteJdbcThinDataSource(ignite: Ignite): IgniteJdbcThinDataSource {
+    fun igniteJdbcThinDataSource(ignite: Ignite): DataSource {
         val igniteConfiguration = ignite.configuration()
         val clientConnectorConfiguration = igniteConfiguration.clientConnectorConfiguration
         val clientConnectorPort =

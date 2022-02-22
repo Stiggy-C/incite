@@ -39,6 +39,8 @@ import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Primary
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import org.springframework.expression.spel.standard.SpelExpressionParser
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.kafka.core.DefaultKafkaProducerFactory
@@ -74,9 +76,6 @@ class AggregateServiceImplTest {
 
     @Inject
     private lateinit var kafkaTemplate: KafkaTemplate<UUID, AwsDmsMessage>
-
-    @Inject
-    private lateinit var objectMapper: ObjectMapper
 
     @Inject
     private lateinit var postgreSQLContainer: PostgreSQLContainer<*>
@@ -209,30 +208,32 @@ class AggregateServiceImplTest {
         return aggregateService.aggregate(aggregate)
     }
 
+    data class AwsDmsMessage(
+        var data: MutableMap<String, Any> = HashMap(),
+        var metadata: MutableMap<String, Any> = HashMap()
+    )
+
     @TestConfiguration
     @ComponentScan(
         value = [
-            "io.openenterprise.incite.spark.service", "io.openenterprise.springframework.context"
+            "io.openenterprise.incite.spark.sql.service", "io.openenterprise.springframework.context"
         ]
     )
     class Configuration {
 
         @Bean
-        protected fun aggregateRepository(): AggregateRepository {
-            return Mockito.mock(AggregateRepository::class.java)
-        }
+        protected fun aggregateRepository(): AggregateRepository = Mockito.mock(AggregateRepository::class.java)
+
 
         @Bean
         protected fun aggregateService(
             datasetService: DatasetService, ignite: Ignite, spelExpressionParser: SpelExpressionParser
-        ): AggregateService {
-            return AggregateServiceImpl(datasetService, ignite, spelExpressionParser)
-        }
+        ): AggregateService = AggregateServiceImpl(datasetService, ignite, spelExpressionParser)
+
 
         @Bean
-        protected fun coroutineScope(): CoroutineScope {
-            return CoroutineScope(Dispatchers.Default)
-        }
+        protected fun coroutineScope(): CoroutineScope = CoroutineScope(Dispatchers.Default)
+
 
         @Bean
         protected fun dataSource(postgreSQLContainer: PostgreSQLContainer<*>): DataSource {
@@ -265,24 +266,22 @@ class AggregateServiceImplTest {
         }
 
         @Bean
-        protected fun igniteContext(
-            applicationContextUtils: ApplicationContextUtils,
-            @Qualifier("sparkSession") sparkSession: SparkSession
-        ): IgniteContext {
-            return IgniteContext(sparkSession.sparkContext())
+        protected fun igniteContext(applicationContext: ApplicationContext): IgniteContext {
+            val ignite = applicationContext.getBean(Ignite::class.java) as Ignite
+            val sparkSession = applicationContext.getBean("sparkSession", SparkSession::class) as SparkSession
+
+            return IgniteContext(ignite, sparkSession.sparkContext())
         }
 
         @Bean
         @Primary
-        @Qualifier("igniteSparkSession")
-        protected fun igniteSparkSession(igniteContext: IgniteContext, sparkSession: SparkSession): SparkSession {
-            return IgniteSparkSession(igniteContext, sparkSession)
-        }
+        protected fun igniteSparkSession(igniteContext: IgniteContext, sparkSession: SparkSession): SparkSession =
+            IgniteSparkSession(igniteContext, sparkSession)
+
 
         @Bean
-        protected fun jdbcTemplate(datasource: DataSource): JdbcTemplate {
-            return JdbcTemplate(datasource)
-        }
+        protected fun jdbcTemplate(datasource: DataSource): JdbcTemplate = JdbcTemplate(datasource)
+
 
         @Bean
         protected fun kafkaContainer(): KafkaContainer {
@@ -293,18 +292,15 @@ class AggregateServiceImplTest {
         }
 
         @Bean
-        protected fun kafkaTemplate(producerFactory: ProducerFactory<UUID, AwsDmsMessage>): KafkaTemplate<UUID, AwsDmsMessage> {
-            return KafkaTemplate(producerFactory)
-        }
+        protected fun kafkaTemplate(producerFactory: ProducerFactory<UUID, AwsDmsMessage>): KafkaTemplate<UUID, AwsDmsMessage> =
+            KafkaTemplate(producerFactory)
 
         @Bean
-        fun objectMapper(): ObjectMapper {
-            return ObjectMapper()
-                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-                .findAndRegisterModules()
-                .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
-        }
+        fun objectMapper(): ObjectMapper = ObjectMapper()
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+            .findAndRegisterModules()
+            .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
 
         @Bean
         protected fun postgreSQLContainer(): PostgreSQLContainer<*> {
@@ -319,7 +315,10 @@ class AggregateServiceImplTest {
         }
 
         @Bean
-        protected fun producerFactory(kafkaContainer: KafkaContainer, objectMapper: ObjectMapper): ProducerFactory<UUID, AwsDmsMessage> {
+        protected fun producerFactory(
+            kafkaContainer: KafkaContainer,
+            objectMapper: ObjectMapper
+        ): ProducerFactory<UUID, AwsDmsMessage> {
             val configurations = ImmutableMap.builder<String, Any>()
                 .put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.bootstrapServers)
                 .build()
@@ -332,7 +331,7 @@ class AggregateServiceImplTest {
         }
 
         @Bean
-        @Qualifier("sparkSession")
+        @Order(Ordered.HIGHEST_PRECEDENCE)
         protected fun sparkSession(): SparkSession {
             return SparkSession.builder()
                 .appName(DatasetServiceImplTest::class.java.simpleName)
@@ -342,13 +341,6 @@ class AggregateServiceImplTest {
         }
 
         @Bean
-        protected fun spelExpressionParser(): SpelExpressionParser {
-            return SpelExpressionParser()
-        }
+        protected fun spelExpressionParser(): SpelExpressionParser = SpelExpressionParser()
     }
-
-    data class AwsDmsMessage(
-        var data: MutableMap<String, Any> = HashMap(),
-        var metadata: MutableMap<String, Any> = HashMap()
-    )
 }
