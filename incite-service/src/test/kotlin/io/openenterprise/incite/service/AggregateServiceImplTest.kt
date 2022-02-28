@@ -34,10 +34,12 @@ import org.mockito.Mockito
 import org.mockito.internal.util.collections.Sets
 import org.postgresql.ds.PGSimpleDataSource
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
+import org.springframework.context.annotation.DependsOn
 import org.springframework.context.annotation.Primary
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
@@ -138,7 +140,7 @@ class AggregateServiceImplTest {
 
         kafkaTemplate.send(kafkaTopic, UUID.randomUUID(), awsDmsMessage0)
 
-        Thread.sleep(10000)
+        Thread.sleep(20000)
 
         val aggregateContext = aggregateService.getAggregateContext(aggregate.id!!)
 
@@ -266,17 +268,19 @@ class AggregateServiceImplTest {
         }
 
         @Bean
-        protected fun igniteContext(applicationContext: ApplicationContext): IgniteContext {
-            val ignite = applicationContext.getBean(Ignite::class.java) as Ignite
-            val sparkSession = applicationContext.getBean("sparkSession", SparkSession::class) as SparkSession
+        @ConditionalOnBean(Ignite::class)
+        @DependsOn("applicationContextUtils", "sparkSession")
+        fun igniteContext(applicationContext: ApplicationContext): IgniteContext {
+            val sparkSession = applicationContext.getBean("sparkSession", SparkSession::class.java)
 
-            return IgniteContext(ignite, sparkSession.sparkContext())
+            return IgniteContext(sparkSession.sparkContext())
         }
 
         @Bean
         @Primary
-        protected fun igniteSparkSession(igniteContext: IgniteContext, sparkSession: SparkSession): SparkSession =
-            IgniteSparkSession(igniteContext, sparkSession)
+        @Qualifier("igniteSparkSession")
+        protected fun igniteSparkSession(igniteContext: IgniteContext): SparkSession =
+            IgniteSparkSession(igniteContext, igniteContext.sqlContext().sparkSession())
 
 
         @Bean

@@ -12,7 +12,7 @@ import kotlin.collections.ArrayList
 @Inheritance(strategy=InheritanceType.TABLE_PER_CLASS)
 open class Aggregate : AbstractMutableEntity<String>() {
 
-    var description: String? = null
+    open var description: String? = null
 
     @Convert(converter = JoinsJsonAttributeConverter::class)
     var joins: MutableList<Join> = ArrayList()

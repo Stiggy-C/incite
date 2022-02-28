@@ -3,12 +3,12 @@
 ### What is Incite?
 Incite is a distributed data platform. It provides the following features,
 
-* Data aggregation
+* Data (streaming) aggregation
 * Enterprise integration 
 * Hybrid transaction/analytical processing (HTAP) SQL database
 * Machine Learning (ML) with SQL query
 
-### Data aggregation
+### Data (streaming) aggregation
 Data aggregation is to compile and combine data from different data-sources for different kind of data-processing. 
 Incite provides RESTful APIs which allow users to define and run data aggregation against multiple origins (sources) 
 and write the result of the aggregation to different destinations (sinks). Not only that, Incite supports streaming 
@@ -38,19 +38,26 @@ Incite allows running machine learning algorithm against data stored on incite b
 supports the following ML algorithms.
 
 #### 1. Cluster analysis
-   * KMeans
+   * Bisecting k-means
+   * K-means
 
 Example:
 ```roomsql
--- Build a model for the given ClusterAnalysis entity
+-- Build a model for a ClusterAnalysis entity stored into Incite
 select build_cluster_analysis_model('2036cd45-557e-41ce-a157-e64253295032');
 -- Return the UUID of the built model
 
 -- Perform prediction for the given ClusterAnalysis entity and given sql query
 select cluster_analysis_predict('2036cd45-557e-41ce-a157-e64253295032', 'select * from sample_dataset');
 -- Return the result in JSON format
-```
 
-### Dynamic (ML) training (TODO)
-Often, ML algorithms require training to form a model for prediction ahead of time. This model may become obsolete as 
-new data is being ingested.
+-- Build a bisecting k-means model for an ad-hoc dataset 
+-- buildBisectingKMeansModel(sql: String, featuresColumns: String, k: Int, maxIteration: Int, seed: Long)
+select build_bisecting_k_means_model('select g.id, g.age, g.sex from guest g', 'age,sex', 4, 10, 1);
+-- Return the UUID of the built model
+
+-- Perform prediction with the bisecting k-means model
+-- bisecting_k_means_predict(modelId: String, jsonOrSql: String)
+select bisecting_k_means_predict('526d6e09-5c13-486f-951a-5dad58e3d36c', 'select nr.id, nr.age, nr.sex from newly_registered nr');
+-- Return the result in JSON format
+```

@@ -6,6 +6,8 @@ import io.openenterprise.service.AbstractMutableEntityService
 import io.openenterprise.spark.sql.DatasetUtils
 import io.openenterprise.springframework.context.ApplicationContextUtils
 import org.apache.ignite.cache.query.annotations.QuerySqlFunction
+import org.apache.spark.ml.Model
+import org.apache.spark.ml.clustering.BisectingKMeansModel
 import org.apache.spark.ml.clustering.KMeansModel
 import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.sql.Dataset
@@ -34,7 +36,7 @@ interface ClusterAnalysisService : AbstractMutableEntityService<ClusterAnalysis,
 
             val clusterAnalysis = clusterAnalysisService.retrieve(id)
                 ?: throw EntityNotFoundException("ClusterAnalysis with ID, $id, is not found")
-            val kMeansModel = clusterAnalysisService.buildKMeansModel(clusterAnalysis)
+            val kMeansModel = clusterAnalysisService.buildModel<KMeansModel>(clusterAnalysis)
             val modelId = clusterAnalysisService.putToCache(kMeansModel)
             val model = ClusterAnalysis.Model()
             model.id = modelId.toString()
@@ -47,7 +49,6 @@ interface ClusterAnalysisService : AbstractMutableEntityService<ClusterAnalysis,
 
             return modelId
         }
-
 
         /**
          * Perform the given [io.openenterprise.incite.data.domain.ClusterAnalysis] with the latest
@@ -62,12 +63,7 @@ interface ClusterAnalysisService : AbstractMutableEntityService<ClusterAnalysis,
             val clusterAnalysisService = getBean(ClusterAnalysisService::class.java)
             val clusterAnalysis = clusterAnalysisService.retrieve(id)
                 ?: throw EntityNotFoundException("ClusterAnalysis with ID, $id, is not found")
-            val dataset = when (clusterAnalysis.algorithm) {
-                is KMeans -> {
-                    clusterAnalysisService.kMeansPredict(jsonOrSql, clusterAnalysis)
-                }
-                else -> throw UnsupportedOperationException()
-            }
+            val dataset = clusterAnalysisService.predict(jsonOrSql, clusterAnalysis)
 
             return DatasetUtils.toJson(dataset)
         }
@@ -76,15 +72,11 @@ interface ClusterAnalysisService : AbstractMutableEntityService<ClusterAnalysis,
             ApplicationContextUtils.getApplicationContext()!!.getBean(clazz)
     }
 
-    fun buildKMeansModel(clusterAnalysis: ClusterAnalysis): KMeansModel
+    fun <M: Model<M>> buildModel(clusterAnalysis: ClusterAnalysis): M
 
-    fun <T : MLWritable> getFromCache(modelId: UUID, clazz: Class<T>): T
+    fun <M: Model<M>> getFromCache(modelId: UUID,): M
 
-    fun kMeansPredict(jsonOrSql: String, clusterAnalysis: ClusterAnalysis): Dataset<Row>
-
-    fun kMeansPredict(jsonOrSql: String, kMeansModel: KMeansModel): Dataset<Row>
-
-    fun kMeansPredict(jsonOrSql: String, modelId: UUID): Dataset<Row>
+    fun predict(jsonOrSql: String, clusterAnalysis: ClusterAnalysis): Dataset<Row>
 
     fun putToCache(model: MLWritable): UUID
 }

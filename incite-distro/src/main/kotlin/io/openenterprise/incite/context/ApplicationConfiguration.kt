@@ -41,12 +41,11 @@ class ApplicationConfiguration {
 
     @Bean
     @ConditionalOnBean(Ignite::class)
-    @DependsOn("sparkSession")
+    @DependsOn("applicationContextUtils", "sparkSession")
     fun igniteContext(applicationContext: ApplicationContext): IgniteContext {
-        val ignite = applicationContext.getBean(Ignite::class.java)
         val sparkSession = applicationContext.getBean("sparkSession", SparkSession::class.java)
 
-        return IgniteContext(ignite, sparkSession.sparkContext())
+        return IgniteContext(sparkSession.sparkContext())
     }
 
     @Bean

@@ -20,7 +20,6 @@ create table if not exists cluster_analysis(
     lastRunDateTime timestamp,
     sinks varchar,
     sources varchar,
-    latest_score
     created_by varchar(320) not null,
     created_date_time timestamp not null,
     updated_by varchar(320),
@@ -30,7 +29,7 @@ create table if not exists cluster_analysis(
 create table if not exists cluster_analysis_model(
     id UUID,
     cluster_analysis_id UUID,
-    last_silhouette real,
+    silhouette real,
     created_by varchar(320) not null,
     created_date_time timestamp not null,
     primary key(id, cluster_analysis_id)

@@ -21,10 +21,12 @@ import org.apache.spark.sql.ignite.IgniteSparkSession
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
+import org.springframework.context.annotation.DependsOn
 import org.springframework.context.annotation.Primary
 import org.springframework.expression.spel.standard.SpelExpressionParser
 import org.springframework.kafka.core.DefaultKafkaProducerFactory
@@ -74,7 +76,7 @@ class DatasetServiceImplTest {
         assertNotNull(datasetStreamingWriter.streamingQuery)
         assertNotNull(datasetStreamingWriter.writer)
 
-        Thread.sleep(10000)
+        Thread.sleep(20000)
 
         assertTrue(datasetStreamingWriter.streamingQuery.recentProgress().isNotEmpty())
 
@@ -124,7 +126,7 @@ class DatasetServiceImplTest {
         assertNotNull(datasetStreamingWriter.streamingQuery)
         assertNotNull(datasetStreamingWriter.writer)
 
-        Thread.sleep(10000)
+        Thread.sleep(20000)
 
         assertTrue(datasetStreamingWriter.streamingQuery.recentProgress().isNotEmpty())
 
@@ -135,7 +137,7 @@ class DatasetServiceImplTest {
     }
 
     @TestConfiguration
-    @ComponentScan(value = ["io.openenterprise.incite.spark.service", "io.openenterprise.springframework.context"])
+    @ComponentScan(value = ["io.openenterprise.incite.spark.sql.service", "io.openenterprise.springframework.context"])
     class Configuration {
 
         @Bean
@@ -163,18 +165,19 @@ class DatasetServiceImplTest {
         }
 
         @Bean
+        @ConditionalOnBean(Ignite::class)
+        @DependsOn("applicationContextUtils", "sparkSession")
         protected fun igniteContext(applicationContext: ApplicationContext): IgniteContext {
-            val ignite = applicationContext.getBean(Ignite::class.java) as Ignite
-            val sparkSession = applicationContext.getBean("sparkSession", SparkSession::class) as SparkSession
+            val sparkSession = applicationContext.getBean("sparkSession", SparkSession::class.java)
 
-            return IgniteContext(ignite, sparkSession.sparkContext())
+            return IgniteContext(sparkSession.sparkContext())
         }
 
         @Bean
         @Primary
         @Qualifier("igniteSparkSession")
-        protected fun igniteSparkSession(igniteContext: IgniteContext, sparkSession: SparkSession): SparkSession {
-            return IgniteSparkSession(igniteContext, sparkSession)
+        protected fun igniteSparkSession(igniteContext: IgniteContext): SparkSession {
+            return IgniteSparkSession(igniteContext, igniteContext.sqlContext().sparkSession())
         }
 
         @Bean

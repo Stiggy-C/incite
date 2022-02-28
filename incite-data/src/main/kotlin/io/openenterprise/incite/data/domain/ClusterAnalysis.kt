@@ -23,10 +23,8 @@ class ClusterAnalysis : Aggregate() {
     override fun postLoad() {
         super.postLoad()
 
-        if (models.size > 0) {
-            latestSilhouette =
-                models.stream().filter { it.lastSilhouette != null }.findFirst().map { it.lastSilhouette }.orElse(null)
-        }
+        latestSilhouette =
+            models.stream().filter { it.silhouette != null }.findFirst().map { it.silhouette }.orElse(null)
     }
 
     abstract class Algorithm {
@@ -47,7 +45,7 @@ class ClusterAnalysis : Aggregate() {
     @Table(name = "cluster_analysis_model")
     class Model : AbstractEntity<String>(), Comparable<Model> {
 
-        var lastSilhouette: Double? = null
+        var silhouette: Double? = null
 
         override fun compareTo(other: Model): Int {
             return Comparator.comparing<Model?, OffsetDateTime?> {
@@ -59,5 +57,7 @@ class ClusterAnalysis : Aggregate() {
     @Converter
     class AlgorithmJsonAttributeConverter : AbstractJsonAttributeConverter<Algorithm>()
 }
+
+class BisectingKMeans: ClusterAnalysis.FeatureColumnsBasedAlgorithm()
 
 class KMeans : ClusterAnalysis.FeatureColumnsBasedAlgorithm()

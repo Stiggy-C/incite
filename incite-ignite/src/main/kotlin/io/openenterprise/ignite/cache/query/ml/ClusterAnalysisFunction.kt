@@ -13,9 +13,15 @@ import org.apache.ignite.Ignite
 import org.apache.ignite.IgniteJdbcThinDriver
 import org.apache.ignite.cache.query.annotations.QuerySqlFunction
 import org.apache.ignite.configuration.ClientConnectorConfiguration
+import org.apache.spark.ml.Estimator
+import org.apache.spark.ml.Model
+import org.apache.spark.ml.clustering.BisectingKMeans
+import org.apache.spark.ml.clustering.BisectingKMeansModel
 import org.apache.spark.ml.clustering.KMeans
 import org.apache.spark.ml.clustering.KMeansModel
 import org.apache.spark.ml.feature.VectorAssembler
+import org.apache.spark.ml.param.shared.HasFeaturesCol
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
@@ -34,6 +40,28 @@ open class ClusterAnalysisFunction {
     companion object {
 
         /**
+         * Build a [org.apache.spark.ml.clustering.BisectingKMeansModel] from given input.
+         *
+         * @return The [java.util.UUID] of the model
+         */
+        @JvmStatic
+        @QuerySqlFunction(alias = "build_bisecting_k_means_model")
+        fun buildBisectingKMeansModel(
+            sql: String,
+            featuresColumns: String,
+            k: Int,
+            maxIteration: Int,
+            seed: Long
+        ): UUID {
+            val clusterAnalysisFunction = getFunctionInstance()
+            val dataset = clusterAnalysisFunction.loadDataset(sql)
+            val bisectingKMeansModel =
+                clusterAnalysisFunction.buildBisectingKMeansModel(dataset, featuresColumns, k, maxIteration, seed)
+
+            return clusterAnalysisFunction.putToCache(bisectingKMeansModel)
+        }
+
+        /**
          * Build a [org.apache.spark.ml.clustering.KMeansModel] from given input.
          *
          * @return The [java.util.UUID] of the model
@@ -49,6 +77,22 @@ open class ClusterAnalysisFunction {
         }
 
         /**
+         * Perform BiseKMeans predict with given model and given json or SQL query.
+         *
+         * @return Result in JSON format
+         */
+        @JvmStatic
+        @QuerySqlFunction(alias = "bisecting_k_means_predict")
+        fun bisectingKMeansPredict(modelId: String, jsonOrSql: String): String {
+            val clusterAnalysisFunction = getFunctionInstance()
+            val bisectingKMeansModel: BisectingKMeansModel =
+                clusterAnalysisFunction.getFromCache(UUID.fromString(modelId))
+            val dataset = clusterAnalysisFunction.predict(jsonOrSql, bisectingKMeansModel)
+
+            return DatasetUtils.toJson(dataset)
+        }
+
+        /**
          * Perform KMeans predict with given model and given json or SQL query.
          *
          * @return Result in JSON format
@@ -57,8 +101,8 @@ open class ClusterAnalysisFunction {
         @QuerySqlFunction(alias = "k_means_predict")
         fun kMeansPredict(modelId: String, jsonOrSql: String): String {
             val clusterAnalysisFunction = getFunctionInstance()
-            val kMeansModel = clusterAnalysisFunction.getFromCache(UUID.fromString(modelId), KMeansModel::class.java)
-            val dataset = clusterAnalysisFunction.kMeansPredict(jsonOrSql, kMeansModel)
+            val kMeansModel: KMeansModel = clusterAnalysisFunction.getFromCache(UUID.fromString(modelId))
+            val dataset = clusterAnalysisFunction.predict(jsonOrSql, kMeansModel)
 
             return DatasetUtils.toJson(dataset)
         }
@@ -80,6 +124,21 @@ open class ClusterAnalysisFunction {
     @Inject
     protected lateinit var sparkSession: SparkSession
 
+    fun buildBisectingKMeansModel(
+        dataset: Dataset<Row>,
+        featuresColumns: String,
+        k: Int,
+        maxIteration: Int,
+        seed: Long
+    ): BisectingKMeansModel {
+        val bisectingKMeans = BisectingKMeans()
+        bisectingKMeans.k = k
+        bisectingKMeans.maxIter = maxIteration
+        bisectingKMeans.seed = seed
+
+        return buildModel(bisectingKMeans, dataset, StringUtils.split(featuresColumns, ","))
+    }
+
     fun buildKMeansModel(
         dataset: Dataset<Row>,
         featuresColumns: String,
@@ -92,30 +151,27 @@ open class ClusterAnalysisFunction {
         kMeans.maxIter = maxIteration
         kMeans.seed = seed
 
-        val transformedDataset = VectorAssembler().setInputCols(StringUtils.split(featuresColumns, ","))
-            .setOutputCol(kMeans.featuresCol).transform(dataset)
-
-        return kMeans.fit(transformedDataset)
+        return buildModel(kMeans, dataset, StringUtils.split(featuresColumns, ","))
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun <T : MLWritable> getFromCache(modelId: UUID, clazz: Class<T>): T {
+    fun <M : Model<M>> getFromCache(modelId: UUID): M {
         val path = "${FileUtils.getTempDirectoryPath()}/incite/ml/$modelId"
         val directory = File(path)
         val zipFile = modelsCache.get(modelId)
 
         ZipUtil.unpack(zipFile, directory)
 
-        return MethodUtils.invokeStaticMethod(clazz, "load", directory.path) as T
+        return MethodUtils.invokeStaticMethod(Model::class.java, "load", directory.path) as M
     }
 
-    fun kMeansPredict(jsonOrSql: String, kMeansModel: KMeansModel): Dataset<Row> {
+    fun <M : Model<M>> predict(jsonOrSql: String, model: Model<M>): Dataset<Row> {
         var jsonNode: JsonNode? = null
         var tempJsonFile: File? = null
         try {
             jsonNode = objectMapper.readTree(jsonOrSql)
         } catch (e: IOException) {
-            // Given is not a JSON string assuming it is an SQL query for now
+            // Given is not a JSON string. Let's assume it is an SQL query for now.
         }
 
         val dataset = if (jsonNode == null) {
@@ -131,13 +187,13 @@ open class ClusterAnalysisFunction {
         }
 
         try {
-            return kMeansModel.transform(dataset)
+            return model.transform(dataset)
         } finally {
             FileUtils.deleteQuietly(tempJsonFile)
         }
     }
 
-    fun putToCache(model: MLWritable): UUID {
+    fun <T : MLWritable> putToCache(model: T): UUID {
         val modelId = UUID.randomUUID()
         val path = "${FileUtils.getTempDirectoryPath()}/incite/ml/$modelId"
         val directory = File(path)
@@ -167,5 +223,20 @@ open class ClusterAnalysisFunction {
             "ignite",
             "ignite"
         )
+    }
+
+    private fun <A : Estimator<M>, M : Model<M>> buildModel(
+        algorithm: A,
+        dataset: Dataset<Row>,
+        featuresColumns: Array<String>
+    ): M {
+        assert(algorithm is HasFeaturesCol)
+
+        @Suppress("unchecked_cast")
+        val transformedDataset =
+            VectorAssembler().setInputCols(featuresColumns).setOutputCol(((algorithm as HasFeaturesCol).featuresCol))
+                .transform(dataset)
+
+        return algorithm.fit(transformedDataset)
     }
 }

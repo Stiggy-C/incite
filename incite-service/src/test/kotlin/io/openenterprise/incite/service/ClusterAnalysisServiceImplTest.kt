@@ -7,10 +7,7 @@ import com.fasterxml.jackson.databind.SerializationFeature
 import com.google.common.collect.Sets
 import io.openenterprise.ignite.cache.query.ml.ClusterAnalysisFunction
 import io.openenterprise.ignite.spark.IgniteContext
-import io.openenterprise.incite.data.domain.ClusterAnalysis
-import io.openenterprise.incite.data.domain.JdbcSource
-import io.openenterprise.incite.data.domain.KMeans
-import io.openenterprise.incite.data.domain.RdbmsDatabase
+import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.data.repository.AggregateRepository
 import io.openenterprise.incite.data.repository.ClusterAnalysisRepository
 import io.openenterprise.incite.spark.service.DatasetServiceImplTest
@@ -24,6 +21,7 @@ import org.apache.ignite.Ignition
 import org.apache.ignite.cache.CachingProvider
 import org.apache.ignite.cluster.ClusterState
 import org.apache.ignite.configuration.IgniteConfiguration
+import org.apache.spark.ml.clustering.BisectingKMeansModel
 import org.apache.spark.ml.clustering.KMeansModel
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.ignite.IgniteSparkSession
@@ -36,10 +34,12 @@ import org.mockito.Mockito
 import org.postgresql.ds.PGSimpleDataSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
+import org.springframework.context.annotation.DependsOn
 import org.springframework.context.annotation.Primary
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
@@ -71,9 +71,6 @@ class ClusterAnalysisServiceImplTest {
     @Autowired
     private lateinit var postgreSQLContainer: PostgreSQLContainer<*>
 
-    @Autowired
-    private lateinit var transactionTemplate: TransactionTemplate
-
     @Before
     fun before() {
         val rdbmsDatabase = RdbmsDatabase()
@@ -86,12 +83,7 @@ class ClusterAnalysisServiceImplTest {
         jdbcSource.query = "select g.id, g.age, g.sex from guest g"
         jdbcSource.rdbmsDatabase = rdbmsDatabase
 
-        val algorithm = KMeans()
-        algorithm.featureColumns = Sets.newHashSet("age", "sex")
-        algorithm.k = 4
-
         clusterAnalysis.id = UUID.randomUUID().toString()
-        clusterAnalysis.algorithm = algorithm
         clusterAnalysis.sources = Lists.list(jdbcSource)
 
         jdbcTemplate.update(
@@ -110,14 +102,32 @@ class ClusterAnalysisServiceImplTest {
         jdbcTemplate.update("insert into guest values (10, '${RandomStringUtils.randomNumeric(9)}', 46, 1, now(), now()) on conflict do nothing")
 
         Mockito.`when`(clusterAnalysisService.retrieve(clusterAnalysis.id.toString())).thenReturn(clusterAnalysis)
-        Mockito.`when`(transactionTemplate.execute(Mockito.any<TransactionCallback<Unit>>())).then {
-            (it.arguments[0] as TransactionCallback<*>).doInTransaction(Mockito.mock(TransactionStatus::class.java))
-        }
+    }
+
+    @Test
+    fun buildBisectingKMeansModel() {
+        val algorithm = BisectingKMeans()
+        algorithm.featureColumns = Sets.newHashSet("age", "sex")
+        algorithm.k = 4
+
+        clusterAnalysis.algorithm = algorithm
+
+        val bisectingKMeansModel: BisectingKMeansModel = clusterAnalysisService.buildModel(clusterAnalysis)
+
+        Assert.assertNotNull(bisectingKMeansModel)
+        Assert.assertTrue(bisectingKMeansModel.clusterCenters().isNotEmpty())
+        Assert.assertTrue(bisectingKMeansModel.hasSummary())
     }
 
     @Test
     fun buildKMeansModel() {
-        val kMeansModel = clusterAnalysisService.buildKMeansModel(clusterAnalysis)
+        val algorithm = KMeans()
+        algorithm.featureColumns = Sets.newHashSet("age", "sex")
+        algorithm.k = 4
+
+        clusterAnalysis.algorithm = algorithm
+
+        val kMeansModel: KMeansModel = clusterAnalysisService.buildModel(clusterAnalysis)
 
         Assert.assertNotNull(kMeansModel)
         Assert.assertTrue(kMeansModel.clusterCenters().isNotEmpty())
@@ -152,11 +162,9 @@ class ClusterAnalysisServiceImplTest {
 
         @Bean
         protected fun clusterAnalysisService(
-            aggregateService: AggregateService,
-            clusterAnalysisFunction: ClusterAnalysisFunction,
-            transactionTemplate: TransactionTemplate
+            aggregateService: AggregateService, clusterAnalysisFunction: ClusterAnalysisFunction
         ): ClusterAnalysisService {
-            return ClusterAnalysisServiceImpl(aggregateService, clusterAnalysisFunction, transactionTemplate)
+            return ClusterAnalysisServiceImpl(aggregateService, clusterAnalysisFunction)
         }
 
         @Bean
@@ -190,11 +198,12 @@ class ClusterAnalysisServiceImplTest {
         }
 
         @Bean
-        protected fun igniteContext(applicationContext: ApplicationContext): IgniteContext {
-            val ignite = applicationContext.getBean(Ignite::class.java)
+        @ConditionalOnBean(Ignite::class)
+        @DependsOn("applicationContextUtils", "sparkSession")
+        fun igniteContext(applicationContext: ApplicationContext): IgniteContext {
             val sparkSession = applicationContext.getBean("sparkSession", SparkSession::class.java)
 
-            return IgniteContext(ignite, sparkSession.sparkContext())
+            return IgniteContext(sparkSession.sparkContext())
         }
 
         @Bean
