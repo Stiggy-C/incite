@@ -31,6 +31,11 @@ abstract class Route : AbstractMutableEntity<String>() {
 
         id = UUID.randomUUID().toString()
     }
+
+    enum class Type {
+
+        SPRING_XML, YAML
+    }
 }
 
 @Entity

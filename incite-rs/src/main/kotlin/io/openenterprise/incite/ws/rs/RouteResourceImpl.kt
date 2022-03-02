@@ -28,26 +28,28 @@ class RouteResourceImpl : RouteResource, AbstractAbstractMutableEntityResourceIm
     private lateinit var yamlMapper: YAMLMapper
 
     @POST
-    @Consumes(value = [MediaType.TEXT_PLAIN, MediaType.TEXT_XML])
+    @Consumes(MediaType.TEXT_PLAIN, MediaType.TEXT_XML)
     @Produces(MediaType.APPLICATION_JSON)
     override fun create(body: String, @Suspended asyncResponse: AsyncResponse) {
         coroutineScope.launch(Dispatchers.IO) {
-            val route: Route?
+            val route: Route = when (determineType(body)) {
+                Route.Type.SPRING_XML -> {
+                    val springXmlRoute = SpringXmlRoute()
+                    springXmlRoute.xml = body
 
-            if (isXml(body)) {
-                val springXmlRoute = SpringXmlRoute()
-                springXmlRoute.xml = body
+                    springXmlRoute
+                }
+                Route.Type.YAML -> {
+                    val yamlRoute = YamlRoute()
+                    yamlRoute.yaml = body
 
-                route = springXmlRoute
-            } else if (isYaml(body)) {
-                val yamlRoute = YamlRoute()
-                yamlRoute.yaml = body
+                    yamlRoute
+                }
+                else -> {
+                    asyncResponse.resume(Response.status(501).build())
 
-                route = yamlRoute
-            } else {
-                asyncResponse.resume(Response.status(501).build())
-
-                return@launch
+                    return@launch
+                }
             }
 
             val authentication = getAuthentication()
@@ -63,7 +65,7 @@ class RouteResourceImpl : RouteResource, AbstractAbstractMutableEntityResourceIm
         asyncResponse.resume(Response.status(Response.Status.NOT_IMPLEMENTED).build())
     }
 
-    @POST
+    @GET
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
     override fun retrieve(@PathParam("id") id: String, @Suspended asyncResponse: AsyncResponse) {
@@ -82,6 +84,9 @@ class RouteResourceImpl : RouteResource, AbstractAbstractMutableEntityResourceIm
     override fun update(@PathParam("id") id: String, entity: Route, @Suspended asyncResponse: AsyncResponse) {
         super.update(id, entity, asyncResponse)
     }
+
+    private fun determineType(string: String): Route.Type? =
+        if (isXml(string)) Route.Type.SPRING_XML else if (isYaml(string)) Route.Type.YAML else null
 
     private fun isXml(string: String): Boolean {
         try {
