@@ -3,6 +3,7 @@ package io.openenterprise.ignite.spark.impl
 import io.openenterprise.ignite.spark.IgniteContext
 import io.openenterprise.ignite.spark.IgniteDataFrameConstants
 import io.openenterprise.springframework.context.ApplicationContextUtils
+import org.apache.commons.collections4.MapUtils
 import org.apache.commons.lang3.StringUtils
 import org.apache.ignite.spark.IgniteDataFrameSettings
 import org.apache.ignite.spark.impl.IgniteSQLRelation
@@ -14,7 +15,9 @@ import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.sources.BaseRelation
 import scala.Option
+import scala.Some
 import scala.collection.JavaConverters.asScalaBufferConverter
+import scala.collection.JavaConverters.mapAsJavaMapConverter
 import scala.collection.immutable.Map
 import javax.inject.Inject
 
@@ -47,14 +50,23 @@ class IgniteRelationProvider : org.apache.ignite.spark.impl.IgniteRelationProvid
         parameters: Map<String, String>,
         dataset: Dataset<Row>
     ): BaseRelation {
-        val ignite = igniteContext.ignite()
-        val igniteSchema = parameters[IgniteDataFrameSettings.OPTION_SCHEMA()]
-        val schema = dataset.schema()
-        val tableName = parameters[IgniteDataFrameSettings.OPTION_TABLE()].get()
-        val tableExists = igniteContext.ignite().cacheNames().contains(tableName)
-        val tableConfiguration = if (tableExists) igniteContext.ignite().cache<Any, Any>(tableName) else null
 
-        if (tableConfiguration == null) {
+        val ignite = igniteContext.ignite()
+        val igniteSqlConfiguration = ignite.configuration().sqlConfiguration
+        val igniteSchema = if (parameters.contains(IgniteDataFrameSettings.OPTION_SCHEMA())) {
+            parameters[IgniteDataFrameSettings.OPTION_SCHEMA()]
+        } else if (igniteSqlConfiguration.sqlSchemas == null || igniteSqlConfiguration.sqlSchemas.isEmpty()) {
+            Some("PUBLIC")
+        } else {
+            Some(igniteSqlConfiguration.sqlSchemas[0])
+        }
+        val igniteTableName = parameters[IgniteDataFrameSettings.OPTION_TABLE()].get()
+        val igniteCacheName = "SQL_${igniteSchema.get()}_$igniteTableName".uppercase()
+        val igniteTableExists = ignite.cacheNames().stream().anyMatch{ it == igniteCacheName }
+        val igniteTable = if (igniteTableExists) ignite.cache<Any, Any>(igniteCacheName) else null
+        val schema = dataset.schema()
+
+        if (igniteTable == null) {
             QueryHelper.ensureCreateTableOptions(schema, parameters, igniteContext)
 
             val createTableParameters = parameters[IgniteDataFrameSettings.OPTION_CREATE_TABLE_PARAMETERS()]
@@ -65,13 +77,13 @@ class IgniteRelationProvider : org.apache.ignite.spark.impl.IgniteRelationProvid
 
             QueryHelper.createTable(
                 schema,
-                tableName,
+                igniteTableName,
                 asScalaBufferConverter(primaryKeys).asScala().toSeq(),
                 createTableParameters,
                 ignite
             )
             QueryHelper.saveTable(
-                dataset, tableName, igniteSchema, igniteContext,
+                dataset, igniteTableName, igniteSchema, igniteContext,
                 parameters[IgniteDataFrameSettings.OPTION_STREAMER_ALLOW_OVERWRITE()] as Option<Any>,
                 parameters[IgniteDataFrameSettings.OPTION_STREAMER_SKIP_STORE()] as Option<Any>,
                 parameters[IgniteDataFrameSettings.OPTION_STREAMER_FLUSH_FREQUENCY()] as Option<Any>,
@@ -81,7 +93,7 @@ class IgniteRelationProvider : org.apache.ignite.spark.impl.IgniteRelationProvid
         } else {
             when (saveMode) {
                 SaveMode.ErrorIfExists -> {
-                    throw SparkException("Table or view, $tableName, already exists. SaveMode: ErrorIfExists.")
+                    throw SparkException("Table or view, $igniteTableName, already exists. SaveMode: ErrorIfExists.")
                 }
                 SaveMode.Ignore -> {
                     // Do nothing.
@@ -100,10 +112,10 @@ class IgniteRelationProvider : org.apache.ignite.spark.impl.IgniteRelationProvid
                             ).asList()
 
                             QueryHelper.ensureCreateTableOptions(schema, parameters, igniteContext)
-                            QueryHelper.dropTable(tableName, ignite)
+                            QueryHelper.dropTable(igniteTableName, ignite)
                             QueryHelper.createTable(
                                 schema,
-                                tableName,
+                                igniteTableName,
                                 asScalaBufferConverter(primaryKeys).asScala().toSeq(),
                                 createTableParameters,
                                 ignite
@@ -113,7 +125,7 @@ class IgniteRelationProvider : org.apache.ignite.spark.impl.IgniteRelationProvid
                     }
 
                     QueryHelper.saveTable(
-                        dataset, tableName, igniteSchema, igniteContext,
+                        dataset, igniteTableName, igniteSchema, igniteContext,
                         parameters[IgniteDataFrameSettings.OPTION_STREAMER_ALLOW_OVERWRITE()] as Option<Any>,
                         parameters[IgniteDataFrameSettings.OPTION_STREAMER_SKIP_STORE()] as Option<Any>,
                         parameters[IgniteDataFrameSettings.OPTION_STREAMER_FLUSH_FREQUENCY()] as Option<Any>,

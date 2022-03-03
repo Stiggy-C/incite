@@ -70,7 +70,7 @@ class AggregateServiceImpl(
             val durationInMillis = duration.toMillis()
 
             if (durationInMillis < aggregate.fixedDelay) {
-                throw IllegalStateException("Aggregate can not be re-run for another ${durationInMillis} milliseconds")
+                throw IllegalStateException("Aggregate can not be re-run for another $durationInMillis milliseconds")
             }
         }
 

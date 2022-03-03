@@ -91,22 +91,24 @@ class AggregateServiceImplTest {
 
         jdbcTemplate.update("insert into guest values (1, '2020324690', now(), now()) on conflict do nothing")
         jdbcTemplate.update("insert into guest values (2, '2021135985', now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (3, '2022031234', now(), now()) on conflict do nothing")
     }
 
     @Test
     fun aggregateMultipleTimesAndExceptionOccurred() {
         val aggregateId = UUID.randomUUID().toString()
+        val embeddedIgniteSinkId = UUID.randomUUID()
         val kafkaTopic = "transactions_0"
         val igniteTable = "guest_transactions_0"
 
         coroutineScope.launch {
-            runAggregate(aggregateId, igniteTable, kafkaTopic)
+            runAggregate(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
         }
 
         var exception: Exception? = null
 
         try {
-            runAggregate(aggregateId, igniteTable, kafkaTopic)
+            runAggregate(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
         } catch (e: Exception) {
             exception = e
         }
@@ -117,10 +119,11 @@ class AggregateServiceImplTest {
     @Test
     fun aggregateNonStreamingSourceWithStreamingSource() {
         val aggregateId = UUID.randomUUID().toString()
+        val embeddedIgniteSinkId = UUID.randomUUID()
         val kafkaTopic = "transactions_1"
         val igniteTable = "guest_transactions_1"
 
-        val aggregate = runAggregate(aggregateId, igniteTable, kafkaTopic)
+        val aggregate = runAggregate(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
 
         assertNotNull(aggregate.lastRunDateTime)
 
@@ -155,7 +158,85 @@ class AggregateServiceImplTest {
         assertTrue(ignite.cache<Any, Any>(igniteCacheName).size() > 0)
     }
 
-    private fun runAggregate(aggregateId: String, igniteTable: String, kafkaTopic: String): Aggregate {
+    @Test
+    fun aggregateWithoutOverwritingAndCanResume() {
+        val aggregateId = UUID.randomUUID().toString()
+        val kafkaTopic = "transactions_2"
+        val embeddedIgniteSinkId = UUID.randomUUID()
+        val igniteTable = "guest_transactions_2"
+
+        var aggregate = runAggregate(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
+
+        assertNotNull(aggregate.lastRunDateTime)
+
+        val awsDmsMessage0 = AwsDmsMessage()
+        awsDmsMessage0.data = ImmutableMap.of(
+            "id",
+            UUID.randomUUID().toString(),
+            "membership_number",
+            "2021135985",
+            "sku",
+            UUID.randomUUID().toString(),
+            "price",
+            "423.0",
+            "created_date_time",
+            "2022-01-01 02:34:00.000"
+        )
+
+        kafkaTemplate.send(kafkaTopic, UUID.randomUUID(), awsDmsMessage0)
+
+        Thread.sleep(5000)
+
+        var aggregateContext = aggregateService.getAggregateContext(aggregate.id!!)
+
+        aggregateContext!!.datasetWriters.stream()
+            .filter { it is DatasetStreamingWriter }
+            .map { it as DatasetStreamingWriter }
+            .map { it.streamingQuery }
+            .peek { it.processAllAvailable() }
+            .forEach { it.stop() }
+
+        aggregate = runAggregate(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
+
+        val awsDmsMessage1 = AwsDmsMessage()
+        awsDmsMessage1.data = ImmutableMap.of(
+            "id",
+            UUID.randomUUID().toString(),
+            "membership_number",
+            "2022031234",
+            "sku",
+            UUID.randomUUID().toString(),
+            "price",
+            "423.0",
+            "created_date_time",
+            "2022-03-03 10:00:00.000"
+        )
+
+        kafkaTemplate.send(kafkaTopic, UUID.randomUUID(), awsDmsMessage1)
+
+        Thread.sleep(5000)
+
+        aggregateContext = aggregateService.getAggregateContext(aggregate.id!!)
+
+        assertNotNull(aggregateContext)
+        assertTrue(aggregateContext!!.datasetWriters.stream().allMatch { it is DatasetStreamingWriter })
+        assertTrue(
+            aggregateContext.datasetWriters.stream()
+                .allMatch { (it as DatasetStreamingWriter).streamingQuery.isActive })
+
+        val igniteCacheName = "SQL_PUBLIC_${igniteTable.uppercase()}"
+
+        Thread.sleep(20000)
+
+        assertTrue(ignite.cache<Any, Any>(igniteCacheName).size() > 1)
+    }
+
+    private fun runAggregate(
+        aggregateId: String,
+        embeddedIgniteSinkId: UUID,
+        igniteTable: String,
+        kafkaTopic: String
+    ): Aggregate {
         val rdbmsDatabase = RdbmsDatabase()
         rdbmsDatabase.url = postgreSQLContainer.jdbcUrl
         rdbmsDatabase.driverClass = "org.postgresql.Driver"
@@ -187,7 +268,7 @@ class AggregateServiceImplTest {
         kafkaSource.watermark = Source.Watermark("purchase_date_time", "5 minutes")
 
         val embeddedIgniteSink = EmbeddedIgniteSink()
-        embeddedIgniteSink.id = UUID.randomUUID()
+        embeddedIgniteSink.id = embeddedIgniteSinkId
         embeddedIgniteSink.primaryKeyColumns = "transaction_id"
         embeddedIgniteSink.table = igniteTable
 
