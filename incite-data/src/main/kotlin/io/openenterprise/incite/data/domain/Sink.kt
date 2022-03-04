@@ -8,7 +8,7 @@ import java.util.*
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
     include = JsonTypeInfo.As.PROPERTY,
-    property = "type"
+    property = "@type"
 )
 @JsonSubTypes(
     value = [
@@ -57,7 +57,7 @@ open class IgniteSink : NonStreamingSink() {
 
     lateinit var table: String
 
-    lateinit var tableParameters: String
+    var tableParameters: String? = null
 }
 
 class JdbcSink : NonStreamingSink() {

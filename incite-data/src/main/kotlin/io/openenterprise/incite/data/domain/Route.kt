@@ -12,7 +12,7 @@ import javax.persistence.*
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
     include = JsonTypeInfo.As.PROPERTY,
-    property = "type"
+    property = "@type"
 )
 @JsonSubTypes(
     value = [

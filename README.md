@@ -1,7 +1,10 @@
 # Incite
 
 ## What is Incite?
-Incite is a distributed data platform. It provides the following features,
+Incite is a wrapper of popular data related libraries. It aims to provide easier access of these technologies for 
+non-developers (i.e. Business analysis) in one organization.
+
+It provides the following features,
 
 * Data (streaming) aggregation
 * Enterprise integration 
@@ -26,10 +29,89 @@ aggregation as it supports streaming read and streaming write from/to different 
 
 ### RESTful API
 
-#### Create aggregate definition
+#### Create an aggregate definition
 
 ```text
-POST    ${httpProtocol}://${host}:${port}/rs/aggregates
+POST    {{httpProtocol}}://{{host}}:{{port}}/rs/aggregates
+```
+###### Example
+```text
+curl --location --request POST 'http://localhost:8080/rs/aggregates' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "description": "Sample",
+    "joins": [
+        {
+            "leftColumn": "membership_number",
+            "rightColumn": "membership_number",
+            "rightIndex": 1,
+            "type": "INNER"
+        }
+    ],
+    "fixedDelay": 0,
+    "sinks": [
+        {
+            "@type": "EmbeddedIgniteSink",
+            "id": "b26f1ff0-0e37-4be7-a4fe-911449f3dee4",
+            "saveMode": "Append",
+            "primaryKeyColumns": "transaction_id",
+            "table": "guest_transactions"
+        }
+    ],
+    "sources": [
+        {
+            "@type": "KafkaSource",
+            "watermark": {
+                "eventTimeColumn": "purchase_date_time",
+                "delayThreshold": "5 minutes"
+            },
+            "streamingRead": true,
+            "fields": [
+                {
+                    "function": "#field as transaction_id",
+                    "name": "data.id"
+                },
+                {
+                    "function": "#field as membership_number",
+                    "name": "data.membership_number"
+                },
+                {
+                    "function": "#field as sku",
+                    "name": "data.sku"
+                },
+                {
+                    "function": "#field as price",
+                    "name": "data.price"
+                },
+                {
+                    "function": "to_timestamp(#field, '\''yyyy-MM-dd HH:mm:ss.SSS'\'') as purchase_date_time",
+                    "name": "data.created_date_time"
+                }
+            ],
+            "kafkaCluster": {
+                "servers": "PLAINTEXT://localhost:49346"
+            },
+            "startingOffset": "earliest",
+            "topic": "transactions"
+        },
+        {
+            "@type": "JdbcSource",
+            "rdbmsDatabase": {
+                "driverClass": "org.postgresql.Driver",
+                "url": "jdbc:postgresql://localhost:49344/test?loggerLevel=OFF",
+                "username": "test_user",
+                "password": "test_password"
+            },
+            "query": "select g.id as guest_id, g.membership_number, g.created_date_time, g.last_login_date_time from guest g order by last_login_date_time desc"
+        }
+    ]
+}'
+```
+
+#### Run a defined aggregate
+
+```text
+POST    {{httpProtocol}}://{{host}}:{{port}}/rs/aggregates/{{aggregateId}}/aggregate
 ```
 
 ## Enterprise integration
@@ -43,7 +125,7 @@ egress the processed data to other systems or databases.
 #### Create route
 
 ```text
-POST    ${httpProtocol}://${host}:${port}/rs/routes
+POST    {{httpProtocol}}://{{host}}:{{port}}/rs/routes
 ```
 
 Upon successful creation (i.e. API returns HTTP 201), the route will be started automatically.

@@ -6,7 +6,6 @@ import javax.persistence.Converter
 class KafkaCluster {
 
     lateinit var servers: String
-
 }
 
 @Converter
