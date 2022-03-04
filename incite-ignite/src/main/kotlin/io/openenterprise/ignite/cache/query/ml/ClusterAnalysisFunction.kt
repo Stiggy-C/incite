@@ -21,7 +21,6 @@ import org.apache.spark.ml.clustering.KMeans
 import org.apache.spark.ml.clustering.KMeansModel
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.param.shared.HasFeaturesCol
-import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row

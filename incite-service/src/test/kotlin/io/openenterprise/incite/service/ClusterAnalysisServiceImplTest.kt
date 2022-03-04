@@ -10,9 +10,10 @@ import io.openenterprise.ignite.spark.IgniteContext
 import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.data.repository.AggregateRepository
 import io.openenterprise.incite.data.repository.ClusterAnalysisRepository
+import io.openenterprise.incite.ml.service.ClusterAnalysisService
+import io.openenterprise.incite.ml.service.ClusterAnalysisServiceImpl
 import io.openenterprise.incite.spark.service.DatasetServiceImplTest
 import io.openenterprise.incite.spark.sql.service.DatasetService
-import io.openenterprise.springframework.context.ApplicationContextUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.apache.ignite.Ignite
@@ -33,7 +34,6 @@ import org.junit.runner.RunWith
 import org.mockito.Mockito
 import org.postgresql.ds.PGSimpleDataSource
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.ApplicationContext
@@ -46,8 +46,6 @@ import org.springframework.core.annotation.Order
 import org.springframework.expression.spel.standard.SpelExpressionParser
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
-import org.springframework.transaction.TransactionStatus
-import org.springframework.transaction.support.TransactionCallback
 import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils

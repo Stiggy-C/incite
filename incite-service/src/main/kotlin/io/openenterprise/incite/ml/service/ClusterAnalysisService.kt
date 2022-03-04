@@ -1,5 +1,6 @@
-package io.openenterprise.incite.service
+package io.openenterprise.incite.ml.service
 
+import io.openenterprise.incite.data.domain.BisectingKMeans
 import io.openenterprise.incite.data.domain.ClusterAnalysis
 import io.openenterprise.incite.data.domain.KMeans
 import io.openenterprise.service.AbstractMutableEntityService
@@ -36,8 +37,12 @@ interface ClusterAnalysisService : AbstractMutableEntityService<ClusterAnalysis,
 
             val clusterAnalysis = clusterAnalysisService.retrieve(id)
                 ?: throw EntityNotFoundException("ClusterAnalysis with ID, $id, is not found")
-            val kMeansModel = clusterAnalysisService.buildModel<KMeansModel>(clusterAnalysis)
-            val modelId = clusterAnalysisService.putToCache(kMeansModel)
+            val sparkModel = when (clusterAnalysis.algorithm) {
+                is BisectingKMeans -> clusterAnalysisService.buildModel<BisectingKMeansModel>(clusterAnalysis)
+                is KMeans -> clusterAnalysisService.buildModel<KMeansModel>(clusterAnalysis)
+                else -> throw UnsupportedOperationException()
+            }
+            val modelId = clusterAnalysisService.putToCache(sparkModel)
             val model = ClusterAnalysis.Model()
             model.id = modelId.toString()
 
@@ -59,7 +64,7 @@ interface ClusterAnalysisService : AbstractMutableEntityService<ClusterAnalysis,
          */
         @JvmStatic
         @QuerySqlFunction(alias = "cluster_analysis_predict")
-        fun clusterAnalysisPredict(id: String, jsonOrSql: String): String {
+        fun predict(id: String, jsonOrSql: String): String {
             val clusterAnalysisService = getBean(ClusterAnalysisService::class.java)
             val clusterAnalysis = clusterAnalysisService.retrieve(id)
                 ?: throw EntityNotFoundException("ClusterAnalysis with ID, $id, is not found")

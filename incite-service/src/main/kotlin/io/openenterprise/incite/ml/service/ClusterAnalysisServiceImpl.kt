@@ -1,9 +1,11 @@
-package io.openenterprise.incite.service
+package io.openenterprise.incite.ml.service
 
 import io.openenterprise.ignite.cache.query.ml.ClusterAnalysisFunction
 import io.openenterprise.incite.data.domain.BisectingKMeans
 import io.openenterprise.incite.data.domain.ClusterAnalysis
 import io.openenterprise.incite.data.domain.KMeans
+import io.openenterprise.incite.service.AggregateService
+import io.openenterprise.incite.service.AggregateServiceImpl
 import io.openenterprise.service.AbstractAbstractMutableEntityServiceImpl
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.clustering.BisectingKMeansModel

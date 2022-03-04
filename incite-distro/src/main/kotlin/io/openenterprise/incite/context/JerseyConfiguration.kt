@@ -1,6 +1,7 @@
 package io.openenterprise.incite.context
 
 import io.openenterprise.glassfish.jersey.spring.SpringBridgeFeature
+import org.apache.commons.collections4.SetUtils
 import org.glassfish.jersey.server.ResourceConfig
 import org.reflections.Reflections
 import org.springframework.beans.factory.annotation.Autowired
@@ -29,10 +30,16 @@ class JerseyConfiguration : ResourceConfig() {
         registerInstances(SpringBridgeFeature(applicationContext))
 
         // Resources:
-        registerClasses(
+        val mlResources =
+            Reflections("io.openenterprise.incite.ml.ws.rs").getTypesAnnotatedWith(Path::class.java).stream()
+                .filter { !it.isInterface }
+                .collect(Collectors.toSet())
+
+        val resources =
             Reflections("io.openenterprise.incite.ws.rs").getTypesAnnotatedWith(Path::class.java).stream()
                 .filter { !it.isInterface }
                 .collect(Collectors.toSet())
-        )
+
+        registerClasses(SetUtils.union(mlResources, resources))
     }
 }

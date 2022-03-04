@@ -14,7 +14,7 @@ import javax.ws.rs.core.Response
 
 @Named
 @Path("/aggregates")
-class AggregateResourceImpl: AbstractAbstractMutableEntityResourceImpl<Aggregate, String>(), AggregateResource {
+class AggregateResourceImpl: AggregateResource, AbstractAbstractMutableEntityResourceImpl<Aggregate, String>() {
 
     @POST
     @Path("/{id}/aggregate")
