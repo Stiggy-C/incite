@@ -1,5 +1,7 @@
 package io.openenterprise.incite.data.domain
 
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonTypeInfo
 import io.openenterprise.data.domain.AbstractEntity
 import io.openenterprise.data.domain.AbstractJsonAttributeConverter
 import java.time.OffsetDateTime
@@ -8,7 +10,7 @@ import javax.persistence.*
 import kotlin.Comparator
 
 @Entity
-class ClusterAnalysis : Aggregate() {
+class Clustering : Aggregate() {
 
     @Convert(converter = AlgorithmJsonAttributeConverter::class)
     lateinit var algorithm: Algorithm
@@ -27,12 +29,26 @@ class ClusterAnalysis : Aggregate() {
             models.stream().filter { it.silhouette != null }.findFirst().map { it.silhouette }.orElse(null)
     }
 
+    @JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.PROPERTY,
+        property = "@type"
+    )
+    @JsonSubTypes(
+        value = [
+            JsonSubTypes.Type(value = BisectingKMeans::class, name = "BisectingKMeans"),
+            JsonSubTypes.Type(value = KMeans::class, name = "KMeans")
+        ]
+    )
     abstract class Algorithm {
 
         var k: Int = 0
 
         var maxIteration: Int = 1
     }
+
+    @Converter
+    class AlgorithmJsonAttributeConverter : AbstractJsonAttributeConverter<Algorithm>()
 
     abstract class FeatureColumnsBasedAlgorithm : Algorithm() {
 
@@ -42,7 +58,7 @@ class ClusterAnalysis : Aggregate() {
     }
 
     @Entity
-    @Table(name = "cluster_analysis_model")
+    @Table(name = "clustering_model")
     class Model : AbstractEntity<String>(), Comparable<Model> {
 
         var silhouette: Double? = null
@@ -53,11 +69,8 @@ class ClusterAnalysis : Aggregate() {
             }.reversed().compare(this, other)
         }
     }
-
-    @Converter
-    class AlgorithmJsonAttributeConverter : AbstractJsonAttributeConverter<Algorithm>()
 }
 
-class BisectingKMeans: ClusterAnalysis.FeatureColumnsBasedAlgorithm()
+class BisectingKMeans: Clustering.FeatureColumnsBasedAlgorithm()
 
-class KMeans : ClusterAnalysis.FeatureColumnsBasedAlgorithm()
+class KMeans : Clustering.FeatureColumnsBasedAlgorithm()

@@ -9,6 +9,7 @@ It provides the following features,
 * Data (streaming) aggregation
 * Enterprise integration 
 * Hybrid transaction/analytical processing (HTAP) SQL database
+* Machine Learning (ML) with RestfulAPI
 * Machine Learning (ML) with SQL query
 
 ## Data (streaming) aggregation
@@ -171,31 +172,86 @@ spring.datasource.username=${incite.username}
 spring.datasource.password=${incite.password}
 ```
 
+## ML with RESTful API
+Machine learning is a set of algorithms which provides insight of data. They can improve itself through the use of data.
+Incite provides RESTful API to define and save an ML job. Saved ML job can also be triggered by RESTful API. 
+
+### 1. Classification
+Supported algorithm:
+* Logistic Regression
+
+#### Create (the definition of) a classification task
+```text
+POST    {{httpProtocol}}://{{host}}:{{port}}/rs/classifications
+```
+
+###### Example
+```text
+```
+
+### 2. Clustering
+Supported algorithm:
+* Bisecting k-means
+* K-means
+
+#### Create (the definition of) a clustering task
+```text
+POST    {{httpProtocol}}://{{host}}:{{port}}/rs/cluster-analyses
+```
+
+###### Example
+```text
+```
+
 ## ML with SQL query
 Machine learning is a set of algorithms which provides insight of data. They can improve itself through the use of data.
 Incite allows running machine learning algorithm against data stored on incite by using SQL query. Currently, Incite only
 supports the following ML algorithms.
 
-### 1. Cluster analysis
-   * Bisecting k-means
-   * K-means
+### 1. Classification
+Supported algorithm:
+* Logistic Regression
 
 #### Example:
 ```roomsql
--- Build a model for a ClusterAnalysis entity stored into Incite
-select build_cluster_analysis_model('2036cd45-557e-41ce-a157-e64253295032');
+-- Build a model for a Classification entity stored to Incite
+select build_classification_model('58b1a40f-571d-4b85-8b31-65cee8d9f9a2');
 -- Return the UUID of the built model
 
--- Perform prediction for the given ClusterAnalysis entity and given sql query
-select cluster_analysis_predict('2036cd45-557e-41ce-a157-e64253295032', 'select * from sample_dataset');
+-- Perform prediction for the given Classification entity and given sql query
+select classification_predict('58b1a40f-571d-4b85-8b31-65cee8d9f9a2', 'select * from sample_dataset');
 -- Return the result in JSON format
 
--- Build a bisecting k-means model for an ad-hoc dataset 
+-- Build a logistic regression model without creating a Classification entity
+select build_logistic_regression_model('select * from sample_dataset', 'Multinomial', 'age,sex', 'result', 0.8, 1, 0.3);
+--
+
+-- Perform prediction with the logistic regression model from above
+select logistic_regression_predict('548393d6-df18-4b4f-a24e-895a6bb86d26', 'select nr.id, nr.age, nr.sex from newly_registered nr');
+--
+```
+
+### 2. Clustering
+Supported algorithm:
+* Bisecting k-means
+* K-means
+
+#### Example:
+```roomsql
+-- Build a model for a Clustering entity stored to Incite
+select build_clustering_model('2036cd45-557e-41ce-a157-e64253295032');
+-- Return the UUID of the built model
+
+-- Perform prediction for the given Clustering entity and given sql query
+select clustering_predict('2036cd45-557e-41ce-a157-e64253295032', 'select * from sample_dataset');
+-- Return the result in JSON format
+
+-- Build a bisecting k-means model without creating a Clustering entity
 -- buildBisectingKMeansModel(sql: String, featuresColumns: String, k: Int, maxIteration: Int, seed: Long)
 select build_bisecting_k_means_model('select g.id, g.age, g.sex from guest g', 'age,sex', 4, 10, 1);
 -- Return the UUID of the built model
 
--- Perform prediction with the bisecting k-means model
+-- Perform prediction with the bisecting k-means model from above
 -- bisecting_k_means_predict(modelId: String, jsonOrSql: String)
 select bisecting_k_means_predict('526d6e09-5c13-486f-951a-5dad58e3d36c', 'select nr.id, nr.age, nr.sex from newly_registered nr');
 -- Return the result in JSON format

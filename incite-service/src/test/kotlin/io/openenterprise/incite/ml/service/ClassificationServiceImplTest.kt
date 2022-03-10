@@ -1,17 +1,22 @@
-package io.openenterprise.incite.service
+package io.openenterprise.incite.ml.service
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.google.common.collect.Sets
-import io.openenterprise.ignite.cache.query.ml.ClusterAnalysisFunction
+import io.openenterprise.ignite.cache.query.ml.ClassificationFunction
+import io.openenterprise.ignite.cache.query.ml.ClusteringFunction
 import io.openenterprise.ignite.spark.IgniteContext
-import io.openenterprise.incite.data.domain.*
+import io.openenterprise.incite.data.domain.Classification
+import io.openenterprise.incite.data.domain.JdbcSource
+import io.openenterprise.incite.data.domain.LogisticRegression
+import io.openenterprise.incite.data.domain.RdbmsDatabase
 import io.openenterprise.incite.data.repository.AggregateRepository
-import io.openenterprise.incite.data.repository.ClusterAnalysisRepository
-import io.openenterprise.incite.ml.service.ClusterAnalysisService
-import io.openenterprise.incite.ml.service.ClusterAnalysisServiceImpl
+import io.openenterprise.incite.data.repository.ClassificationRepository
+import io.openenterprise.incite.data.repository.ClusteringRepository
+import io.openenterprise.incite.service.AggregateService
+import io.openenterprise.incite.service.AggregateServiceImpl
 import io.openenterprise.incite.spark.service.DatasetServiceImplTest
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import kotlinx.coroutines.CoroutineScope
@@ -22,14 +27,14 @@ import org.apache.ignite.Ignition
 import org.apache.ignite.cache.CachingProvider
 import org.apache.ignite.cluster.ClusterState
 import org.apache.ignite.configuration.IgniteConfiguration
-import org.apache.spark.ml.clustering.BisectingKMeansModel
-import org.apache.spark.ml.clustering.KMeansModel
+import org.apache.spark.ml.classification.LogisticRegressionModel
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.ignite.IgniteSparkSession
 import org.assertj.core.util.Lists
-import org.junit.Assert
-import org.junit.Before
 import org.junit.Test
+
+import org.junit.Assert.*
+import org.junit.Before
 import org.junit.runner.RunWith
 import org.mockito.Mockito
 import org.postgresql.ds.PGSimpleDataSource
@@ -56,12 +61,12 @@ import javax.cache.configuration.MutableConfiguration
 import javax.sql.DataSource
 
 @RunWith(SpringJUnit4ClassRunner::class)
-class ClusterAnalysisServiceImplTest {
+class ClassificationServiceImplTest {
 
-    private var clusterAnalysis: ClusterAnalysis = ClusterAnalysis()
+    private var classification = Classification()
 
     @Autowired
-    private lateinit var clusterAnalysisService: ClusterAnalysisService
+    private lateinit var classificationService: ClassificationService
 
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
@@ -78,58 +83,42 @@ class ClusterAnalysisServiceImplTest {
         rdbmsDatabase.password = postgreSQLContainer.password
 
         val jdbcSource = JdbcSource()
-        jdbcSource.query = "select g.id, g.age, g.sex from guest g"
+        jdbcSource.query = "select g.id, g.age, g.sex, g.result from guest g"
         jdbcSource.rdbmsDatabase = rdbmsDatabase
 
-        clusterAnalysis.id = UUID.randomUUID().toString()
-        clusterAnalysis.sources = Lists.list(jdbcSource)
+        classification.id = UUID.randomUUID().toString()
+        classification.sources = Lists.list(jdbcSource)
 
         jdbcTemplate.update(
             "create table if not exists guest (id bigint primary key, membership_number varchar, age smallint, " +
-                    "sex smallint, created_date_time timestamp with time zone, last_login_date_time timestamp with time zone)"
+                    "sex smallint, result smallint, created_date_time timestamp with time zone, last_login_date_time timestamp with time zone)"
         )
-        jdbcTemplate.update("insert into guest values (1, '${RandomStringUtils.randomNumeric(9)}', 35, 0, now(), now()) on conflict do nothing")
-        jdbcTemplate.update("insert into guest values (2, '${RandomStringUtils.randomNumeric(9)}', 18, 1, now(), now()) on conflict do nothing")
-        jdbcTemplate.update("insert into guest values (3, '${RandomStringUtils.randomNumeric(9)}', 20, 1, now(), now()) on conflict do nothing")
-        jdbcTemplate.update("insert into guest values (4, '${RandomStringUtils.randomNumeric(9)}', 40, 1, now(), now()) on conflict do nothing")
-        jdbcTemplate.update("insert into guest values (5, '${RandomStringUtils.randomNumeric(9)}', 65, 1, now(), now()) on conflict do nothing")
-        jdbcTemplate.update("insert into guest values (6, '${RandomStringUtils.randomNumeric(9)}', 33, 0, now(), now()) on conflict do nothing")
-        jdbcTemplate.update("insert into guest values (7, '${RandomStringUtils.randomNumeric(9)}', 16, 0, now(), now()) on conflict do nothing")
-        jdbcTemplate.update("insert into guest values (8, '${RandomStringUtils.randomNumeric(9)}', 25, 0, now(), now()) on conflict do nothing")
-        jdbcTemplate.update("insert into guest values (9, '${RandomStringUtils.randomNumeric(9)}', 9, 1, now(), now()) on conflict do nothing")
-        jdbcTemplate.update("insert into guest values (10, '${RandomStringUtils.randomNumeric(9)}', 46, 1, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (1, '${RandomStringUtils.randomNumeric(9)}', 35, 0, 3, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (2, '${RandomStringUtils.randomNumeric(9)}', 18, 1, 2, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (3, '${RandomStringUtils.randomNumeric(9)}', 20, 1, 2, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (4, '${RandomStringUtils.randomNumeric(9)}', 40, 1, 4, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (5, '${RandomStringUtils.randomNumeric(9)}', 65, 1, 5, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (6, '${RandomStringUtils.randomNumeric(9)}', 33, 0, 3, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (7, '${RandomStringUtils.randomNumeric(9)}', 16, 0, 1, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (8, '${RandomStringUtils.randomNumeric(9)}', 25, 0, 2, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (9, '${RandomStringUtils.randomNumeric(9)}', 9, 1, 1, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (10, '${RandomStringUtils.randomNumeric(9)}', 46, 1, 5, now(), now()) on conflict do nothing")
 
-        Mockito.`when`(clusterAnalysisService.retrieve(clusterAnalysis.id.toString())).thenReturn(clusterAnalysis)
+        Mockito.`when`(classificationService.retrieve(classification.id.toString())).thenReturn(classification)
     }
 
     @Test
-    fun buildBisectingKMeansModel() {
-        val algorithm = BisectingKMeans()
+    fun buildModel() {
+        val algorithm = LogisticRegression()
+        algorithm.labelColumn = "result"
         algorithm.featureColumns = Sets.newHashSet("age", "sex")
-        algorithm.k = 4
 
-        clusterAnalysis.algorithm = algorithm
+        classification.algorithm = algorithm
 
-        val bisectingKMeansModel: BisectingKMeansModel = clusterAnalysisService.buildModel(clusterAnalysis)
+        val logisticRegressionModel: LogisticRegressionModel = classificationService.buildModel(classification)
 
-        Assert.assertNotNull(bisectingKMeansModel)
-        Assert.assertTrue(bisectingKMeansModel.clusterCenters().isNotEmpty())
-        Assert.assertTrue(bisectingKMeansModel.hasSummary())
-    }
-
-    @Test
-    fun buildKMeansModel() {
-        val algorithm = KMeans()
-        algorithm.featureColumns = Sets.newHashSet("age", "sex")
-        algorithm.k = 4
-
-        clusterAnalysis.algorithm = algorithm
-
-        val kMeansModel: KMeansModel = clusterAnalysisService.buildModel(clusterAnalysis)
-
-        Assert.assertNotNull(kMeansModel)
-        Assert.assertTrue(kMeansModel.clusterCenters().isNotEmpty())
-        Assert.assertTrue(kMeansModel.hasSummary())
+        assertNotNull(logisticRegressionModel)
+        assertTrue(logisticRegressionModel.hasSummary())
     }
 
     @TestConfiguration
@@ -152,18 +141,18 @@ class ClusterAnalysisServiceImplTest {
         protected fun coroutineScope(): CoroutineScope = CoroutineScope(Dispatchers.Default)
 
         @Bean
-        protected fun clusterAnalysisFunction(): ClusterAnalysisFunction = ClusterAnalysisFunction()
+        protected fun classificationFunction(): ClassificationFunction = ClassificationFunction()
 
         @Bean
-        protected fun clusterAnalysisRepository(): ClusterAnalysisRepository =
-            Mockito.mock(ClusterAnalysisRepository::class.java)
+        protected fun classificationRepository(): ClassificationRepository =
+            Mockito.mock(ClassificationRepository::class.java)
 
         @Bean
-        protected fun clusterAnalysisService(
-            aggregateService: AggregateService, clusterAnalysisFunction: ClusterAnalysisFunction
-        ): ClusterAnalysisService {
-            return ClusterAnalysisServiceImpl(aggregateService, clusterAnalysisFunction)
-        }
+        protected fun classificationService(
+            aggregateService: AggregateService,
+            classificationFunction: ClassificationFunction
+        ): ClassificationService =
+            ClassificationServiceImpl(aggregateService, classificationFunction)
 
         @Bean
         protected fun dataSource(postgreSQLContainer: PostgreSQLContainer<*>): DataSource {

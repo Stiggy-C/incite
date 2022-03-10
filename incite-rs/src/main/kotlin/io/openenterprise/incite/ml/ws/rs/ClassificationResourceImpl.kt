@@ -1,27 +1,26 @@
 package io.openenterprise.incite.ml.ws.rs
 
-import io.openenterprise.incite.data.domain.ClusterAnalysis
-import io.openenterprise.incite.ml.service.ClusterAnalysisService
+import io.openenterprise.incite.data.domain.Classification
+import io.openenterprise.incite.ml.service.ClassificationService
 import io.openenterprise.ws.rs.AbstractAbstractMutableEntityResourceImpl
 import kotlinx.coroutines.launch
 import javax.inject.Named
 import javax.ws.rs.*
 import javax.ws.rs.container.AsyncResponse
 import javax.ws.rs.container.Suspended
-import javax.ws.rs.core.HttpHeaders
 import javax.ws.rs.core.MediaType
 
 @Named
-@Path("/cluster-analyses")
-class ClusterAnalysisResourceImpl : ClusterAnalysisResource,
-    AbstractAbstractMutableEntityResourceImpl<ClusterAnalysis, String>() {
+@Path("/classifications")
+class ClassificationResourceImpl : ClassificationResource,
+    AbstractAbstractMutableEntityResourceImpl<Classification, String>() {
 
     @GET
     @Path("/{id}/model")
     @Produces(MediaType.APPLICATION_JSON)
     override fun buildModel(@PathParam("id") id: String, @Suspended asyncResponse: AsyncResponse) {
         coroutineScope.launch {
-            val modelId = ClusterAnalysisService.buildModel(id)
+            val modelId = ClassificationService.buildModel(id)
 
             asyncResponse.resume(modelId)
         }
@@ -31,14 +30,9 @@ class ClusterAnalysisResourceImpl : ClusterAnalysisResource,
     @Path("/{id}/predict")
     @Consumes(MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN)
     @Produces(MediaType.APPLICATION_JSON)
-    override fun predict(
-        @PathParam("id") id: String,
-        @HeaderParam(HttpHeaders.CONTENT_TYPE) contentType: String,
-        jsonOrSql: String,
-        asyncResponse: AsyncResponse
-    ) {
+    override fun predict(@PathParam("id") id: String, jsonOrSql: String, @Suspended asyncResponse: AsyncResponse) {
         coroutineScope.launch {
-            val result = ClusterAnalysisService.predict(id, jsonOrSql)
+            val result = ClassificationService.predict(id, jsonOrSql)
 
             asyncResponse.resume(result)
         }
@@ -47,7 +41,7 @@ class ClusterAnalysisResourceImpl : ClusterAnalysisResource,
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    override fun create(entity: ClusterAnalysis, @Suspended asyncResponse: AsyncResponse) {
+    override fun create(entity: Classification, @Suspended asyncResponse: AsyncResponse) {
         super.create(entity, asyncResponse)
     }
 
@@ -66,7 +60,7 @@ class ClusterAnalysisResourceImpl : ClusterAnalysisResource,
 
     @PATCH
     @Path("/{id}")
-    override fun update(id: String, entity: ClusterAnalysis, asyncResponse: AsyncResponse) {
+    override fun update(id: String, entity: Classification, asyncResponse: AsyncResponse) {
         super.update(id, entity, asyncResponse)
     }
 }

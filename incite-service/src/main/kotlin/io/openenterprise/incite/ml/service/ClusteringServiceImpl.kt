@@ -1,16 +1,14 @@
 package io.openenterprise.incite.ml.service
 
-import io.openenterprise.ignite.cache.query.ml.ClusterAnalysisFunction
+import io.openenterprise.ignite.cache.query.ml.ClusteringFunction
 import io.openenterprise.incite.data.domain.BisectingKMeans
-import io.openenterprise.incite.data.domain.ClusterAnalysis
+import io.openenterprise.incite.data.domain.Clustering
 import io.openenterprise.incite.data.domain.KMeans
 import io.openenterprise.incite.service.AggregateService
 import io.openenterprise.incite.service.AggregateServiceImpl
-import io.openenterprise.service.AbstractAbstractMutableEntityServiceImpl
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.clustering.BisectingKMeansModel
 import org.apache.spark.ml.clustering.KMeansModel
-import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
 import java.util.*
@@ -20,22 +18,22 @@ import javax.inject.Named
 import javax.persistence.EntityNotFoundException
 
 @Named
-class ClusterAnalysisServiceImpl(
+class ClusteringServiceImpl(
     @Inject private val aggregateService: AggregateService,
-    @Inject private val clusterAnalysisFunction: ClusterAnalysisFunction
+    @Inject private val clusteringFunction: ClusteringFunction
 ) :
-    ClusterAnalysisService,
-    AbstractAbstractMutableEntityServiceImpl<ClusterAnalysis, String>() {
+    ClusteringService,
+    AbstractServiceImpl<Clustering, String, ClusteringFunction>(aggregateService, clusteringFunction) {
 
-    override fun <M : Model<M>> buildModel(clusterAnalysis: ClusterAnalysis): M {
-        val dataset = getAggregatedDataset(clusterAnalysis)
+    override fun <M : Model<M>> buildModel(entity: Clustering): M {
+        val dataset = getAggregatedDataset(entity)
 
         @Suppress("UNCHECKED_CAST")
-        return when (val algorithm = clusterAnalysis.algorithm) {
-            is ClusterAnalysis.FeatureColumnsBasedAlgorithm -> {
+        return when (val algorithm = entity.algorithm) {
+            is Clustering.FeatureColumnsBasedAlgorithm -> {
                 when (algorithm) {
                     is BisectingKMeans -> {
-                        clusterAnalysisFunction.buildBisectingKMeansModel(
+                        clusteringFunction.buildBisectingKMeansModel(
                             dataset,
                             algorithm.featureColumns.stream().collect((Collectors.joining(","))),
                             algorithm.k,
@@ -44,7 +42,7 @@ class ClusterAnalysisServiceImpl(
                         )
                     }
                     is KMeans -> {
-                        clusterAnalysisFunction.buildKMeansModel(
+                        clusteringFunction.buildKMeansModel(
                             dataset,
                             algorithm.featureColumns.stream().collect((Collectors.joining(","))),
                             algorithm.k,
@@ -59,37 +57,26 @@ class ClusterAnalysisServiceImpl(
         } as M
     }
 
-    override fun <M : Model<M>> getFromCache(modelId: UUID): M = clusterAnalysisFunction.getFromCache(modelId)
-
-    override fun predict(jsonOrSql: String, clusterAnalysis: ClusterAnalysis): Dataset<Row> {
-        if (clusterAnalysis.models.isEmpty()) {
+    override fun predict(jsonOrSql: String, entity: Clustering): Dataset<Row> {
+        if (entity.models.isEmpty()) {
             throw IllegalStateException("No models have been built")
         }
 
         assert(aggregateService is AggregateServiceImpl)
 
-        val model = clusterAnalysis.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
+        val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val sparkModel: Model<*> =
-            when (clusterAnalysis.algorithm) {
-                is BisectingKMeans -> getFromCache<BisectingKMeansModel>(UUID.fromString(model.id))
+            when (entity.algorithm) {
+                is BisectingKMeans -> getFromCache<BisectingKMeansModel> (UUID.fromString(model.id))
                 is KMeans -> getFromCache<KMeansModel>(UUID.fromString(model.id))
                 else -> throw UnsupportedOperationException()
             }
 
-        val dataset = clusterAnalysisFunction.predict(jsonOrSql, sparkModel)
+        val dataset = clusteringFunction.predict(jsonOrSql, sparkModel)
         val aggregateServiceImpl = aggregateService as AggregateServiceImpl
 
-        aggregateServiceImpl.writeSinks(dataset, clusterAnalysis.sinks, false)
+        aggregateServiceImpl.writeSinks(dataset, entity.sinks, false)
 
         return dataset
-    }
-
-    override fun putToCache(model: MLWritable): UUID = clusterAnalysisFunction.putToCache(model)
-
-    private fun getAggregatedDataset(clusterAnalysis: ClusterAnalysis): Dataset<Row> {
-        val aggregateServiceImpl = aggregateService as AggregateServiceImpl
-        val datasets = aggregateServiceImpl.loadSources(clusterAnalysis.sources, Collections.emptyMap<String, Any>())
-
-        return aggregateServiceImpl.joinSources(datasets, clusterAnalysis.joins)
     }
 }

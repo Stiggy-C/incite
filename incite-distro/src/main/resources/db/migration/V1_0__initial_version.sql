@@ -12,7 +12,7 @@ create table if not exists aggregate(
     updated_date_time timestamp
 ) with "template=default";
 
-create table if not exists cluster_analysis(
+create table if not exists clustering(
     id UUID primary key,
     description varchar,
     joins varchar,
@@ -26,7 +26,7 @@ create table if not exists cluster_analysis(
     updated_date_time timestamp
 )  with "template=default";
 
-create table if not exists cluster_analysis_model(
+create table if not exists clustering_model(
     id UUID,
     cluster_analysis_id UUID,
     silhouette real,

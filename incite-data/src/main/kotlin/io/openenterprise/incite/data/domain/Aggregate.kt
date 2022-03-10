@@ -15,17 +15,17 @@ open class Aggregate : AbstractMutableEntity<String>() {
     open var description: String? = null
 
     @Convert(converter = JoinsJsonAttributeConverter::class)
-    var joins: MutableList<Join> = ArrayList()
+    open var joins: MutableList<Join> = ArrayList()
 
-    var fixedDelay: Long = 0
+    open var fixedDelay: Long = 0
 
-    var lastRunDateTime: OffsetDateTime? = null
+    open var lastRunDateTime: OffsetDateTime? = null
 
     @Convert(converter = SinksJsonAttributeConverter::class)
     var sinks: MutableList<Sink>  = ArrayList()
 
     @Convert(converter = SourcesJsonAttributeConverter::class)
-    var sources: MutableList<Source> = ArrayList()
+    open var sources: MutableList<Source> = ArrayList()
 
     @PrePersist
     override fun prePersist() {
