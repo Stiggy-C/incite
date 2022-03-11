@@ -1,8 +1,10 @@
 package io.openenterprise.incite.ml.service
 
-import io.openenterprise.data.domain.AbstractMutableEntity
 import io.openenterprise.ignite.cache.query.ml.AbstractFunction
 import io.openenterprise.incite.data.domain.Aggregate
+import io.openenterprise.incite.data.domain.Sink
+import io.openenterprise.incite.service.AggregateService
+import io.openenterprise.incite.service.AggregateServiceImpl
 import io.openenterprise.springframework.context.ApplicationContextUtils
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.util.MLWritable
@@ -24,5 +26,14 @@ interface AbstractService<T : Aggregate, F: AbstractFunction> {
 
         protected fun <T> getBean(clazz: Class<T>): T  =
             ApplicationContextUtils.getApplicationContext()!!.getBean(clazz)
+
+        protected fun writeToSinks(dataset: Dataset<Row>, sinks: List<Sink>) {
+            var aggregateService = getBean(AggregateService::class.java)
+
+            assert(aggregateService is AggregateServiceImpl)
+
+            aggregateService = aggregateService as AggregateServiceImpl
+            aggregateService.writeSinks(dataset, sinks, false)
+        }
     }
 }

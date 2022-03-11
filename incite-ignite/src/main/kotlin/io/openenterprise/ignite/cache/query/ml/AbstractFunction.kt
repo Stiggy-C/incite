@@ -2,6 +2,7 @@ package io.openenterprise.ignite.cache.query.ml
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.openenterprise.ignite.spark.IgniteDataFrameConstants
 import io.openenterprise.spark.sql.DatasetUtils
 import io.openenterprise.springframework.context.ApplicationContextUtils
 import org.apache.commons.io.FileUtils
@@ -11,10 +12,12 @@ import org.apache.commons.lang3.reflect.MethodUtils
 import org.apache.ignite.Ignite
 import org.apache.ignite.IgniteJdbcThinDriver
 import org.apache.ignite.configuration.ClientConnectorConfiguration
+import org.apache.ignite.spark.IgniteDataFrameSettings
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.SparkSession
 import org.zeroturnaround.zip.ZipUtil
 import java.io.File
@@ -114,5 +117,16 @@ abstract class AbstractFunction {
 
         protected fun <T> getBean(clazz: Class<T>): T  =
             ApplicationContextUtils.getApplicationContext()!!.getBean(clazz)
+
+        protected fun writeToTable(dataset: Dataset<Row>, table: String, primaryKeyColumn: String, saveMode: SaveMode) {
+            val dataFrameWriter = dataset.write()
+                .format(IgniteDataFrameConstants.FORMAT)
+                .mode(saveMode)
+                .option(IgniteDataFrameSettings.OPTION_CREATE_TABLE_PRIMARY_KEY_FIELDS(),primaryKeyColumn)
+                .option(IgniteDataFrameSettings.OPTION_TABLE(), table)
+
+
+            dataFrameWriter.save()
+        }
     }
 }

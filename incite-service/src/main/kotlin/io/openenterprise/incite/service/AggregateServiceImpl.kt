@@ -133,6 +133,10 @@ class AggregateServiceImpl(
         return result
     }
 
+    internal fun isStreaming(sources: List<Source>): Boolean {
+        return sources.stream().anyMatch { it is StreamingSource && it.streamingRead }
+    }
+
     internal fun joinSources(datasets: List<Dataset<Row>>, joins: List<Join>): Dataset<Row> {
         var result = datasets[0]
 

@@ -218,7 +218,8 @@ Supported algorithm:
 select build_classification_model('58b1a40f-571d-4b85-8b31-65cee8d9f9a2');
 -- Return the UUID of the built model
 
--- Perform prediction for the given Classification entity and given sql query
+-- Perform prediction for the given Classification entity with the given sql query and write the result to the sinks
+-- defined in the Classification entity.
 select classification_predict('58b1a40f-571d-4b85-8b31-65cee8d9f9a2', 'select * from sample_dataset');
 -- Return the result in JSON format
 
@@ -226,8 +227,9 @@ select classification_predict('58b1a40f-571d-4b85-8b31-65cee8d9f9a2', 'select * 
 select build_logistic_regression_model('select * from sample_dataset', 'Multinomial', 'age,sex', 'result', 0.8, 1, 0.3);
 --
 
--- Perform prediction with the logistic regression model from above
-select logistic_regression_predict('548393d6-df18-4b4f-a24e-895a6bb86d26', 'select nr.id, nr.age, nr.sex from newly_registered nr');
+-- Perform prediction with the logistic regression model from above and write the result to the given table. (Due to 
+-- the nature of Apache Ignite, a primary key column need to be specified)
+select logistic_regression_predict('548393d6-df18-4b4f-a24e-895a6bb86d26', 'select nr.id, nr.age, nr.sex from newly_registered nr', 'resultTable', 'id');
 --
 ```
 
@@ -247,12 +249,11 @@ select clustering_predict('2036cd45-557e-41ce-a157-e64253295032', 'select * from
 -- Return the result in JSON format
 
 -- Build a bisecting k-means model without creating a Clustering entity
--- buildBisectingKMeansModel(sql: String, featuresColumns: String, k: Int, maxIteration: Int, seed: Long)
 select build_bisecting_k_means_model('select g.id, g.age, g.sex from guest g', 'age,sex', 4, 10, 1);
 -- Return the UUID of the built model
 
--- Perform prediction with the bisecting k-means model from above
--- bisecting_k_means_predict(modelId: String, jsonOrSql: String)
-select bisecting_k_means_predict('526d6e09-5c13-486f-951a-5dad58e3d36c', 'select nr.id, nr.age, nr.sex from newly_registered nr');
+-- Perform prediction with the bisecting k-means model from above and write the result to the given table. (Due to 
+-- the nature of Apache Ignite, a primary key column need to be specified)
+select bisecting_k_means_predict('526d6e09-5c13-486f-951a-5dad58e3d36c', 'select nr.id, nr.age, nr.sex from newly_registered nr', 'resultTable', 'id');
 -- Return the result in JSON format
 ```

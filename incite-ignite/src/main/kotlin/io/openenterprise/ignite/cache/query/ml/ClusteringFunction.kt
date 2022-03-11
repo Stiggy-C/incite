@@ -1,6 +1,5 @@
 package io.openenterprise.ignite.cache.query.ml
 
-import io.openenterprise.spark.sql.DatasetUtils
 import org.apache.commons.lang3.StringUtils
 import org.apache.ignite.cache.query.annotations.QuerySqlFunction
 import org.apache.spark.ml.Estimator
@@ -13,6 +12,7 @@ import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.param.shared.HasFeaturesCol
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.SaveMode
 import java.util.*
 import javax.inject.Named
 
@@ -59,34 +59,38 @@ open class ClusteringFunction : AbstractFunction() {
         }
 
         /**
-         * Perform BiseKMeans predict with given model and given json or SQL query.
+         * Perform bisecting k-means predict with given model and given json or SQL query.
          *
-         * @return Result in JSON format
+         * @return Number of entries in the resulting dataset
          */
         @JvmStatic
         @QuerySqlFunction(alias = "bisecting_k_means_predict")
-        fun bisectingKMeansPredict(modelId: String, jsonOrSql: String): String {
+        fun bisectingKMeansPredict(modelId: String, jsonOrSql: String, table: String, primaryKeyColumn: String): Long {
             val clusteringFunction = getBean(ClusteringFunction::class.java)
             val bisectingKMeansModel: BisectingKMeansModel =
                 clusteringFunction.getFromCache(UUID.fromString(modelId))
-            val dataset = clusteringFunction.predict(jsonOrSql, bisectingKMeansModel)
+            val result = clusteringFunction.predict(jsonOrSql, bisectingKMeansModel)
 
-            return DatasetUtils.toJson(dataset)
+            writeToTable(result, table, primaryKeyColumn, SaveMode.Append)
+
+            return result.count()
         }
 
         /**
-         * Perform KMeans predict with given model and given json or SQL query.
+         * Perform k-means predict with given model and given json or SQL query.
          *
          * @return Result in JSON format
          */
         @JvmStatic
         @QuerySqlFunction(alias = "k_means_predict")
-        fun kMeansPredict(modelId: String, jsonOrSql: String): String {
+        fun kMeansPredict(modelId: String, jsonOrSql: String, table: String, primaryKeyColumn: String): Long {
             val clusteringFunction = getBean(ClusteringFunction::class.java)
             val kMeansModel: KMeansModel = clusteringFunction.getFromCache(UUID.fromString(modelId))
-            val dataset = clusteringFunction.predict(jsonOrSql, kMeansModel)
+            val result = clusteringFunction.predict(jsonOrSql, kMeansModel)
 
-            return DatasetUtils.toJson(dataset)
+            writeToTable(result, table, primaryKeyColumn, SaveMode.Append)
+
+            return result.count()
         }
     }
 
