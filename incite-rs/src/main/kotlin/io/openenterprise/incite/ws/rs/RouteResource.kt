@@ -17,4 +17,19 @@ interface RouteResource : AbstractMutableEntityResource<Route, String> {
     @Produces(MediaType.APPLICATION_JSON)
     fun create(body: String, asyncResponse: AsyncResponse)
 
+    @POST
+    @Path("/{id}/resume")
+    fun resume(id: String, asyncResponse: AsyncResponse)
+
+    @POST
+    @Path("/{id}/start")
+    fun start(id: String, asyncResponse: AsyncResponse)
+
+    @POST
+    @Path("/{id}/stop")
+    fun stop(id: String, asyncResponse: AsyncResponse)
+
+    @POST
+    @Path("/{id}/suspend")
+    fun suspend(id: String, asyncResponse: AsyncResponse)
 }

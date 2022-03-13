@@ -8,6 +8,10 @@ interface RouteService: AbstractMutableEntityService<Route, String> {
 
     fun addRoute(id: UUID)
 
+    fun hasRoute(id: UUID): Boolean
+
+    fun isStarted(id: UUID): Boolean
+
     fun removeRoute(id: UUID)
 
     fun resumeRoute(id: UUID)

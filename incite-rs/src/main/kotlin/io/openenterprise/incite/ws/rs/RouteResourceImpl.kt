@@ -5,12 +5,15 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import io.openenterprise.incite.data.domain.Route
 import io.openenterprise.incite.data.domain.SpringXmlRoute
 import io.openenterprise.incite.data.domain.YamlRoute
+import io.openenterprise.incite.service.RouteService
 import io.openenterprise.ws.rs.AbstractAbstractMutableEntityResourceImpl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.springframework.beans.factory.annotation.Autowired
 import java.io.IOException
+import java.util.*
 import javax.inject.Named
+import javax.persistence.EntityNotFoundException
 import javax.ws.rs.*
 import javax.ws.rs.container.AsyncResponse
 import javax.ws.rs.container.Suspended
@@ -61,6 +64,63 @@ class RouteResourceImpl : RouteResource, AbstractAbstractMutableEntityResourceIm
         }
     }
 
+    @POST
+    @Path("/{id}/start")
+    override fun start(@PathParam("id") id: String, @Suspended asyncResponse: AsyncResponse) {
+        coroutineScope.launch {
+            if (abstractMutableEntityService.retrieve(id) == null) {
+                asyncResponse.resume(EntityNotFoundException())
+
+                return@launch
+            }
+
+
+            (abstractMutableEntityService as RouteService).startRoute(UUID.fromString(id))
+        }
+    }
+
+    @POST
+    @Path("/{id}/stop")
+    override fun stop(@PathParam("id") id: String, @Suspended asyncResponse: AsyncResponse) {
+        coroutineScope.launch {
+            if (abstractMutableEntityService.retrieve(id) == null) {
+                asyncResponse.resume(EntityNotFoundException())
+
+                return@launch
+            }
+
+            (abstractMutableEntityService as RouteService).stopRoute(UUID.fromString(id))
+        }
+    }
+
+    @POST
+    @Path("/{id}/resume")
+    override fun resume(@PathParam("id") id: String, @Suspended asyncResponse: AsyncResponse) {
+        coroutineScope.launch {
+            if (abstractMutableEntityService.retrieve(id) == null) {
+                asyncResponse.resume(EntityNotFoundException())
+
+                return@launch
+            }
+
+            (abstractMutableEntityService as RouteService).resumeRoute(UUID.fromString(id))
+        }
+    }
+
+    @POST
+    @Path("/{id}/suspend")
+    override fun suspend(@PathParam("id") id: String, @Suspended asyncResponse: AsyncResponse) {
+        coroutineScope.launch {
+            if (abstractMutableEntityService.retrieve(id) == null) {
+                asyncResponse.resume(EntityNotFoundException())
+
+                return@launch
+            }
+
+            (abstractMutableEntityService as RouteService).suspendRoute(UUID.fromString(id))
+        }
+    }
+
     override fun create(entity: Route, asyncResponse: AsyncResponse) {
         asyncResponse.resume(Response.status(Response.Status.NOT_IMPLEMENTED).build())
     }
@@ -107,4 +167,5 @@ class RouteResourceImpl : RouteResource, AbstractAbstractMutableEntityResourceIm
 
         return true
     }
+
 }

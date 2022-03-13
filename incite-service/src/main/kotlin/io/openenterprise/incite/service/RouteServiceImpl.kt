@@ -59,35 +59,48 @@ class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<
         camelContext.addRoutes(routeBuilder)
     }
 
+    override fun hasRoute(id: UUID): Boolean =
+        camelContext.routes.stream().anyMatch { StringUtils.equals(id.toString(), it.routeId) }
+
+    override fun isStarted(id: UUID): Boolean = camelContext.getRoute(id.toString()).uptimeMillis > 0
+
     override fun removeRoute(id: UUID) {
-        camelContext.removeRoute(id.toString())
+        if (hasRoute(id)) {
+            camelContext.removeRoute(id.toString())
+        }
     }
 
     override fun resumeRoute(id: UUID) {
-        (camelContext as AbstractCamelContext).resumeRoute(id.toString())
+        if (hasRoute(id)) {
+            (camelContext as AbstractCamelContext).resumeRoute(id.toString())
+        }
     }
 
     override fun startRoute(id: UUID) {
-        val hasRoute = camelContext.routes.stream().anyMatch { StringUtils.equals(id.toString(), it.routeId) }
-
-        if (isFalse(hasRoute)) {
+        if (isFalse(hasRoute(id))) {
             this.addRoute(id)
         }
 
-        (camelContext as AbstractCamelContext).startRoute(id.toString())
+        if (isFalse(isStarted(id))) {
+            (camelContext as AbstractCamelContext).startRoute(id.toString())
+        }
     }
 
     override fun stopRoute(id: UUID) {
-        (camelContext as AbstractCamelContext).stopRoute(id.toString())
+        if (hasRoute(id) && isStarted(id)) {
+            (camelContext as AbstractCamelContext).stopRoute(id.toString())
+        }
     }
 
     override fun suspendRoute(id: UUID) {
-        (camelContext as AbstractCamelContext).suspendRoute(id.toString())
+        if (hasRoute(id) && isStarted(id)) {
+            (camelContext as AbstractCamelContext).suspendRoute(id.toString())
+        }
     }
 
     override fun create(entity: Route): Route {
         transactionTemplate.execute { super.create(entity) }
-        igniteMessaging.sendOrdered("route_created", entity.id, Duration.ofMinutes(1).toMillis())
+        igniteMessaging.sendOrdered("start_route", entity.id, Duration.ofMinutes(1).toMillis())
 
         return entity
     }
@@ -95,68 +108,68 @@ class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<
     override fun create(entities: Collection<Route>): List<Route> {
         transactionTemplate.execute { super.create(entities) }
 
-        entities.forEach{
-            igniteMessaging.sendOrdered("route_created", it.id, Duration.ofMinutes(1).toMillis())
+        entities.forEach {
+            igniteMessaging.sendOrdered("start_route", it.id, Duration.ofMinutes(1).toMillis())
         }
 
         return entities.stream().collect(Collectors.toList())
     }
 
     override fun delete(entity: Route) {
-        assert (entity.id != null)
+        assert(entity.id != null)
 
         this.delete(entity.id!!)
     }
 
     override fun delete(id: String) {
         transactionTemplate.execute { super.delete(id) }
-        igniteMessaging.sendOrdered("route_deleted", id, Duration.ofMinutes(1).toMillis())
+        igniteMessaging.sendOrdered("stop_route", id, Duration.ofMinutes(1).toMillis())
     }
 
     override fun update(entity: Route) {
         transactionTemplate.execute { super.update(entity) }
-        igniteMessaging.sendOrdered("route_updated", entity.id, Duration.ofMinutes(1).toMillis())
+        igniteMessaging.sendOrdered("restart_route", entity.id, Duration.ofMinutes(1).toMillis())
     }
 
     @PostConstruct
     fun postConstruct() {
-        igniteMessaging.remoteListen("route_created", RouteCreatedEventHandler())
-        igniteMessaging.remoteListen("route_deleted", RouteDeletedEventHandler())
-        igniteMessaging.remoteListen("route_updated", RouteUpdatedEventHandler())
+        igniteMessaging.remoteListen("restart_route", RestartRouteEventHandler())
+        igniteMessaging.remoteListen("start_route", StartRouteEventHandler())
+        igniteMessaging.remoteListen("stop_route", StopRouteEventHandler())
     }
 
-    private class RouteCreatedEventHandler: IgniteBiPredicate<UUID, UUID> {
+    private class RestartRouteEventHandler : IgniteBiPredicate<UUID, UUID> {
 
         override fun apply(nodeId: UUID?, id: UUID?): Boolean {
-            LOG.info("{} received {} from topic, {}", nodeId, id, "route_created")
+            LOG.info("{} received {} from topic, {}", nodeId, id, "restart_route")
+
+            val routeService = ApplicationContextUtils.getApplicationContext()!!.getBean(RouteService::class.java)
+            routeService.stopRoute(id as UUID)
+            routeService.removeRoute(id)
+            routeService.startRoute(id)
+
+            return true
+        }
+    }
+
+    private class StartRouteEventHandler : IgniteBiPredicate<UUID, UUID> {
+
+        override fun apply(nodeId: UUID?, id: UUID?): Boolean {
+            LOG.info("{} received {} from topic, {}", nodeId, id, "start_route")
             ApplicationContextUtils.getApplicationContext()!!.getBean(RouteService::class.java).startRoute(id as UUID)
 
             return true
         }
     }
 
-    private class RouteDeletedEventHandler: IgniteBiPredicate<UUID, UUID> {
+    private class StopRouteEventHandler : IgniteBiPredicate<UUID, UUID> {
 
         override fun apply(nodeId: UUID?, id: UUID?): Boolean {
-            LOG.info("{} received {} from topic, {}", nodeId, id, "route_deleted")
+            LOG.info("{} received {} from topic, {}", nodeId, id, "stop_route")
 
             val routeService = ApplicationContextUtils.getApplicationContext()!!.getBean(RouteService::class.java)
             routeService.stopRoute(id as UUID)
             routeService.removeRoute(id)
-
-            return true
-        }
-    }
-
-    private class RouteUpdatedEventHandler: IgniteBiPredicate<UUID, UUID> {
-
-        override fun apply(nodeId: UUID?, id: UUID?): Boolean {
-            LOG.info("{} received {} from topic, {}", nodeId, id, "route_updated")
-
-            val routeService = ApplicationContextUtils.getApplicationContext()!!.getBean(RouteService::class.java)
-            routeService.stopRoute(id as UUID)
-            routeService.removeRoute(id)
-            routeService.startRoute(id)
 
             return true
         }
