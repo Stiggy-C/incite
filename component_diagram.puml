@@ -1,0 +1,26 @@
+@startuml
+' !pragma layout elk
+
+title "Component diagram"
+
+folder "Spring Boot" {
+
+    component "Apache Camel" as camel
+    component "Apache Ignite" as ignite
+    component "Apache Spark" as spark
+    component "Incite" as incite
+    component "Jersey 2" as jersey2
+
+   http - jersey2
+   jersey2 <--> incite
+   incite <--> camel
+   incite <--> ignite
+   incite <--> spark
+
+   jdbc -right- ignite
+   odbc -down- ignite
+   tcp -up- ignite
+
+}
+
+@enduml

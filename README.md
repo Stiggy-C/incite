@@ -1,10 +1,17 @@
 # Incite
 
 ## What is Incite?
-Incite is a wrapper of popular data science libraries. It aims to provide easier access of these technologies for 
+Incite is a wrapper of popular Java data related frameworks. It aims to provide easier access of these technologies for 
 non-developers (i.e. Business analysis) in one organization.
 
-It provides the following features,
+As of now, the following frameworks are embedded into Incite,
+* Apache Camel (A well known enterprise integration framework)
+* Apache Incite (A well known in memory database which can also serve as a compute/message grid)
+* Apache Spark (A well known framework for data analytic & machine learning)
+
+![Component diagram](component_diagram.png)
+
+Currently, it provides the following features,
 
 * Data [streaming] aggregation
 * Enterprise integration 
