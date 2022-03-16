@@ -9,7 +9,7 @@ As of now, the following frameworks are embedded into Incite,
 * Apache Incite (A well known in memory database which can also serve as a compute/message grid)
 * Apache Spark (A well known framework for data analytic & machine learning)
 
-![Component diagram](component_diagram.png)
+![Component diagram](./component_diagram.png)
 
 Currently, it provides the following features,
 
