@@ -148,3 +148,7 @@ select build_bisecting_k_means_model('select g.id, g.age, g.sex from guest g', '
 select bisecting_k_means_predict('526d6e09-5c13-486f-951a-5dad58e3d36c', 'select nr.id, nr.age, nr.sex from newly_registered nr', 'resultTable', 'id');
 -- Return the result in JSON format
 ```
+
+## Building/Deployment
+
+[Read more](./incite-distro/README.md)

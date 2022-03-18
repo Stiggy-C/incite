@@ -1,0 +1,51 @@
+@startuml
+'https://plantuml.com/deployment-diagram
+
+!theme mars
+
+title "Incite example deployment diagram"
+
+cloud "Cloud/Internal data centre" {
+
+    node "Docker/K8s" {
+        node "Container 0" {
+            node "JVM" {
+                package "Spring Boot" {
+                    component "Apache Camel" as camel
+                    component "Apache Ignite" as ignite
+                    component "Apache Spark" as spark
+                    component "Incite" as incite
+                    component "Jersey 2" as jersey2
+
+                    interface "tcp" as tcp0
+                    interface "tcp" as tcp1
+
+                   http - jersey2
+                   jersey2 <--> incite
+                   incite <--> camel
+                   incite <--> ignite
+                   incite <--> spark
+
+                   jdbc -right- ignite
+                   odbc -down- ignite
+                   tcp0 -up- ignite
+                   tcp1 -up- camel
+                }
+            }
+        }
+
+        node "Container 1" {
+            database "Kafka" as kafka
+        }
+
+        note right of kafka: Optional
+    }
+
+    node "NFS/S3" {
+        folder "spark-checkpoints" as sparkCheckPointsFolder
+    }
+
+    spark <--> sparkCheckPointsFolder
+    tcp1 <--> kafka
+}
+@enduml
