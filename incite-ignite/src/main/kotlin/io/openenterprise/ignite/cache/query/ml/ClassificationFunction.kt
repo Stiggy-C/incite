@@ -33,7 +33,7 @@ class ClassificationFunction : AbstractFunction() {
             regularization: Double
         ): UUID {
             val classificationFunction = getBean(ClassificationFunction::class.java)
-            val dataset = classificationFunction.loadDataset(sql)
+            val dataset = classificationFunction.loadDatasetFromSql(sql)
             val logisticRegressionModel = classificationFunction.buildLogisticRegressionModel(
                 dataset,
                 family,

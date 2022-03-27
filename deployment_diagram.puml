@@ -18,18 +18,16 @@ cloud "Cloud/Internal data centre" {
                     component "Jersey 2" as jersey2
 
                     interface "tcp" as tcp0
-                    interface "tcp" as tcp1
 
-                   http - jersey2
+                   http -- jersey2
                    jersey2 <--> incite
                    incite <--> camel
-                   incite <--> ignite
+                   incite <-right-> ignite
                    incite <--> spark
 
-                   jdbc -right- ignite
-                   odbc -down- ignite
+                   jdbc -- ignite
+                   odbc -left- ignite
                    tcp0 -up- ignite
-                   tcp1 -up- camel
                 }
             }
         }
@@ -38,14 +36,20 @@ cloud "Cloud/Internal data centre" {
             database "Kafka" as kafka
         }
 
-        note right of kafka: Optional
+        note left of kafka: Optional
     }
+
+    database "RDBMS" as rdbms
+
+    note left of rdbms: Optional
 
     node "NFS/S3" {
         folder "spark-checkpoints" as sparkCheckPointsFolder
     }
 
-    spark <--> sparkCheckPointsFolder
-    tcp1 <--> kafka
+    camel <--> kafka
+    spark <-up-> sparkCheckPointsFolder
+    spark <--> kafka
+    spark <-left-> rdbms
 }
 @enduml

@@ -25,19 +25,15 @@ and write the result of the aggregation to different destinations (sinks). Not o
 aggregation as it supports streaming read and streaming write from/to different data-sources.
 
 #### Supported sources
-* JDBC (Non-streaming)
-* Kafka (Non-Streaming & Streaming)
+* JDBC (includes Embedded Ignite & Ignite) <Non-streaming>
+* Kafka <Non-Streaming & Streaming>
 
 #### Supported sinks
-* Embedded Ignite (Non-streaming)
-* Ignite (Non-streaming)
-* JDBC (Non-streaming)
-* Kafka (Non-streaming & Streaming)
+* Embedded Ignite <Non-streaming>
+* JDBC (excludes Embedded Ignite & Ignite) <Non-streaming>
+* Kafka <Non-streaming & Streaming>
 
 ### RESTful API
-
-* Create (the definition of) an aggregate task
-* Start a defined aggregate task
 
 [Read more](./incite-rs/README.md)
 
@@ -48,14 +44,6 @@ allow users to define an integration route written in Apache Camel's YAML DSL to
 egress the processed data to other systems or databases. 
 
 ### RESTful API
-
-* Create route (, which will start the route if creation is successful.)
-* Delete a running route (, which will stop the route if the route is running.)
-* Resume a route
-* Start a route
-* Stop a route
-* Suspend a route
-* Update a defined route (, which will stop the route if the route is running and restart it after updating.)
 
 [Read more](./incite-rs/README.md)
 
@@ -79,13 +67,17 @@ Incite also provide SQL functions to run machine learning algorithms against dat
 Currently, Incite only supports the following ML algorithms.
 
 #### Classification
-Supported algorithm:
+###### Supported algorithm:
 * Logistic Regression
 
 #### Clustering
-Supported algorithm:
+###### Supported algorithm:
 * Bisecting k-means
 * K-means
+
+#### Recommendation
+###### Supported algorithm:
+* Alternating Least Squares (ALS)
 
 ### RESTful API
 
@@ -93,16 +85,6 @@ As mentioned, Incite provides a set of API for ML related operations. These APIs
 which data sources to build model from and the data sinks to write the predictions to, to create a new model from the 
 latest data in the data sources, to perform prediction with the given JSON input/SQL query (, which will be used to 
 retrieve the data from Incite for prediction).
-
-#### Classification
-* Create (the definition of) a classification task
-* Build a model for a defined classification task
-* Run a defined classification task with the latest model
-
-#### Clustering
-* Create (the definition of) a clustering task
-* Build a model for a defined clustering task
-* Run a defined clustering task with the latest model
 
 [Read more](./incite-rs/README.md)
 
@@ -119,7 +101,7 @@ select build_classification_model('58b1a40f-571d-4b85-8b31-65cee8d9f9a2');
 select classification_predict('58b1a40f-571d-4b85-8b31-65cee8d9f9a2', 'select * from sample_dataset');
 -- Return the result in JSON format
 
--- Build a logistic regression model without creating a Classification entity
+-- Build an ad-hoc logistic regression model (without creating a Classification entity)
 select build_logistic_regression_model('select * from sample_dataset', 'Multinomial', 'age,sex', 'result', 0.8, 1, 0.3);
 --
 
@@ -139,7 +121,7 @@ select build_clustering_model('2036cd45-557e-41ce-a157-e64253295032');
 select clustering_predict('2036cd45-557e-41ce-a157-e64253295032', 'select * from sample_dataset');
 -- Return the result in JSON format
 
--- Build a bisecting k-means model without creating a Clustering entity
+-- Build an ad-hoc bisecting k-means model (without creating a Clustering entity)
 select build_bisecting_k_means_model('select g.id, g.age, g.sex from guest g', 'age,sex', 4, 10, 1);
 -- Return the UUID of the built model
 
@@ -149,6 +131,60 @@ select bisecting_k_means_predict('526d6e09-5c13-486f-951a-5dad58e3d36c', 'select
 -- Return the result in JSON format
 ```
 
-## Building/Deployment
+#### Recommendation
+```roomsql
+-- Build a model for a Recommendation entity stored to Incite
+select build_recommendation_model('791ed421-4ba6-4fcb-8d09-22fda3d99696');
+-- Return the UUID of the built model
+
+-- Perform prediction for the given Recommendation entity and given sql query
+select recommendation_predict('791ed421-4ba6-4fcb-8d09-22fda3d99696', 'select * from sample_dataset');
+-- Return the result in JSON format
+
+-- Build an ad-hoc ALS model (without creating a Recommendation entity)
+select build_als_model('select g.id, g.age, g.sex from guest g', 'age,sex', 4, 10, 1);
+-- Return the UUID of the built model
+
+-- Perform prediction with the ALS model from above and write the result to the given table. (Due to 
+-- the nature of Apache Ignite, a primary key column need to be specified)
+select als_predict('569130e9-9210-4d2a-9e7e-3f6c82e27e12', 'select nr.id, nr.age, nr.sex from newly_registered nr', 'resultTable', 'id');
+-- Return the result in JSON format
+```
+
+## Usage
+
+:warning: Incite is a prototype and is not being community reviewed. Please use it at your own risk.
 
 [Read more](./incite-distro/README.md)
+
+## Roadmap
+
+* Ability to start data [streaming] aggregate by SQL function
+* Calcite based SQL engine (Apache Ignite 2.13 release)
+* Complete documentation
+* Complete unit tests
+* Dockerfile
+* Docker compose file
+
+## Acknowledgment
+
+Incite is built around Apache Camel, Apache Ignite and Apache Spark. Incite thanks the community of Apache Camel, 
+Apache Ignite and Apache Spark for their contribution (respectively) to the mentioned projects.
+
+## Legal Disclaimer
+
+:warning: Incite IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
+NON-INFRINGEMENT.
+
+IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, 
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. :warning:
+
+## License
+
+All materials of Incite are copyright © Incite contributors, released under Apache License 2.0.
+
+[Read more](./LICENSE)

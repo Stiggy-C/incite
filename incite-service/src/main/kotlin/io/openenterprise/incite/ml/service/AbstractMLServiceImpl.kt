@@ -12,11 +12,11 @@ import org.apache.spark.sql.Row
 import java.io.Serializable
 import java.util.*
 
-abstract class AbstractServiceImpl<T: Aggregate, ID: Serializable, F: AbstractFunction>(
+abstract class AbstractMLServiceImpl<T: Aggregate, ID: Serializable, F: AbstractFunction>(
     private val aggregateService: AggregateService,
     private val function: F
 ) :
-    AbstractService<T, F>,
+    AbstractMLService<T, F>,
     AbstractAbstractMutableEntityServiceImpl<T, String>() {
 
     override fun <M : Model<M>> getFromCache(modelId: UUID): M = function.getFromCache(modelId)

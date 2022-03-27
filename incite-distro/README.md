@@ -3,7 +3,7 @@
 ## Building
 
 ### Prerequisite
-* Git (for checking out the latest release build)
+* Git (for checking out the latest development/release build)
 * Java SDK 8+
 * Maven 3.6+ (May be embedded in your IDE)
 

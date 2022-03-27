@@ -9,9 +9,9 @@ import java.util.*
 import javax.persistence.*
 
 @Entity
-class Classification: Aggregate() {
+class Recommendation: Aggregate() {
 
-    @Convert(converter = Clustering.AlgorithmJsonAttributeConverter::class)
+    @Convert(converter = AlgorithmJsonAttributeConverter::class)
     lateinit var algorithm: Algorithm
 
     @OneToMany
@@ -25,24 +25,19 @@ class Classification: Aggregate() {
     )
     @JsonSubTypes(
         value = [
-            JsonSubTypes.Type(value = LogisticRegression::class, name = "LogisticRegression")
+            JsonSubTypes.Type(value = AlternatingLeastSquares::class, name = "ALS")
         ]
     )
-    abstract class Algorithm {
-
-        lateinit var featureColumns: Set<String>
-
-        lateinit var labelColumn: String
-    }
+    abstract class Algorithm
 
     @Converter
-    class AlgorithmJsonAttributeConverter : AbstractJsonAttributeConverter<Algorithm>()
+    class AlgorithmJsonAttributeConverter : AbstractJsonAttributeConverter<Classification.Algorithm>()
 
     @Entity
-    @Table(name = "classification_model")
+    @Table(name = "collaborative_filtering_model")
     class Model : AbstractEntity<String>(), Comparable<Model> {
 
-        var accuracy: Double? = 0.0
+        var rootMeanSquaredError: Double? = null
 
         override fun compareTo(other: Model): Int {
             return Comparator.comparing<Model?, OffsetDateTime?> {
@@ -52,18 +47,15 @@ class Classification: Aggregate() {
     }
 }
 
-class LogisticRegression: Classification.Algorithm() {
+class AlternatingLeastSquares: Recommendation.Algorithm() {
 
-    var elasticNetMixing: Double = 0.8
+    var implicitPreference: Boolean = false
 
-    var family: Family? = null
+    var maxIteration: Int = 10
 
-    var maxIteration: Int = 1
+    var numberOfItemBlocks: Int = 10
 
-    var regularization: Double = 0.3
+    var numberOfUserBlocks: Int = 10
 
-    enum class Family {
-
-        Binomial, Multinomial
-    }
+    var regularization: Double = 1.0
 }

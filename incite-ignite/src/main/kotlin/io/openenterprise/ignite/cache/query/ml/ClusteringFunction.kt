@@ -36,7 +36,7 @@ open class ClusteringFunction : AbstractFunction() {
             seed: Long
         ): UUID {
             val clusteringFunction = getBean(ClusteringFunction::class.java)
-            val dataset = clusteringFunction.loadDataset(sql)
+            val dataset = clusteringFunction.loadDatasetFromSql(sql)
             val bisectingKMeansModel =
                 clusteringFunction.buildBisectingKMeansModel(dataset, featuresColumns, k, maxIteration, seed)
 
@@ -52,7 +52,7 @@ open class ClusteringFunction : AbstractFunction() {
         @QuerySqlFunction(alias = "build_k_means_model")
         fun buildKMeansModel(sql: String, featuresColumns: String, k: Int, maxIteration: Int, seed: Long): UUID {
             val clusteringFunction = getBean(ClusteringFunction::class.java)
-            val dataset = clusteringFunction.loadDataset(sql)
+            val dataset = clusteringFunction.loadDatasetFromSql(sql)
             val kMeansModel = clusteringFunction.buildKMeansModel(dataset, featuresColumns, k, maxIteration, seed)
 
             return clusteringFunction.putToCache(kMeansModel)
@@ -69,7 +69,7 @@ open class ClusteringFunction : AbstractFunction() {
             val clusteringFunction = getBean(ClusteringFunction::class.java)
             val bisectingKMeansModel: BisectingKMeansModel =
                 clusteringFunction.getFromCache(UUID.fromString(modelId))
-            val result = clusteringFunction.predict(jsonOrSql, bisectingKMeansModel)
+            val result = clusteringFunction.predict(bisectingKMeansModel, jsonOrSql)
 
             writeToTable(result, table, primaryKeyColumn, SaveMode.Append)
 
@@ -86,11 +86,11 @@ open class ClusteringFunction : AbstractFunction() {
         fun kMeansPredict(modelId: String, jsonOrSql: String, table: String, primaryKeyColumn: String): Long {
             val clusteringFunction = getBean(ClusteringFunction::class.java)
             val kMeansModel: KMeansModel = clusteringFunction.getFromCache(UUID.fromString(modelId))
-            val result = clusteringFunction.predict(jsonOrSql, kMeansModel)
+            val dataset = clusteringFunction.predict(kMeansModel, jsonOrSql)
 
-            writeToTable(result, table, primaryKeyColumn, SaveMode.Append)
+            writeToTable(dataset, table, primaryKeyColumn, SaveMode.Append)
 
-            return result.count()
+            return dataset.count()
         }
     }
 

@@ -21,7 +21,7 @@ class ClassificationServiceImpl(
     @Inject private val classificationFunction: ClassificationFunction
 ) :
     ClassificationService,
-    AbstractServiceImpl<Classification, String, ClassificationFunction>(aggregateService, classificationFunction) {
+    AbstractMLServiceImpl<Classification, String, ClassificationFunction>(aggregateService, classificationFunction) {
 
     override fun <M : Model<M>> buildModel(entity: Classification): M {
         val dataset = getAggregatedDataset(entity)
@@ -46,7 +46,7 @@ class ClassificationServiceImpl(
         } as M
     }
 
-    override fun predict(jsonOrSql: String, entity: Classification): Dataset<Row> {
+    override fun predict(entity: Classification, jsonOrSql: String): Dataset<Row> {
         if (entity.models.isEmpty()) {
             throw IllegalStateException("No models have been built")
         }
@@ -62,10 +62,9 @@ class ClassificationServiceImpl(
                 throw UnsupportedOperationException()
         }
 
-        val dataset = classificationFunction.predict(jsonOrSql, sparkModel)
-        val aggregateServiceImpl = aggregateService as AggregateServiceImpl
+        val dataset = classificationFunction.predict(sparkModel, jsonOrSql)
 
-        aggregateServiceImpl.writeSinks(dataset, entity.sinks, false)
+        (aggregateService as AggregateServiceImpl).writeSinks(dataset, entity.sinks, false)
 
         return dataset
     }

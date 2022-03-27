@@ -12,7 +12,6 @@ import io.openenterprise.incite.data.repository.AggregateRepository
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import io.openenterprise.incite.spark.service.DatasetServiceImplTest
 import io.openenterprise.incite.spark.sql.streaming.DatasetStreamingWriter
-import io.openenterprise.springframework.context.ApplicationContextUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -145,7 +144,7 @@ class AggregateServiceImplTest {
 
         Thread.sleep(20000)
 
-        val aggregateContext = aggregateService.getAggregateContext(aggregate.id!!)
+        val aggregateContext = aggregateService.getContext(aggregate.id!!)
 
         assertNotNull(aggregateContext)
         assertTrue(aggregateContext!!.datasetWriters.stream().allMatch { it is DatasetStreamingWriter })
@@ -187,7 +186,7 @@ class AggregateServiceImplTest {
 
         Thread.sleep(5000)
 
-        var aggregateContext = aggregateService.getAggregateContext(aggregate.id!!)
+        var aggregateContext = aggregateService.getContext(aggregate.id!!)
 
         aggregateContext!!.datasetWriters.stream()
             .filter { it is DatasetStreamingWriter }
@@ -216,7 +215,7 @@ class AggregateServiceImplTest {
 
         Thread.sleep(5000)
 
-        aggregateContext = aggregateService.getAggregateContext(aggregate.id!!)
+        aggregateContext = aggregateService.getContext(aggregate.id!!)
 
         assertNotNull(aggregateContext)
         assertTrue(aggregateContext!!.datasetWriters.stream().allMatch { it is DatasetStreamingWriter })

@@ -4,20 +4,14 @@ import io.openenterprise.incite.spark.sql.DatasetWriter
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
 
-class AggregateContext() {
+data class AggregateContext(var status: Status) {
 
-    constructor(dataset: Dataset<Row>, datasetWriters: Set<DatasetWriter<*>>): this() {
-        this.dataset = dataset
-        this.datasetWriters = datasetWriters
-    }
-
-    /**
-     * The resulting org.apache.spark.sql.Dataset after aggregate is being triggered.
-     */
-    lateinit var dataset: Dataset<Row>
+    lateinit var dataset: Dataset<*>
 
     lateinit var datasetWriters: Set<DatasetWriter<*>>
+
+    enum class Status {
+
+        PROCESSING, STOPPED
+    }
 }
-
-
-

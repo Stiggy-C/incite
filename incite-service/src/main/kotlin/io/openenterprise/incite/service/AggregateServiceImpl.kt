@@ -8,6 +8,7 @@ import io.openenterprise.incite.spark.sql.service.DatasetService
 import io.openenterprise.incite.spark.sql.streaming.DatasetStreamingWriter
 import io.openenterprise.service.AbstractAbstractMutableEntityServiceImpl
 import org.apache.commons.lang3.BooleanUtils.isFalse
+import org.apache.commons.lang3.ObjectUtils.isNotEmpty
 import org.apache.commons.lang3.StringUtils
 import org.apache.ignite.Ignite
 import org.apache.spark.sql.Dataset
@@ -19,13 +20,13 @@ import scala.collection.JavaConversions
 import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.*
-import java.util.Objects.isNull
 import java.util.Objects.nonNull
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.Lock
 import java.util.stream.Collectors
 import javax.inject.Inject
 import javax.inject.Named
+import javax.persistence.EntityNotFoundException
 
 @Named
 class AggregateServiceImpl(
@@ -53,7 +54,7 @@ class AggregateServiceImpl(
         assert(aggregate.sources.size > 0)
         assert(aggregate.joins.size > 0)
 
-        val lock = ignite.reentrantLock(getLockName(aggregate), true, true, true)
+        val lock = ignite.reentrantLock(getLockKey(aggregate), true, true, true)
         val locked = lock.tryLock()
 
         if (isFalse(locked)) {
@@ -74,6 +75,9 @@ class AggregateServiceImpl(
             }
         }
 
+        val aggregateContext = AggregateContext(AggregateContext.Status.PROCESSING)
+        aggregateContexts[aggregate.id!!] = aggregateContext
+
         // Step 1: Load all the org.apache.spark.sql.Dataset's from sources
         val variables: Map<String, Any> =
             if (aggregate.lastRunDateTime == null) {
@@ -87,39 +91,47 @@ class AggregateServiceImpl(
         // Step 2: Join others in datasets to datasets[0]
         val result = joinSources(datasets, aggregate.joins)
 
-        // Step 3: Write joint dataset to sinks
-        val writers = writeSinks(result, aggregate.sinks, isStreaming)
+        aggregateContext.dataset = result
 
-        val aggregateContext = AggregateContext(result, writers)
-        aggregateContexts[aggregate.id!!] = aggregateContext
+        // Step 3: Write joint dataset to sinks
+        var exceptionOccurred: Exception? = null
+
+        val writers = try {
+            writeSinks(result, aggregate.sinks, isStreaming)
+        } catch (e: Exception) {
+            exceptionOccurred = e
+
+            throw e
+        } finally {
+            if (isFalse(isStreaming) || isNotEmpty(exceptionOccurred)) {
+                aggregateContext.status = AggregateContext.Status.STOPPED
+
+                aggregateLocks.remove(getLockKey(aggregate))
+                lock.unlock()
+            }
+        }
 
         aggregate.lastRunDateTime = aggregateStartDateTime
-
-        if (isFalse(isStreaming)) {
-            lock.unlock()
-
-            aggregateLocks.remove(getLockName(aggregate))
-        }
+        aggregateContext.datasetWriters = writers
 
         return aggregate
     }
 
-    override fun getAggregateContext(id: String): AggregateContext? {
+    override fun getContext(id: String): AggregateContext? {
         return if (aggregateContexts.containsKey(id)) aggregateContexts[id] else null
     }
 
-    override fun stopStreamingAggregate(id: String): Boolean {
-        if (isNull(getAggregateContext(id))) {
-            throw IllegalStateException()
-        }
-
-        val aggregateContext = getAggregateContext(id)!!
-
+    override fun stopStreaming(id: String): Boolean {
+        val aggregateContext = getContext(id) ?: throw IllegalArgumentException()
         val isStreamingAggregate = aggregateContext.datasetWriters.stream().anyMatch { it is DatasetStreamingWriter }
 
         if (isFalse(isStreamingAggregate)) {
             throw UnsupportedOperationException()
         }
+
+        val aggregate = retrieve(id) ?: throw EntityNotFoundException()
+        val lockKey = getLockKey(aggregate)
+        val lock = aggregateLocks[lockKey] ?: throw IllegalStateException()
 
         val result = aggregateContext.datasetWriters.stream()
             .filter {
@@ -129,6 +141,10 @@ class AggregateServiceImpl(
             }.map {
                 (it as DatasetStreamingWriter).streamingQuery.isActive
             }.reduce(true) { t, u -> t && u }
+
+        lock.unlock()
+
+        aggregateLocks.remove(lockKey)
 
         return result
     }
@@ -208,7 +224,7 @@ class AggregateServiceImpl(
         return writers
     }
 
-    private fun getLockName(aggregate: Aggregate): String {
+    private fun getLockKey(aggregate: Aggregate): String {
         return "${Aggregate::class.java.name}#${aggregate.id}"
     }
 

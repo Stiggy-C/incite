@@ -12,11 +12,11 @@ import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
 import java.util.*
 
-interface AbstractService<T : Aggregate, F: AbstractFunction> {
+interface AbstractMLService<T : Aggregate, F: AbstractFunction> {
 
     fun <M : Model<M>> buildModel(entity: T) : M
 
-    fun predict(jsonOrSql: String, entity: T): Dataset<Row>
+    fun predict(entity: T, jsonOrSql: String): Dataset<Row>
 
     fun <M : Model<M>> getFromCache(modelId: UUID): M
 

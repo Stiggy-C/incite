@@ -51,16 +51,14 @@ abstract class StreamingSink : Sink() {
 
 class EmbeddedIgniteSink : IgniteSink()
 
-open class IgniteSink : NonStreamingSink() {
+open class IgniteSink : JdbcSink() {
 
     lateinit var primaryKeyColumns: String
-
-    lateinit var table: String
 
     var tableParameters: String? = null
 }
 
-class JdbcSink : NonStreamingSink() {
+open class JdbcSink : NonStreamingSink() {
 
     var createTableColumnTypes: String? = null
 

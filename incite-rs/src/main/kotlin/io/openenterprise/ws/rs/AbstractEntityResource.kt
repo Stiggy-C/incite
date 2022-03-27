@@ -11,5 +11,4 @@ interface AbstractEntityResource<T: AbstractEntity<ID>, ID: Serializable> {
     fun retrieve(id: ID, asyncResponse: AsyncResponse)
 
     fun delete(id: ID, asyncResponse: AsyncResponse)
-
 }

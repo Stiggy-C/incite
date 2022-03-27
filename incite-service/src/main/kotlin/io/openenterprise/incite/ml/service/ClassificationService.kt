@@ -2,7 +2,6 @@ package io.openenterprise.incite.ml.service
 
 import io.openenterprise.ignite.cache.query.ml.ClassificationFunction
 import io.openenterprise.incite.data.domain.Classification
-import io.openenterprise.incite.data.domain.Clustering
 import io.openenterprise.incite.data.domain.LogisticRegression
 import io.openenterprise.service.AbstractMutableEntityService
 import org.apache.ignite.cache.query.annotations.QuerySqlFunction
@@ -12,17 +11,17 @@ import java.util.*
 import javax.persistence.EntityNotFoundException
 import kotlin.jvm.Throws
 
-interface ClassificationService : AbstractService<Classification, ClassificationFunction>,
+interface ClassificationService : AbstractMLService<Classification, ClassificationFunction>,
     AbstractMutableEntityService<Classification, String> {
 
-    companion object : AbstractService.BaseCompanionObject() {
+    companion object : AbstractMLService.BaseCompanionObject() {
 
         /**
          * Build a model for the given [io.openenterprise.incite.data.domain.Classification] if there is such an entity.
          *
-         * @param id The [java.util.UUID] of [io.openenterprise.incite.data.domain.Classification] as [java.lang.String]
-         * @return The [java.util.UUID] of [Classification.Model]
-         * @throws EntityNotFoundException If no such [io.openenterprise.incite.data.domain.Classification]
+         * @param id The [UUID] of [Classification] as [String]
+         * @return The [UUID] of [Classification.Model]
+         * @throws EntityNotFoundException If no such [Classification]
          */
         @JvmStatic
         @Throws(EntityNotFoundException::class)
@@ -54,12 +53,12 @@ interface ClassificationService : AbstractService<Classification, Classification
 
         /**
          * Perform classification defined by the given [io.openenterprise.incite.data.domain.Classification] with the
-         * latest [io.openenterprise.incite.data.domain.Classification.Model] if there is any and write the result to the
-         * given sinks defined in the given [io.openenterprise.incite.data.domain.Clustering]
+         * latest [Classification.Model] if there is any and write the result to the given sinks defined in the given
+         * [Classification].
          *
-         * @param id The [java.util.UUID] of [io.openenterprise.incite.data.domain.Classification] as [java.lang.String]
+         * @param id The [UUID] of [Classification] as [String]
          * @return Number of entries in the result
-         * @throws EntityNotFoundException If no such [io.openenterprise.incite.data.domain.Classification]
+         * @throws EntityNotFoundException If no such [Classification]
          */
         @JvmStatic
         @QuerySqlFunction(alias = "classification_predict")
@@ -67,7 +66,7 @@ interface ClassificationService : AbstractService<Classification, Classification
             val classificationService = getBean(ClassificationService::class.java)
             val classification = classificationService.retrieve(id)
                 ?: throw EntityNotFoundException("Classification with ID, $id, is not found")
-            val result = classificationService.predict(jsonOrSql, classification)
+            val result = classificationService.predict(classification, jsonOrSql)
 
             writeToSinks(result, classification.sinks)
 

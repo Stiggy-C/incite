@@ -23,7 +23,7 @@ class ClusteringServiceImpl(
     @Inject private val clusteringFunction: ClusteringFunction
 ) :
     ClusteringService,
-    AbstractServiceImpl<Clustering, String, ClusteringFunction>(aggregateService, clusteringFunction) {
+    AbstractMLServiceImpl<Clustering, String, ClusteringFunction>(aggregateService, clusteringFunction) {
 
     override fun <M : Model<M>> buildModel(entity: Clustering): M {
         val dataset = getAggregatedDataset(entity)
@@ -57,7 +57,7 @@ class ClusteringServiceImpl(
         } as M
     }
 
-    override fun predict(jsonOrSql: String, entity: Clustering): Dataset<Row> {
+    override fun predict(entity: Clustering, jsonOrSql: String): Dataset<Row> {
         if (entity.models.isEmpty()) {
             throw IllegalStateException("No models have been built")
         }
@@ -72,10 +72,9 @@ class ClusteringServiceImpl(
                 else -> throw UnsupportedOperationException()
             }
 
-        val dataset = clusteringFunction.predict(jsonOrSql, sparkModel)
-        val aggregateServiceImpl = aggregateService as AggregateServiceImpl
+        val dataset = clusteringFunction.predict(sparkModel, jsonOrSql)
 
-        aggregateServiceImpl.writeSinks(dataset, entity.sinks, false)
+        (aggregateService as AggregateServiceImpl).writeSinks(dataset, entity.sinks, false)
 
         return dataset
     }

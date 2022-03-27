@@ -23,7 +23,7 @@ import javax.inject.Named
 @Named
 class DatasetServiceImpl(
     @Inject private val coroutineScope: CoroutineScope,
-    @Value("\${io.openenterprise.incite.spark.checkpoint-location:./spark-checkpoints}") private val sparkCheckpointLocation: String,
+    @Value("\${io.openenterprise.incite.spark.checkpoint-location-root:./spark-checkpoints}") private val sparkCheckpointLocation: String,
     @Inject private val sparkSession: SparkSession,
     @Inject private val spelExpressionParser: SpelExpressionParser
 ) : DatasetService {
@@ -60,11 +60,18 @@ class DatasetServiceImpl(
             }
         }
 
-        var dataStreamWriter: DataStreamWriter<Row> = when (sink) {
-            is KafkaSink -> TODO("Not yet implemented")
+        var dataStreamWriter: DataStreamWriter<*> = when (sink) {
+            is KafkaSink -> {
+                // As of Dec 11, 2021, only support JSON for now
+                dataset.toJSON()
+                    .writeStream()
+                    .format("kafka")
+                    .option("kafka.bootstrap.servers", sink.kafkaCluster.servers)
+                    .option("topic", sink.topic)
+            }
             is StreamingWrapper -> {
-                dataset.writeStream()
-                    .trigger(trigger)
+                dataset
+                    .writeStream()
                     .foreachBatch { batch, batchId ->
                         LOG.info("About to write dataset of batch {} to non-streaming sink, {}", batchId, sink)
 
@@ -73,10 +80,10 @@ class DatasetServiceImpl(
             }
             else -> throw UnsupportedOperationException()
         }
-
         dataStreamWriter = dataStreamWriter
             .option("checkpointLocation", "$sparkCheckpointLocation/${sink.id}")
             .outputMode(sink.outputMode.name.lowercase())
+            .trigger(trigger)
 
         val datasetStreamWriter = DatasetStreamingWriter(dataStreamWriter, dataStreamWriter.start())
 
@@ -98,6 +105,7 @@ class DatasetServiceImpl(
                     .option(IgniteDataFrameSettings.OPTION_CREATE_TABLE_PRIMARY_KEY_FIELDS(), sink.primaryKeyColumns)
                     .option(IgniteDataFrameSettings.OPTION_TABLE(), sink.table)
             }
+            is IgniteSink -> throw NotImplementedError()
             is JdbcSink -> {
                 dataset.write()
                     .format("jdbc")

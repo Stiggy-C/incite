@@ -53,32 +53,14 @@ abstract class AbstractFunction {
         return MethodUtils.invokeStaticMethod(Model::class.java, "load", directory.path) as M
     }
 
-    fun <M : Model<M>> predict(jsonOrSql: String, model: Model<M>): Dataset<Row> {
-        var jsonNode: JsonNode? = null
-        var tempJsonFile: File? = null
-        try {
-            jsonNode = objectMapper.readTree(jsonOrSql)
-        } catch (e: IOException) {
-            // Given is not a JSON string. Let's assume it is an SQL query for now.
-        }
-
-        val dataset = if (jsonNode == null) {
-            loadDataset(jsonOrSql)
+    fun <M : Model<M>> predict(model: Model<M>, jsonOrSql: String): Dataset<Row> {
+        val dataset = if (isJson(jsonOrSql)) {
+            loadDatasetFromJson(jsonOrSql)
         } else {
-            val tempJsonFilePath = "${FileUtils.getTempDirectoryPath()}/incite/ml/temp/${UUID.randomUUID()}.json"
-            tempJsonFile = File(tempJsonFilePath)
-
-            val fileWriter = FileWriterWithEncoding(tempJsonFile, Charsets.UTF_8, false)
-            IOUtils.write(jsonOrSql, fileWriter)
-
-            sparkSession.read().json(tempJsonFilePath)
+            loadDatasetFromSql(jsonOrSql)
         }
 
-        try {
-            return model.transform(dataset)
-        } finally {
-            FileUtils.deleteQuietly(tempJsonFile)
-        }
+        return model.transform(dataset)
     }
 
     fun <T : MLWritable> putToCache(model: T): UUID {
@@ -95,7 +77,31 @@ abstract class AbstractFunction {
         return modelId
     }
 
-    protected fun loadDataset(sql: String): Dataset<Row> {
+    protected fun isJson(string: String): Boolean {
+        try {
+            objectMapper.readTree(string)
+        } catch (e: IOException) {
+            return false
+        }
+
+        return true
+    }
+
+    protected fun loadDatasetFromJson(json: String): Dataset<Row> {
+        val tempJsonFilePath = "${FileUtils.getTempDirectoryPath()}/incite/ml/temp/${UUID.randomUUID()}.json"
+        val tempJsonFile = File(tempJsonFilePath)
+
+        val fileWriter = FileWriterWithEncoding(tempJsonFile, Charsets.UTF_8, false)
+        IOUtils.write(json, fileWriter)
+
+        try {
+           return sparkSession.read().json(tempJsonFilePath)
+        } finally {
+            FileUtils.deleteQuietly(tempJsonFile)
+        }
+    }
+
+    protected fun loadDatasetFromSql(sql: String): Dataset<Row> {
         val igniteConfiguration = ignite.configuration()
         val clientConnectorConfiguration = igniteConfiguration.clientConnectorConfiguration
         val clientConnectorPort =
