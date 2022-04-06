@@ -104,6 +104,8 @@ class AggregateServiceImplTest {
             runAggregate(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
         }
 
+        Thread.sleep(2500)
+
         var exception: Exception? = null
 
         try {

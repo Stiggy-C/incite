@@ -1,5 +1,6 @@
 package io.openenterprise.incite.ml.service
 
+import com.google.common.collect.ImmutableMap
 import com.google.common.collect.Sets
 import io.openenterprise.ignite.cache.query.ml.ClusteringFunction
 import io.openenterprise.incite.data.domain.*
@@ -19,15 +20,16 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
+import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils
 import java.util.*
+import javax.inject.Inject
 
 @RunWith(SpringJUnit4ClassRunner::class)
 class ClusteringServiceImplTest {
-
-    private var clustering: Clustering = Clustering()
 
     @Autowired
     private lateinit var clusteringService: ClusteringService
@@ -36,23 +38,16 @@ class ClusteringServiceImplTest {
     private lateinit var jdbcTemplate: JdbcTemplate
 
     @Autowired
+    private lateinit var kafkaContainer: KafkaContainer
+
+    @Inject
+    private lateinit var kafkaTemplate: KafkaTemplate<UUID, Map<String, Any>>
+
+    @Autowired
     private lateinit var postgreSQLContainer: PostgreSQLContainer<*>
 
     @Before
     fun before() {
-        val rdbmsDatabase = RdbmsDatabase()
-        rdbmsDatabase.driverClass = postgreSQLContainer.driverClassName
-        rdbmsDatabase.url = postgreSQLContainer.jdbcUrl
-        rdbmsDatabase.username = postgreSQLContainer.username
-        rdbmsDatabase.password = postgreSQLContainer.password
-
-        val jdbcSource = JdbcSource()
-        jdbcSource.query = "select g.id, g.age, g.sex from guest g"
-        jdbcSource.rdbmsDatabase = rdbmsDatabase
-
-        clustering.id = UUID.randomUUID().toString()
-        clustering.sources = Lists.list(jdbcSource)
-
         jdbcTemplate.update(
             "create table if not exists guest (id bigint primary key, membership_number varchar, age smallint, " +
                     "sex smallint, created_date_time timestamp with time zone, last_login_date_time timestamp with time zone)"
@@ -67,17 +62,22 @@ class ClusteringServiceImplTest {
         jdbcTemplate.update("insert into guest values (8, '${RandomStringUtils.randomNumeric(9)}', 25, 0, now(), now()) on conflict do nothing")
         jdbcTemplate.update("insert into guest values (9, '${RandomStringUtils.randomNumeric(9)}', 9, 1, now(), now()) on conflict do nothing")
         jdbcTemplate.update("insert into guest values (10, '${RandomStringUtils.randomNumeric(9)}', 46, 1, now(), now()) on conflict do nothing")
-
-        Mockito.`when`(clusteringService.retrieve(clustering.id.toString())).thenReturn(clustering)
     }
 
     @Test
-    fun buildBisectingKMeansModel() {
+    fun testBuildBisectingKMeansModel() {
+        val jdbcSource = jdbcSource()
+
         val algorithm = BisectingKMeans()
         algorithm.featureColumns = Sets.newHashSet("age", "sex")
         algorithm.k = 4
 
+        val clustering = Clustering()
         clustering.algorithm = algorithm
+        clustering.id = UUID.randomUUID().toString()
+        clustering.sources = Lists.list(jdbcSource)
+
+        givenClusteringIdReturnClusteringEntity(clustering)
 
         val bisectingKMeansModel: BisectingKMeansModel = clusteringService.buildModel(clustering)
 
@@ -87,18 +87,107 @@ class ClusteringServiceImplTest {
     }
 
     @Test
-    fun buildKMeansModel() {
+    fun testBuildKMeansModel() {
+        val jdbcSource = jdbcSource()
+
         val algorithm = KMeans()
         algorithm.featureColumns = Sets.newHashSet("age", "sex")
         algorithm.k = 4
 
+        val clustering = Clustering()
         clustering.algorithm = algorithm
+        clustering.id = UUID.randomUUID().toString()
+        clustering.sources = Lists.list(jdbcSource)
+
+        givenClusteringIdReturnClusteringEntity(clustering)
 
         val kMeansModel: KMeansModel = clusteringService.buildModel(clustering)
 
         Assert.assertNotNull(kMeansModel)
         Assert.assertTrue(kMeansModel.clusterCenters().isNotEmpty())
         Assert.assertTrue(kMeansModel.hasSummary())
+    }
+
+    @Test
+    fun testBuildKMeansModelFromJointDatasets() {
+        val topic = "testBuildKMeansModelFromJointDatasets"
+
+        val jdbcSource = jdbcSource()
+        val kafkaSource =
+            kafkaSource(
+                topic,
+                Field("guest_id", "cast(#field as bigint) as guest_id"),
+                Field("average_spending", "cast(#field as double) as average_spending")
+            )
+
+        val algorithm = BisectingKMeans()
+        algorithm.featureColumns = Sets.newHashSet("age", "sex", "average_spending")
+        algorithm.k = 4
+
+        val join = Join()
+        join.leftColumn = "guest_id"
+        join.rightColumn = "id"
+        join.rightIndex = 1
+        join.type = Join.Type.INNER
+
+        val clustering = Clustering()
+        clustering.algorithm = algorithm
+        clustering.id = UUID.randomUUID().toString()
+        clustering.joins = Lists.list(join)
+        clustering.sources = Lists.list(kafkaSource, jdbcSource)
+
+        val message0 = ImmutableMap.of("guest_id", 1, "average_spending", 101.0)
+        val message1 = ImmutableMap.of("guest_id", 2, "average_spending", 57.2)
+        val message2 = ImmutableMap.of("guest_id", 3, "average_spending", 1000.7)
+        val message3 = ImmutableMap.of("guest_id", 4, "average_spending", 211.4)
+        val message4 = ImmutableMap.of("guest_id", 5, "average_spending", 91.3)
+        val message5 = ImmutableMap.of("guest_id", 6, "average_spending", 891.1)
+
+        kafkaTemplate.send(topic, UUID.randomUUID(), message0).get()
+        kafkaTemplate.send(topic, UUID.randomUUID(), message1).get()
+        kafkaTemplate.send(topic, UUID.randomUUID(), message2).get()
+        kafkaTemplate.send(topic, UUID.randomUUID(), message3).get()
+        kafkaTemplate.send(topic, UUID.randomUUID(), message4).get()
+        kafkaTemplate.send(topic, UUID.randomUUID(), message5).get()
+
+        givenClusteringIdReturnClusteringEntity(clustering)
+
+        val bisectingKMeansModel: BisectingKMeansModel = clusteringService.buildModel(clustering)
+
+        Assert.assertNotNull(bisectingKMeansModel)
+        Assert.assertTrue(bisectingKMeansModel.clusterCenters().isNotEmpty())
+        Assert.assertTrue(bisectingKMeansModel.hasSummary())
+    }
+
+    private fun givenClusteringIdReturnClusteringEntity(clustering: Clustering) {
+        Mockito.`when`(clusteringService.retrieve(clustering.id.toString())).thenReturn(clustering)
+    }
+
+    private fun jdbcSource(): JdbcSource {
+        val rdbmsDatabase = RdbmsDatabase()
+        rdbmsDatabase.driverClass = postgreSQLContainer.driverClassName
+        rdbmsDatabase.url = postgreSQLContainer.jdbcUrl
+        rdbmsDatabase.username = postgreSQLContainer.username
+        rdbmsDatabase.password = postgreSQLContainer.password
+
+        val jdbcSource = JdbcSource()
+        jdbcSource.query = "select g.id, g.age, g.sex from guest g"
+        jdbcSource.rdbmsDatabase = rdbmsDatabase
+        return jdbcSource
+    }
+
+    private fun kafkaSource(topic: String, vararg fields: Field): KafkaSource {
+        val kafkaCluster = KafkaCluster()
+        kafkaCluster.servers = kafkaContainer.bootstrapServers
+
+        val kafkaSource = KafkaSource()
+        kafkaSource.fields = Sets.newHashSet(*fields)
+        kafkaSource.kafkaCluster = kafkaCluster
+        kafkaSource.startingOffset = "earliest"
+        kafkaSource.streamingRead = false
+        kafkaSource.topic = topic
+
+        return kafkaSource
     }
 
     @TestConfiguration
@@ -123,6 +212,5 @@ class ClusteringServiceImplTest {
         ): ClusteringService {
             return ClusteringServiceImpl(aggregateService, clusteringFunction)
         }
-
     }
 }

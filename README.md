@@ -24,6 +24,8 @@ Incite provides RESTful APIs which allow users to define and run data aggregatio
 and write the result of the aggregation to different destinations (sinks). Not only that, Incite supports streaming 
 aggregation as it supports streaming read and streaming write from/to different data-sources.
 
+![Aggregate flow diagram](./aggregate_flow_diagram.png)
+
 #### Supported sources
 * JDBC (includes Embedded Ignite & Ignite) <Non-streaming>
 * Kafka <Non-Streaming & Streaming>
@@ -65,6 +67,10 @@ Machine learning (ML) is a set of algorithms which provides insight of data. The
 data. Incite provides RESTful API to define an ML job. Saved ML job can be triggered by RESTful API. Furthermore,
 Incite also provide SQL functions to run machine learning algorithms against data stored on incite by using SQL query.
 Currently, Incite only supports the following ML algorithms.
+
+:warning: As of now, Incite is not able to build model from streaming sources due to a limitation in Apache Spark.
+
+![ML flow diagram](./ml_flow_diagram.png)
 
 #### Classification
 ###### Supported algorithm:
@@ -132,6 +138,12 @@ select bisecting_k_means_predict('526d6e09-5c13-486f-951a-5dad58e3d36c', 'select
 ```
 
 #### Recommendation
+
+:warning: For Alternating Least Squares (ALS), source dataset must include the following columns, 
+* user 
+* item
+* rating [Float/Double]
+
 ```roomsql
 -- Build a model for a Recommendation entity stored to Incite
 select build_recommendation_model('791ed421-4ba6-4fcb-8d09-22fda3d99696');
@@ -159,12 +171,16 @@ select als_predict('569130e9-9210-4d2a-9e7e-3f6c82e27e12', 'select nr.id, nr.age
 
 ## Roadmap
 
-* Ability to start data [streaming] aggregate by SQL function
-* Calcite based SQL engine (Apache Ignite 2.13 release)
+* Calcite based SQL engine (w/ Apache Ignite 2.13.0)
 * Complete documentation
 * Complete unit tests
+* Data [streaming] transformation to go along with data [streaming] aggregate
 * Dockerfile
 * Docker compose file
+* Upgrade to Apache Spark 3.x (w/ Scala 2.12)
+* Upgrade to Java 11
+  * Replace org.apache.ignite:ignite-spark:2.12.0 and related logic with custom logic due to Java 8 lock-in
+* SQL function to start data [streaming] aggregate
 
 ## Acknowledgment
 

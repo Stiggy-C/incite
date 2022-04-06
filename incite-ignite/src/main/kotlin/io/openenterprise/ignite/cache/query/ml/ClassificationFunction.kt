@@ -53,7 +53,7 @@ class ClassificationFunction : AbstractFunction() {
             val classificationFunction = getBean(ClassificationFunction::class.java)
             val logisticRegressionModel: LogisticRegressionModel =
                 classificationFunction.getFromCache(UUID.fromString(modelId))
-            val dataset = classificationFunction.predict(jsonOrSql, logisticRegressionModel)
+            val dataset = classificationFunction.predict(logisticRegressionModel, jsonOrSql)
 
             return DatasetUtils.toJson(dataset)
         }

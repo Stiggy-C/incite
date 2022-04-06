@@ -11,6 +11,7 @@ import org.apache.spark.ml.clustering.KMeansModel
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.param.shared.HasFeaturesCol
 import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.ForeachWriter
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.SaveMode
 import java.util.*

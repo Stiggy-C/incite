@@ -21,9 +21,9 @@ cloud "Cloud/Internal data centre" {
 
                    http -- jersey2
                    jersey2 <--> incite
-                   incite <--> camel
-                   incite <-right-> ignite
-                   incite <--> spark
+                   incite ..> camel : use
+                   incite .right.> ignite : use
+                   incite ..> spark : use
 
                    jdbc -- ignite
                    odbc -left- ignite

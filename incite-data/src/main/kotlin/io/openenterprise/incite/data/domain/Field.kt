@@ -6,7 +6,7 @@ class Field() {
         this.name = name
     }
 
-    constructor( name: String, function: String,): this() {
+    constructor(name: String, function: String): this() {
         this.function = function
         this.name = name
     }

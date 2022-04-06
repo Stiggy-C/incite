@@ -1,13 +1,16 @@
 package io.openenterprise.incite.ml.service
 
 import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
+import com.google.common.collect.ImmutableMap
 import io.openenterprise.ignite.spark.IgniteContext
 import io.openenterprise.incite.data.repository.AggregateRepository
 import io.openenterprise.incite.service.AggregateService
 import io.openenterprise.incite.service.AggregateServiceImpl
+import io.openenterprise.incite.service.AggregateServiceImplTest
 import io.openenterprise.incite.spark.service.DatasetServiceImplTest
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import kotlinx.coroutines.CoroutineScope
@@ -18,6 +21,8 @@ import org.apache.ignite.Ignition
 import org.apache.ignite.cache.CachingProvider
 import org.apache.ignite.cluster.ClusterState
 import org.apache.ignite.configuration.IgniteConfiguration
+import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.kafka.common.serialization.UUIDSerializer
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.ignite.IgniteSparkSession
 import org.mockito.Mockito
@@ -32,8 +37,14 @@ import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.expression.spel.standard.SpelExpressionParser
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.kafka.core.DefaultKafkaProducerFactory
+import org.springframework.kafka.core.KafkaTemplate
+import org.springframework.kafka.core.ProducerFactory
+import org.springframework.kafka.support.serializer.JsonSerializer
 import org.springframework.transaction.support.TransactionTemplate
+import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.utility.DockerImageName
 import java.io.File
 import java.util.*
 import javax.cache.Cache
@@ -108,6 +119,18 @@ abstract class AbstractMLServiceImplTest {
         @Bean
         protected fun jdbcTemplate(datasource: DataSource): JdbcTemplate = JdbcTemplate(datasource)
 
+        @Bean
+        protected fun kafkaContainer(): KafkaContainer {
+            val kafkaContainer = KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:latest"))
+            kafkaContainer.start()
+
+            return kafkaContainer
+        }
+
+        @Bean
+        protected fun kafkaTemplate(producerFactory: ProducerFactory<UUID, Map<String, Any>>): KafkaTemplate<UUID, Map<String, Any>> =
+            KafkaTemplate(producerFactory)
+
         @Bean("mlModelsCache")
         fun mlModelsCache(): Cache<UUID, File> {
             val mutableConfiguration: MutableConfiguration<UUID, File> =
@@ -134,6 +157,22 @@ abstract class AbstractMLServiceImplTest {
             postgreSQLContainer.start()
 
             return postgreSQLContainer
+        }
+
+        @Bean
+        protected fun producerFactory(
+            kafkaContainer: KafkaContainer,
+            objectMapper: ObjectMapper
+        ): ProducerFactory<UUID, Map<String, Any>> {
+            val configurations = ImmutableMap.builder<String, Any>()
+                .put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.bootstrapServers)
+                .build()
+
+            return DefaultKafkaProducerFactory(
+                configurations,
+                UUIDSerializer(),
+                JsonSerializer(object : TypeReference<Map<String, Any>>() {}, objectMapper)
+            )
         }
 
         @Bean

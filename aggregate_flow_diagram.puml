@@ -1,0 +1,34 @@
+@startuml
+'https://plantuml.com/component-diagram
+
+!theme mars
+
+title "Data aggregate flow diagram"
+
+database "Kafka" as kafka
+
+database "RDBMS" as mysql
+
+database "Data warehouse" as postgres
+
+node "Container" {
+
+    node "JVM" {
+
+        package "Spring Boot" {
+
+            component "Incite" as incite
+            component "Apache Ignite" as ignite
+            component "Apache Spark" as spark
+
+        }
+    }
+}
+
+incite ..> ignite : load (aggregate) definition
+incite .> spark : join datasets/write result
+kafka --> spark
+mysql --> spark
+spark --> postgres
+
+@enduml

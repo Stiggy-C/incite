@@ -18,9 +18,9 @@ node "JVM" {
 
        http - jersey2
        jersey2 <--> incite
-       incite <--> camel
-       incite <--> ignite
-       incite <--> spark
+       incite ..> camel : use
+       incite ..> ignite : use
+       incite ..> spark : use
 
        jdbc -right- ignite
        odbc -down- ignite

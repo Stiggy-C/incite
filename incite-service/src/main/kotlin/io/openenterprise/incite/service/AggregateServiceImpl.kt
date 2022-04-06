@@ -11,12 +11,15 @@ import org.apache.commons.lang3.BooleanUtils.isFalse
 import org.apache.commons.lang3.ObjectUtils.isNotEmpty
 import org.apache.commons.lang3.StringUtils
 import org.apache.ignite.Ignite
+import org.apache.spark.sql.Column
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
 import org.slf4j.LoggerFactory
 import org.springframework.expression.spel.standard.SpelExpressionParser
 import org.springframework.expression.spel.support.StandardEvaluationContext
 import scala.collection.JavaConversions
+import scala.collection.Seq
+// import scala.collection.JavaConversions
 import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.*
@@ -163,13 +166,15 @@ class AggregateServiceImpl(
                 val leftColumn = it.leftColumn
                 val rightColumn = it.rightColumn
 
-                val columns = if (StringUtils.equalsIgnoreCase(leftColumn, rightColumn)) {
-                    JavaConversions.asScalaBuffer(listOf(it.leftColumn)).seq()
-                } else {
-                    JavaConversions.asScalaBuffer(listOf("left.${it.leftColumn}", "right.${it.rightColumn}")).seq()
-                }
+                result = if (StringUtils.equalsIgnoreCase(leftColumn, rightColumn)) {
+                    val column: Seq<String> = JavaConversions.asScalaBuffer(listOf(it.leftColumn)).seq()
 
-                result = leftDataset.join(rightDataset, columns, it.type.name)
+                    leftDataset.join(rightDataset, column, it.type.name)
+                } else {
+                    val columns = Column("left.`$leftColumn`").equalTo(Column("right.`$rightColumn`"))
+
+                    leftDataset.join(rightDataset, columns, it.type.name)
+                }
             }
 
         return result
