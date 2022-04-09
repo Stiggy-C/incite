@@ -1,22 +1,24 @@
 # Incite
 
 ## What is Incite?
-Incite is a wrapper of popular Java data related frameworks. It aims to provide easier access of these technologies for 
-non-developers (i.e. Business analysis) in one organization.
+Incite is a wrapper of popular Java data related frameworks/libraries. It aims to provide easier access of these 
+technologies for non-developers (i.e. Business analysis) in an organization. As of now, Incite remains in proof of 
+concept stage.
 
-As of now, the following frameworks are embedded into Incite,
-* Apache Camel (A well known enterprise integration framework)
-* Apache Incite (A well known in memory database which can also serve as a compute/message grid)
-* Apache Spark (A well known framework for data analytic & machine learning)
-
-![Component diagram](./component_diagram.png)
-
-Currently, it provides the following features,
-
+### What can Incite do?
 * Data [streaming] aggregation
-* Enterprise integration 
+* Enterprise integration
 * Hybrid transaction/analytical processing (HTAP) SQL database
 * Machine Learning
+
+### What frameworks/libraries are being utilised by Incite?
+As of now, the following frameworks are utilised by Incite,
+
+* Apache Camel (Enterprise integration)
+* Apache Incite (Compute grid/In memory database/Message grid)
+* Apache Spark (Data analytic & machine learning)
+
+![Component diagram](./component_diagram.png)
 
 ## Data [streaming] aggregation
 Data aggregation is to compile and combine data from different data-sources for different kind of data-processing. 
@@ -26,11 +28,12 @@ aggregation as it supports streaming read and streaming write from/to different 
 
 ![Aggregate flow diagram](./aggregate_flow_diagram.png)
 
-#### Supported sources
+### Supported [data] sources & [data] sinks
+#### Sources
 * JDBC (includes Embedded Ignite & Ignite) <Non-streaming>
 * Kafka <Non-Streaming & Streaming>
 
-#### Supported sinks
+#### Sinks
 * Embedded Ignite <Non-streaming>
 * JDBC (excludes Embedded Ignite & Ignite) <Non-streaming>
 * Kafka <Non-streaming & Streaming>
@@ -50,9 +53,9 @@ egress the processed data to other systems or databases.
 [Read more](./incite-rs/README.md)
 
 ## HTAP SQL database
-Incite is powered by Apache Ignite which is also a hybrid transaction/analytical processing (HTAP) SQL database. 
-This means that Incite is friendly to both analytical & transactional workload. One does not have to transfer data 
-stored by transactional operations to a standalone data warehouse to be analysed which saves resources and time.
+Incite is powered by Apache Ignite, a hybrid transaction/analytical processing (HTAP) SQL database. This means that 
+Incite is friendly to both analytical & transactional workload. One does not have to transfer data stored by 
+transactional operations to a standalone data warehouse to be analysed which saves resources and time.
 
 ```properties
 ## Example SpringBoot configuration
@@ -171,15 +174,15 @@ select als_predict('569130e9-9210-4d2a-9e7e-3f6c82e27e12', 'select nr.id, nr.age
 
 ## Roadmap
 
+* Apache Spark 3.x (w/ Scala 2.12)
 * Calcite based SQL engine (w/ Apache Ignite 2.13.0)
-* Complete documentation
-* Complete unit tests
-* Data [streaming] transformation to go along with data [streaming] aggregate
+* Completion of documentation
+* Completion of unit tests
+* Data [streaming] transformation on top of [streaming] aggregate
 * Dockerfile
 * Docker compose file
-* Upgrade to Apache Spark 3.x (w/ Scala 2.12)
-* Upgrade to Java 11
-  * Replace org.apache.ignite:ignite-spark:2.12.0 and related logic with custom logic due to Java 8 lock-in
+* Java 11 Support
+  * Replace org.apache.ignite:ignite-spark and related logic with custom logic due to Java 8 lock-in
 * SQL function to start data [streaming] aggregate
 
 ## Acknowledgment
@@ -187,9 +190,9 @@ select als_predict('569130e9-9210-4d2a-9e7e-3f6c82e27e12', 'select nr.id, nr.age
 Incite is built around Apache Camel, Apache Ignite and Apache Spark. Incite thanks the community of Apache Camel, 
 Apache Ignite and Apache Spark for their contribution (respectively) to the mentioned projects.
 
-## Legal Disclaimer
+## Legal Disclaimer :warning:
 
-:warning: Incite IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+Incite IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
 NON-INFRINGEMENT.
 
@@ -197,7 +200,7 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
 EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
 USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
-IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. :warning:
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## License
 
