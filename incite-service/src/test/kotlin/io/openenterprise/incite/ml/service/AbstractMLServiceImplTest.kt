@@ -13,6 +13,7 @@ import io.openenterprise.incite.service.AggregateServiceImpl
 import io.openenterprise.incite.service.AggregateServiceImplTest
 import io.openenterprise.incite.spark.service.DatasetServiceImplTest
 import io.openenterprise.incite.spark.sql.service.DatasetService
+import io.openenterprise.incite.spark.sql.service.DatasetServiceImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.apache.ignite.Ignite
@@ -27,6 +28,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.ignite.IgniteSparkSession
 import org.mockito.Mockito
 import org.postgresql.ds.PGSimpleDataSource
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
@@ -67,10 +69,20 @@ abstract class AbstractMLServiceImplTest {
         @Bean
         protected fun aggregateService(
             datasetService: DatasetService, ignite: Ignite, spelExpressionParser: SpelExpressionParser
-        ): AggregateService = AggregateServiceImpl(datasetService, ignite, spelExpressionParser)
+        ): AggregateService = AggregateServiceImpl(datasetService, ignite)
 
         @Bean
         protected fun coroutineScope(): CoroutineScope = CoroutineScope(Dispatchers.Default)
+
+        @Bean
+        protected fun datasetService(
+            coroutineScope: CoroutineScope,
+            @Value("\${io.openenterprise.incite.spark.checkpoint-location-root:./spark-checkpoints}")
+            sparkCheckpointLocation: String,
+            sparkSession: SparkSession,
+            spelExpressionParser: SpelExpressionParser
+        ): DatasetService =
+            DatasetServiceImpl(coroutineScope, sparkCheckpointLocation, sparkSession, spelExpressionParser)
 
         @Bean
         protected fun dataSource(postgreSQLContainer: PostgreSQLContainer<*>): DataSource {

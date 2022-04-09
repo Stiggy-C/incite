@@ -3,6 +3,7 @@ package io.openenterprise.incite.spark.sql.service
 import io.openenterprise.ignite.spark.IgniteDataFrameConstants
 import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.spark.sql.DatasetNonStreamingWriter
+import io.openenterprise.incite.spark.sql.DatasetWriter
 import io.openenterprise.incite.spark.sql.streaming.DatasetStreamingWriter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -16,6 +17,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.expression.spel.standard.SpelExpressionParser
 import org.springframework.expression.spel.support.StandardEvaluationContext
+import java.util.*
 import java.util.stream.Collectors
 import javax.inject.Inject
 import javax.inject.Named
@@ -33,13 +35,32 @@ class DatasetServiceImpl(
         private val LOG = LoggerFactory.getLogger(DatasetServiceImpl::class.java)
     }
 
-    override fun load(source: Source): Dataset<Row> {
+    override fun load(source: Source): Dataset<Row> = load(source, Collections.emptyMap<String, Any>())
+
+    override fun load(source: Source, variables: Map<String, *>): Dataset<Row> {
+        @Suppress("NAME_SHADOWING")
+        val source = when (source) {
+            is JdbcSource -> manipulateSqlQuery(source, variables)
+            else -> source
+        }
+
         return when (source) {
             is KafkaSource -> load(source)
             is JdbcSource -> load(source)
             else -> throw UnsupportedOperationException()
         }
     }
+
+    override fun load(sources: List<Source>): List<Dataset<Row>> = load(sources, Collections.emptyMap<String, Any>())
+
+    override fun load(sources: List<Source>, variables: Map<String, *>): List<Dataset<Row>> = sources.stream()
+        .map {
+            load(it, variables)
+        }
+        .collect(
+            Collectors.toList()
+        )
+
 
     override fun write(
         dataset: Dataset<Row>,
@@ -126,6 +147,37 @@ class DatasetServiceImpl(
         return DatasetNonStreamingWriter(dataFrameWriter)
     }
 
+    override fun write(dataset: Dataset<Row>, sinks: List<Sink>, forceStreaming: Boolean): Set<DatasetWriter<*>> {
+        @Suppress("NAME_SHADOWING")
+        val sinks = if (forceStreaming) {
+            sinks.stream()
+                .map { (if (it is NonStreamingSink) StreamingWrapper(it) else it) as StreamingSink }
+                .collect(Collectors.toList())
+        } else {
+            sinks.stream().peek {
+                if (it is StreamingSink) {
+                    it.streamingWrite = false
+                }
+            }.collect(Collectors.toList())
+        }
+
+        val writers = sinks.stream()
+            .map {
+                when (it) {
+                    is NonStreamingSink -> {
+                        write(dataset, it)
+                    }
+                    is StreamingSink -> {
+                        write(dataset, it)
+                    }
+                    else -> throw UnsupportedOperationException()
+                }
+            }
+            .collect(Collectors.toSet())
+
+        return writers
+    }
+
     private fun load(kafkaSource: KafkaSource): Dataset<Row> {
         var dataset: Dataset<Row> = if (kafkaSource.streamingRead) sparkSession.readStream()
             .format("kafka")
@@ -208,7 +260,36 @@ class DatasetServiceImpl(
         )
     }
 
+    private fun manipulateSqlQuery(jdbcSource: JdbcSource, variables: Map<String, *>): JdbcSource {
+        val source = jdbcSource.clone() as JdbcSource
+
+        val evaluationContext = StandardEvaluationContext()
+        evaluationContext.setVariables(variables)
+
+        var query: String = source.query
+        val tokens = StringUtils.split(query, " ")
+        val expressionTokens = Arrays.stream(tokens)
+            .filter { token: String? ->
+                StringUtils.startsWith(
+                    token,
+                    "#"
+                )
+            }
+            .collect(Collectors.toSet())
+
+        for (token in expressionTokens) {
+            val expression = spelExpressionParser.parseExpression(token)
+            val value = expression.getValue(evaluationContext)
+            val valueAsSqlString = if (Objects.isNull(value)) "null" else "'$value'"
+
+            query = StringUtils.replace(query, token, valueAsSqlString)
+        }
+
+        source.query = query
+
+        return source
+    }
+
     private fun withWatermark(dataset: Dataset<Row>, waterMark: Source.Watermark) =
         dataset.withWatermark(waterMark.eventTimeColumn, waterMark.delayThreshold)
-
 }

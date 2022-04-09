@@ -11,6 +11,7 @@ import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.data.repository.AggregateRepository
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import io.openenterprise.incite.spark.service.DatasetServiceImplTest
+import io.openenterprise.incite.spark.sql.service.DatasetServiceImpl
 import io.openenterprise.incite.spark.sql.streaming.DatasetStreamingWriter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +34,7 @@ import org.mockito.Mockito
 import org.mockito.internal.util.collections.Sets
 import org.postgresql.ds.PGSimpleDataSource
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.ApplicationContext
@@ -49,6 +51,7 @@ import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.core.ProducerFactory
 import org.springframework.kafka.support.serializer.JsonSerializer
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
+import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
@@ -308,16 +311,23 @@ class AggregateServiceImplTest {
         @Bean
         protected fun aggregateRepository(): AggregateRepository = Mockito.mock(AggregateRepository::class.java)
 
-
         @Bean
         protected fun aggregateService(
             datasetService: DatasetService, ignite: Ignite, spelExpressionParser: SpelExpressionParser
-        ): AggregateService = AggregateServiceImpl(datasetService, ignite, spelExpressionParser)
-
+        ): AggregateService = AggregateServiceImpl(datasetService, ignite)
 
         @Bean
         protected fun coroutineScope(): CoroutineScope = CoroutineScope(Dispatchers.Default)
 
+        @Bean
+        protected fun datasetService(
+            coroutineScope: CoroutineScope,
+            @Value("\${io.openenterprise.incite.spark.checkpoint-location-root:./spark-checkpoints}")
+            sparkCheckpointLocation: String,
+            sparkSession: SparkSession,
+            spelExpressionParser: SpelExpressionParser
+        ): DatasetService =
+            DatasetServiceImpl(coroutineScope, sparkCheckpointLocation, sparkSession, spelExpressionParser)
 
         @Bean
         protected fun dataSource(postgreSQLContainer: PostgreSQLContainer<*>): DataSource {
@@ -428,5 +438,8 @@ class AggregateServiceImplTest {
 
         @Bean
         protected fun spelExpressionParser(): SpelExpressionParser = SpelExpressionParser()
+
+        @Bean
+        protected fun transactionTemplate(): TransactionTemplate = Mockito.mock(TransactionTemplate::class.java)
     }
 }

@@ -1,10 +1,7 @@
 package io.openenterprise.incite.ml.ws.rs
 
-import io.openenterprise.ignite.cache.query.ml.ClusteringFunction
-import io.openenterprise.incite.data.domain.Clustering
-import io.openenterprise.incite.ml.service.ClusteringService
-import io.openenterprise.ws.rs.AbstractAbstractMutableEntityResourceImpl
-import kotlinx.coroutines.launch
+import io.openenterprise.ignite.cache.query.ml.RecommendationFunction
+import io.openenterprise.incite.data.domain.Recommendation
 import javax.inject.Named
 import javax.ws.rs.*
 import javax.ws.rs.container.AsyncResponse
@@ -12,15 +9,15 @@ import javax.ws.rs.container.Suspended
 import javax.ws.rs.core.MediaType
 
 @Named
-@Path("/cluster-analyses")
-class ClusteringResourceImpl : ClusteringResource,
-    AbstractMachineLearningResourceImpl<Clustering, ClusteringFunction>() {
+@Path("/recommendations")
+class RecommendationResourceImpl : RecommendationResource,
+    AbstractMachineLearningResourceImpl<Recommendation, RecommendationFunction>() {
 
     @GET
     @Path("/{id}/model")
     @Produces(MediaType.APPLICATION_JSON)
     override fun buildModel(@PathParam("id") id: String, @Suspended asyncResponse: AsyncResponse) {
-       super.buildModel(id, asyncResponse)
+        super.buildModel(id, asyncResponse)
     }
 
     @POST
@@ -34,7 +31,7 @@ class ClusteringResourceImpl : ClusteringResource,
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    override fun create(entity: Clustering, @Suspended asyncResponse: AsyncResponse) {
+    override fun create(entity: Recommendation, @Suspended asyncResponse: AsyncResponse) {
         super.create(entity, asyncResponse)
     }
 
@@ -53,7 +50,7 @@ class ClusteringResourceImpl : ClusteringResource,
 
     @PATCH
     @Path("/{id}")
-    override fun update(id: String, entity: Clustering, asyncResponse: AsyncResponse) {
+    override fun update(id: String, entity: Recommendation, asyncResponse: AsyncResponse) {
         super.update(id, entity, asyncResponse)
     }
 }

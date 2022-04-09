@@ -34,15 +34,9 @@ import javax.persistence.EntityNotFoundException
 @Named
 class AggregateServiceImpl(
     @Inject private val datasetService: DatasetService,
-    @Inject private val ignite: Ignite,
-    @Inject private val spelExpressionParser: SpelExpressionParser,
+    @Inject private val ignite: Ignite
 ) : AggregateService,
     AbstractAbstractMutableEntityServiceImpl<Aggregate, String>() {
-
-    companion object {
-
-        private val LOG = LoggerFactory.getLogger(AggregateServiceImpl::class.java)
-    }
 
     private val aggregateContexts: MutableMap<String, AggregateContext> = ConcurrentHashMap()
 
@@ -89,7 +83,7 @@ class AggregateServiceImpl(
                 ImmutableMap.of("lastRunDateTime", aggregate.lastRunDateTime as Any)
             }
 
-        val datasets = loadSources(aggregate.sources, variables)
+        val datasets = datasetService.load(aggregate.sources, variables)
 
         // Step 2: Join others in datasets to datasets[0]
         val result = joinSources(datasets, aggregate.joins)
@@ -100,7 +94,7 @@ class AggregateServiceImpl(
         var exceptionOccurred: Exception? = null
 
         val writers = try {
-            writeSinks(result, aggregate.sinks, isStreaming)
+            datasetService.write(result, aggregate.sinks, isStreaming)
         } catch (e: Exception) {
             exceptionOccurred = e
 
@@ -180,86 +174,7 @@ class AggregateServiceImpl(
         return result
     }
 
-    internal fun loadSources(sources: List<Source>, variables: Map<String, *>): List<Dataset<Row>> {
-        return sources.stream()
-            .map {
-                when (it) {
-                    is JdbcSource -> {
-                        manipulateSqlQuery(it, variables)
-                    }
-                    else -> it
-                }
-            }
-            .map {
-                datasetService.load(it)
-            }
-            .collect(
-                Collectors.toList()
-            )
-    }
-
-    internal fun writeSinks(result: Dataset<Row>, sinks: List<Sink>, streamingWrite: Boolean): Set<DatasetWriter<*>> {
-        @Suppress("NAME_SHADOWING")
-        val sinks = if (streamingWrite) {
-            sinks.stream()
-                .map { (if (it is NonStreamingSink) StreamingWrapper(it) else it) as StreamingSink }
-                .collect(Collectors.toList())
-        } else {
-            sinks.stream().peek {
-                if (it is StreamingSink) {
-                    it.streamingWrite = false
-                }
-            }.collect(Collectors.toList())
-        }
-
-        val writers = sinks.stream()
-            .map {
-                when (it) {
-                    is NonStreamingSink -> {
-                        datasetService.write(result, it)
-                    }
-                    is StreamingSink -> {
-                        datasetService.write(result, it)
-                    }
-                    else -> throw UnsupportedOperationException()
-                }
-            }
-            .collect(Collectors.toSet())
-
-        return writers
-    }
-
     private fun getLockKey(aggregate: Aggregate): String {
         return "${Aggregate::class.java.name}#${aggregate.id}"
-    }
-
-    private fun manipulateSqlQuery(jdbcSource: JdbcSource, variables: Map<String, *>): JdbcSource {
-        val source = jdbcSource.clone() as JdbcSource
-
-        val evaluationContext = StandardEvaluationContext()
-        evaluationContext.setVariables(variables)
-
-        var query: String = source.query
-        val tokens = StringUtils.split(query, " ")
-        val expressionTokens = Arrays.stream(tokens)
-            .filter { token: String? ->
-                StringUtils.startsWith(
-                    token,
-                    "#"
-                )
-            }
-            .collect(Collectors.toSet())
-
-        for (token in expressionTokens) {
-            val expression = spelExpressionParser.parseExpression(token)
-            val value = expression.getValue(evaluationContext)
-            val valueAsSqlString = if (Objects.isNull(value)) "null" else "'$value'"
-
-            query = StringUtils.replace(query, token, valueAsSqlString)
-        }
-
-        source.query = query
-
-        return source
     }
 }

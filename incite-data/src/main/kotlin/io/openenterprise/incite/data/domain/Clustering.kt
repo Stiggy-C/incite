@@ -10,14 +10,14 @@ import javax.persistence.*
 import kotlin.Comparator
 
 @Entity
-class Clustering : Aggregate() {
+class Clustering : MachineLearning<Clustering.Model>() {
 
     @Convert(converter = AlgorithmJsonAttributeConverter::class)
     lateinit var algorithm: Algorithm
 
     @OneToMany
     @OrderBy("createdDateTime DESC")
-    var models: SortedSet<Model> = TreeSet()
+    override var models: SortedSet<Model> = TreeSet()
 
     @Transient
     var latestSilhouette: Double? = null

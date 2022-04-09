@@ -1,5 +1,6 @@
 package io.openenterprise.incite.ml.ws.rs
 
+import io.openenterprise.ignite.cache.query.ml.ClassificationFunction
 import io.openenterprise.incite.data.domain.Classification
 import io.openenterprise.incite.ml.service.ClassificationService
 import io.openenterprise.ws.rs.AbstractAbstractMutableEntityResourceImpl
@@ -13,17 +14,13 @@ import javax.ws.rs.core.MediaType
 @Named
 @Path("/classifications")
 class ClassificationResourceImpl : ClassificationResource,
-    AbstractAbstractMutableEntityResourceImpl<Classification, String>() {
+    AbstractMachineLearningResourceImpl<Classification, ClassificationFunction>() {
 
     @GET
     @Path("/{id}/model")
     @Produces(MediaType.APPLICATION_JSON)
     override fun buildModel(@PathParam("id") id: String, @Suspended asyncResponse: AsyncResponse) {
-        coroutineScope.launch {
-            val modelId = ClassificationService.buildModel(id)
-
-            asyncResponse.resume(modelId)
-        }
+        super.buildModel(id, asyncResponse)
     }
 
     @POST
@@ -31,11 +28,7 @@ class ClassificationResourceImpl : ClassificationResource,
     @Consumes(MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN)
     @Produces(MediaType.APPLICATION_JSON)
     override fun predict(@PathParam("id") id: String, jsonOrSql: String, @Suspended asyncResponse: AsyncResponse) {
-        coroutineScope.launch {
-            val result = ClassificationService.predict(id, jsonOrSql)
-
-            asyncResponse.resume(result)
-        }
+        super.predict(id, jsonOrSql, asyncResponse)
     }
 
     @POST

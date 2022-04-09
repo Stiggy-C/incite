@@ -88,6 +88,11 @@ Currently, Incite only supports the following ML algorithms.
 ###### Supported algorithm:
 * Alternating Least Squares (ALS)
 
+:warning: For Alternating Least Squares (ALS), source dataset must include the following columns,
+* user
+* item
+* rating [Double/Float]
+
 ### RESTful API
 
 As mentioned, Incite provides a set of API for ML related operations. These APIs allow one to define an ML task on 
@@ -142,11 +147,6 @@ select bisecting_k_means_predict('526d6e09-5c13-486f-951a-5dad58e3d36c', 'select
 
 #### Recommendation
 
-:warning: For Alternating Least Squares (ALS), source dataset must include the following columns, 
-* user 
-* item
-* rating [Float/Double]
-
 ```roomsql
 -- Build a model for a Recommendation entity stored to Incite
 select build_recommendation_model('791ed421-4ba6-4fcb-8d09-22fda3d99696');
@@ -168,7 +168,7 @@ select als_predict('569130e9-9210-4d2a-9e7e-3f6c82e27e12', 'select nr.id, nr.age
 
 ## Usage
 
-:warning: Incite is a prototype and is not being community reviewed. Please use it at your own risk.
+:warning: As of now, Incite is a proof of concept and is not being community reviewed. Please use Incite at your own risk.
 
 [Read more](./incite-distro/README.md)
 

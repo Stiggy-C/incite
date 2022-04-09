@@ -2,12 +2,14 @@ package io.openenterprise.incite.ml.service
 
 import com.google.common.collect.Sets
 import io.openenterprise.ignite.cache.query.ml.ClassificationFunction
+import io.openenterprise.ignite.cache.query.ml.ClusteringFunction
 import io.openenterprise.incite.data.domain.Classification
 import io.openenterprise.incite.data.domain.JdbcSource
 import io.openenterprise.incite.data.domain.LogisticRegression
 import io.openenterprise.incite.data.domain.RdbmsDatabase
 import io.openenterprise.incite.data.repository.ClassificationRepository
 import io.openenterprise.incite.service.AggregateService
+import io.openenterprise.incite.spark.sql.service.DatasetService
 import org.apache.spark.ml.classification.LogisticRegressionModel
 import org.assertj.core.util.Lists
 import org.junit.Assert.assertNotNull
@@ -23,6 +25,7 @@ import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
+import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils
 import java.util.*
@@ -107,9 +110,10 @@ class ClassificationServiceImplTest {
         @Bean
         protected fun classificationService(
             aggregateService: AggregateService,
-            classificationFunction: ClassificationFunction
+            datasetService: DatasetService,
+            classificationFunction: ClassificationFunction,
+            transactionTemplate: TransactionTemplate
         ): ClassificationService =
-            ClassificationServiceImpl(aggregateService, classificationFunction)
-
+            ClassificationServiceImpl(aggregateService, datasetService, classificationFunction, transactionTemplate)
     }
 }

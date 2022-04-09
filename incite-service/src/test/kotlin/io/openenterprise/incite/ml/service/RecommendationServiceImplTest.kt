@@ -7,6 +7,7 @@ import io.openenterprise.incite.data.domain.RdbmsDatabase
 import io.openenterprise.incite.data.domain.Recommendation
 import io.openenterprise.incite.data.repository.RecommendationRepository
 import io.openenterprise.incite.service.AggregateService
+import io.openenterprise.incite.spark.sql.service.DatasetService
 import org.apache.spark.ml.recommendation.ALSModel
 import org.junit.Assert
 import org.junit.Before
@@ -20,6 +21,7 @@ import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
+import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.containers.PostgreSQLContainer
 import java.util.*
 
@@ -95,8 +97,10 @@ class RecommendationServiceImplTest {
         @Bean
         protected fun collaborativeFilteringService(
             aggregateService: AggregateService,
-            recommendationFunction: RecommendationFunction
+            datasetService: DatasetService,
+            recommendationFunction: RecommendationFunction,
+            transactionTemplate: TransactionTemplate
         ): RecommendationService =
-            RecommendationServiceImpl(aggregateService, recommendationFunction)
+            RecommendationServiceImpl(aggregateService, datasetService, recommendationFunction, transactionTemplate)
     }
 }

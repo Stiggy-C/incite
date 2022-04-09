@@ -2,19 +2,18 @@ package io.openenterprise.incite.ml.service
 
 import io.openenterprise.ignite.cache.query.ml.ClassificationFunction
 import io.openenterprise.incite.data.domain.Classification
-import io.openenterprise.incite.data.domain.LogisticRegression
 import io.openenterprise.service.AbstractMutableEntityService
 import org.apache.ignite.cache.query.annotations.QuerySqlFunction
-import org.apache.spark.ml.classification.LogisticRegressionModel
-import org.springframework.transaction.support.TransactionTemplate
+import org.apache.spark.ml.Model
+import org.apache.spark.ml.util.MLWritable
 import java.util.*
 import javax.persistence.EntityNotFoundException
 import kotlin.jvm.Throws
 
-interface ClassificationService : AbstractMLService<Classification, ClassificationFunction>,
+interface ClassificationService : MachineLearningService<Classification, ClassificationFunction>,
     AbstractMutableEntityService<Classification, String> {
 
-    companion object : AbstractMLService.BaseCompanionObject() {
+    companion object : MachineLearningService.BaseCompanionObject() {
 
         /**
          * Build a model for the given [io.openenterprise.incite.data.domain.Classification] if there is such an entity.
@@ -28,27 +27,11 @@ interface ClassificationService : AbstractMLService<Classification, Classificati
         @QuerySqlFunction(alias = "build_classification_model")
         fun buildModel(id: String): UUID {
             val classificationService = getBean(ClassificationService::class.java)
-            val transactionTemplate = getBean(TransactionTemplate::class.java)
-
             val classification = classificationService.retrieve(id)
                 ?: throw EntityNotFoundException("Classification with ID, $id, is not found")
+            val sparkModel: Model<*> = classificationService.buildModel(classification)
 
-            val sparkModel = when (classification.algorithm) {
-                is LogisticRegression -> classificationService.buildModel<LogisticRegressionModel>(classification)
-                else -> throw UnsupportedOperationException()
-            }
-
-            val modelId = classificationService.putToCache(sparkModel)
-            val model = Classification.Model()
-            model.id = modelId.toString()
-
-            classification.models.add(model)
-
-            transactionTemplate.execute {
-                classificationService.update(classification)
-            }
-
-            return modelId
+            return classificationService.persistModel(classification, sparkModel as MLWritable)
         }
 
         /**

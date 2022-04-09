@@ -11,10 +11,10 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.util.*
 import javax.persistence.EntityNotFoundException
 
-interface RecommendationService : AbstractMLService<Recommendation, RecommendationFunction>,
+interface RecommendationService : MachineLearningService<Recommendation, RecommendationFunction>,
     AbstractMutableEntityService<Recommendation, String> {
 
-    companion object : AbstractMLService.BaseCompanionObject() {
+    companion object : MachineLearningService.BaseCompanionObject() {
 
         /**
          * Build a model for the given [io.openenterprise.incite.data.domain.Recommendation] if there is such an
@@ -35,17 +35,7 @@ interface RecommendationService : AbstractMLService<Recommendation, Recommendati
                 ?: throw EntityNotFoundException("CollaborativeFiltering with ID, $id, is not found")
             val sparkModel: ALSModel = recommendationService.buildModel(collaborativeFiltering)
 
-            val modelId = recommendationService.putToCache(sparkModel)
-            val model = Recommendation.Model()
-            model.id = modelId.toString()
-
-            collaborativeFiltering.models.add(model)
-
-            transactionTemplate.execute {
-                recommendationService.update(collaborativeFiltering)
-            }
-
-            return modelId
+            return recommendationService.persistModel(collaborativeFiltering, sparkModel)
         }
 
         /**

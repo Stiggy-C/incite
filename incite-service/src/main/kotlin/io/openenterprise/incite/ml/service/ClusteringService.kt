@@ -13,10 +13,10 @@ import java.util.*
 import javax.persistence.EntityNotFoundException
 import kotlin.jvm.Throws
 
-interface ClusteringService : AbstractMLService<Clustering, ClusteringFunction>,
+interface ClusteringService : MachineLearningService<Clustering, ClusteringFunction>,
     AbstractMutableEntityService<Clustering, String> {
 
-    companion object : AbstractMLService.BaseCompanionObject() {
+    companion object : MachineLearningService.BaseCompanionObject() {
 
         /**
          * Build a model for the given [io.openenterprise.incite.data.domain.Clustering] if there is such an entity.
@@ -39,17 +39,8 @@ interface ClusteringService : AbstractMLService<Clustering, ClusteringFunction>,
                 is KMeans -> clusteringService.buildModel<KMeansModel>(clusterAnalysis)
                 else -> throw UnsupportedOperationException()
             }
-            val modelId = clusteringService.putToCache(sparkModel)
-            val model = Clustering.Model()
-            model.id = modelId.toString()
 
-            clusterAnalysis.models.add(model)
-
-            transactionTemplate.execute {
-                clusteringService.update(clusterAnalysis)
-            }
-
-            return modelId
+            return clusteringService.persistModel(clusterAnalysis, sparkModel)
         }
 
         /**

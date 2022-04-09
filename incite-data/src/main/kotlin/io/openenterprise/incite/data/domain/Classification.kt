@@ -9,14 +9,14 @@ import java.util.*
 import javax.persistence.*
 
 @Entity
-class Classification: Aggregate() {
+class Classification: MachineLearning<Classification.Model>() {
 
     @Convert(converter = Clustering.AlgorithmJsonAttributeConverter::class)
     lateinit var algorithm: Algorithm
 
     @OneToMany
     @OrderBy("createdDateTime DESC")
-    var models: SortedSet<Model> = TreeSet()
+    override var models: SortedSet<Model> = TreeSet()
 
     @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,

@@ -5,10 +5,13 @@ import io.openenterprise.incite.data.domain.AlternatingLeastSquares
 import io.openenterprise.incite.data.domain.Recommendation
 import io.openenterprise.incite.service.AggregateService
 import io.openenterprise.incite.service.AggregateServiceImpl
+import io.openenterprise.incite.spark.sql.service.DatasetService
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.recommendation.ALSModel
+import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
+import org.springframework.transaction.support.TransactionTemplate
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Named
@@ -17,10 +20,13 @@ import javax.persistence.EntityNotFoundException
 @Named
 class RecommendationServiceImpl(
     @Inject private val aggregateService: AggregateService,
-    @Inject private val recommendationFunction: RecommendationFunction
+    @Inject private val datasetService: DatasetService,
+    @Inject private val recommendationFunction: RecommendationFunction,
+    @Inject private val transactionTemplate: TransactionTemplate
 ) : RecommendationService,
-    AbstractMLServiceImpl<Recommendation, String, RecommendationFunction>(
+    AbstractMachineLearningServiceImpl<Recommendation, RecommendationFunction>(
         aggregateService,
+        datasetService,
         recommendationFunction
     ) {
 
@@ -32,8 +38,6 @@ class RecommendationServiceImpl(
             throw IllegalStateException("No models have been built")
         }
 
-        assert(aggregateService is AggregateServiceImpl)
-
         val model = recommendation.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val result = when (recommendation.algorithm) {
             is AlternatingLeastSquares -> {
@@ -44,7 +48,7 @@ class RecommendationServiceImpl(
             else -> throw UnsupportedOperationException()
         }
 
-        (aggregateService as AggregateServiceImpl).writeSinks(result, recommendation.sinks, false)
+        datasetService.write(result, recommendation.sinks, false)
 
         return result
     }
@@ -57,9 +61,6 @@ class RecommendationServiceImpl(
         if (recommendation.models.isEmpty()) {
             throw IllegalStateException("No models have been built")
         }
-
-        assert(aggregateService is AggregateServiceImpl)
-
         val model = recommendation.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
 
         val result = when (recommendation.algorithm) {
@@ -71,7 +72,7 @@ class RecommendationServiceImpl(
             else -> throw UnsupportedOperationException()
         }
 
-        (aggregateService as AggregateServiceImpl).writeSinks(result, recommendation.sinks, false)
+        datasetService.write(result, recommendation.sinks, false)
 
         return result
 
@@ -96,12 +97,24 @@ class RecommendationServiceImpl(
         } as M
     }
 
+    override fun persistModel(entity: Recommendation, sparkModel: MLWritable): UUID {
+        val modelId = putToCache(sparkModel)
+        val model = Recommendation.Model()
+        model.id = modelId.toString()
+
+        entity.models.add(model)
+
+        transactionTemplate.execute {
+            update(entity)
+        }
+
+        return modelId
+    }
+
     override fun predict(entity: Recommendation, jsonOrSql: String): Dataset<Row> {
         if (entity.models.isEmpty()) {
             throw IllegalStateException("No models have been built")
         }
-
-        assert(aggregateService is AggregateServiceImpl)
 
         val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val sparkModel: Model<*> =  when (val algorithm = entity.algorithm) {
@@ -111,7 +124,7 @@ class RecommendationServiceImpl(
 
         val result = recommendationFunction.predict(sparkModel, jsonOrSql)
 
-        (aggregateService as AggregateServiceImpl).writeSinks(result, entity.sinks, false)
+        datasetService.write(result, entity.sinks, false)
 
         return result
     }

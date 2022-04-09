@@ -9,14 +9,14 @@ import java.util.*
 import javax.persistence.*
 
 @Entity
-class Recommendation: Aggregate() {
+class Recommendation: MachineLearning<Recommendation.Model>() {
 
     @Convert(converter = AlgorithmJsonAttributeConverter::class)
     lateinit var algorithm: Algorithm
 
     @OneToMany
     @OrderBy("createdDateTime DESC")
-    var models: SortedSet<Model> = TreeSet()
+    override var models: SortedSet<Model> = TreeSet()
 
     @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,

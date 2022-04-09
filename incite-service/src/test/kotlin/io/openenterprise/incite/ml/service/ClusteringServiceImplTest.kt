@@ -6,6 +6,7 @@ import io.openenterprise.ignite.cache.query.ml.ClusteringFunction
 import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.data.repository.ClusteringRepository
 import io.openenterprise.incite.service.AggregateService
+import io.openenterprise.incite.spark.sql.service.DatasetService
 import org.apache.spark.ml.clustering.BisectingKMeansModel
 import org.apache.spark.ml.clustering.KMeansModel
 import org.assertj.core.util.Lists
@@ -22,6 +23,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
+import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils
@@ -208,9 +210,12 @@ class ClusteringServiceImplTest {
 
         @Bean
         protected fun clusteringService(
-            aggregateService: AggregateService, clusteringFunction: ClusteringFunction
+            aggregateService: AggregateService,
+            datasetService: DatasetService,
+            clusteringFunction: ClusteringFunction,
+            transactionTemplate: TransactionTemplate
         ): ClusteringService {
-            return ClusteringServiceImpl(aggregateService, clusteringFunction)
+            return ClusteringServiceImpl(aggregateService, datasetService, clusteringFunction, transactionTemplate)
         }
     }
 }

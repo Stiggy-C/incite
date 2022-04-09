@@ -35,6 +35,12 @@ open class Aggregate : AbstractMutableEntity<String>() {
     }
 }
 
+@MappedSuperclass
+abstract class MachineLearning<M>: Aggregate() {
+
+    abstract var models: SortedSet<M>
+}
+
 @Converter
 class JoinsJsonAttributeConverter: AbstractJsonAttributeConverter<MutableList<Join>>()
 

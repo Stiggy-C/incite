@@ -28,7 +28,7 @@
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<javax.el.version>3.0.0</javax.el.version>
-		<camel.version>3.11.5</camel.version>
+		<camel.version>3.11.6</camel.version>
 		<commons-collections4.version>4.4</commons-collections4.version>
 		<commons-lagn3.version>3.12.0</commons-lagn3.version>
 		<flyway.version>7.11.4</flyway.version>
@@ -43,7 +43,7 @@
 		<reflections.version>0.10.2</reflections.version>
 		<snakeyaml.version>1.30</snakeyaml.version>
 		<spark.version>2.4.8</spark.version>
-		<spring-boot.version>2.5.9</spring-boot.version>
+		<spring-boot.version>2.5.12</spring-boot.version>
 		<testcontainers.version>1.16.3</testcontainers.version>
 		<zeroturnaround.version>1.14</zeroturnaround.version>
 	</properties>
@@ -69,7 +69,13 @@
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
-				<!-- Import dependency management from Spring Boot -->
+				<groupId>org.apache.camel.springboot</groupId>
+				<artifactId>camel-spring-boot-bom</artifactId>
+				<version>${camel.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-dependencies</artifactId>
 				<version>${spring-boot.version}</version>
