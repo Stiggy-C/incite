@@ -89,8 +89,8 @@ Currently, Incite only supports the following ML algorithms.
 * Alternating Least Squares (ALS)
 
 :warning: For Alternating Least Squares (ALS), source dataset must include the following columns,
-* user
-* item
+* user [Int/Long]
+* item [Int/Long]
 * rating [Double/Float]
 
 ### RESTful API

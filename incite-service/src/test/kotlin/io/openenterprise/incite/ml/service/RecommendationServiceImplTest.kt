@@ -48,7 +48,7 @@ class RecommendationServiceImplTest {
         rdbmsDatabase.password = postgreSQLContainer.password
 
         val jdbcSource = JdbcSource()
-        jdbcSource.query = "select r.user, r.item, r.rating from rating r"
+        jdbcSource.query = "select r.\"user\", r.item, r.rating from rating r"
         jdbcSource.rdbmsDatabase = rdbmsDatabase
 
         val algorithm = AlternatingLeastSquares()
@@ -57,17 +57,17 @@ class RecommendationServiceImplTest {
         recommendation.algorithm = algorithm
         recommendation.sources = arrayListOf(jdbcSource)
 
-        jdbcTemplate.execute("create table if not exists rating (id bigint primary key, userId bigint not null, " +
-                "skuId varchar not null, rating float not null)")
+        jdbcTemplate.execute("create table if not exists rating (id bigint primary key, \"user\" bigint not null, " +
+                "item bigint not null, rating float not null)")
 
-        jdbcTemplate.update("insert into rating values (1, 1021324, 'a013243', 7.7)")
-        jdbcTemplate.update("insert into rating values (2, 2132435, 'b113355', 6.8)")
-        jdbcTemplate.update("insert into rating values (3, 5241303, 'c023364', 9.4)")
-        jdbcTemplate.update("insert into rating values (4, 5241303, 'a013243', 8.0)")
-        jdbcTemplate.update("insert into rating values (5, 5241303, 'b113355', 5.5)")
-        jdbcTemplate.update("insert into rating values (6, 1021324, 'b113355', 7.5)")
-        jdbcTemplate.update("insert into rating values (7, 1021324, 'c023364', 8.9)")
-        jdbcTemplate.update("insert into rating values (8, 2041628, 'c023364', 9.9)")
+        jdbcTemplate.update("insert into rating values (1, 1021324, 13243, 7.7)")
+        jdbcTemplate.update("insert into rating values (2, 2132435, 113355, 6.8)")
+        jdbcTemplate.update("insert into rating values (3, 5241303, 23364, 9.4)")
+        jdbcTemplate.update("insert into rating values (4, 5241303, 13243, 8.0)")
+        jdbcTemplate.update("insert into rating values (5, 5241303, 113355, 5.5)")
+        jdbcTemplate.update("insert into rating values (6, 1021324, 113355, 7.5)")
+        jdbcTemplate.update("insert into rating values (7, 1021324, 23364, 8.9)")
+        jdbcTemplate.update("insert into rating values (8, 2041628, 23364, 9.9)")
     }
 
     @Test
@@ -87,15 +87,15 @@ class RecommendationServiceImplTest {
     class Configuration {
 
         @Bean
-        protected fun collaborativeFilteringFunction(): RecommendationFunction =
+        protected fun recommendationFunction(): RecommendationFunction =
             RecommendationFunction()
 
         @Bean
-        protected fun collaborativeFilteringRepository(): RecommendationRepository =
+        protected fun recommendationRepository(): RecommendationRepository =
             Mockito.mock(RecommendationRepository::class.java)
 
         @Bean
-        protected fun collaborativeFilteringService(
+        protected fun recommendationService(
             aggregateService: AggregateService,
             datasetService: DatasetService,
             recommendationFunction: RecommendationFunction,
