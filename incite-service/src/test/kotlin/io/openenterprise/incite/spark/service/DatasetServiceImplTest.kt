@@ -18,8 +18,12 @@ import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.UUIDSerializer
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.ignite.IgniteSparkSession
+import org.apache.spark.sql.types.StringType
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.postgresql.ds.PGSimpleDataSource
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.test.context.TestConfiguration
@@ -29,14 +33,18 @@ import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.DependsOn
 import org.springframework.context.annotation.Primary
 import org.springframework.expression.spel.standard.SpelExpressionParser
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.kafka.core.DefaultKafkaProducerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.support.serializer.JsonSerializer
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
 import org.testcontainers.containers.KafkaContainer
+import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils
 import org.testcontainers.utility.DockerImageName
 import java.util.*
 import javax.inject.Inject
+import javax.sql.DataSource
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -49,6 +57,9 @@ class DatasetServiceImplTest {
     @Inject
     private lateinit var ignite: Ignite
 
+    @Autowired
+    private lateinit var jdbcTemplate: JdbcTemplate
+
     @Inject
     private lateinit var kafkaContainer: KafkaContainer
 
@@ -57,6 +68,52 @@ class DatasetServiceImplTest {
 
     @Inject
     private lateinit var sparkSession: SparkSession
+
+    @Before
+    fun before() {
+        jdbcTemplate.update(
+            "create table if not exists guest (id bigint primary key, membership_number varchar, age smallint, " +
+                    "sex smallint, result smallint, created_date_time timestamp with time zone, last_login_date_time timestamp with time zone)"
+        )
+        jdbcTemplate.update("insert into guest values (1, '${RandomStringUtils.randomNumeric(9)}', 35, 0, 3, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (2, '${RandomStringUtils.randomNumeric(9)}', 18, 1, 2, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (3, '${RandomStringUtils.randomNumeric(9)}', 20, 1, 2, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (4, '${RandomStringUtils.randomNumeric(9)}', 40, 1, 4, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (5, '${RandomStringUtils.randomNumeric(9)}', 65, 1, 5, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (6, '${RandomStringUtils.randomNumeric(9)}', 33, 0, 3, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (7, '${RandomStringUtils.randomNumeric(9)}', 16, 0, 1, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (8, '${RandomStringUtils.randomNumeric(9)}', 25, 0, 2, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (9, '${RandomStringUtils.randomNumeric(9)}', 9, 1, 1, now(), now()) on conflict do nothing")
+        jdbcTemplate.update("insert into guest values (10, '${RandomStringUtils.randomNumeric(9)}', 46, 1, 5, now(), now()) on conflict do nothing")
+    }
+
+    @Autowired
+    private lateinit var postgreSQLContainer: PostgreSQLContainer<*>
+
+
+    @Test
+    fun testStreamingReadFromRdbms() {
+        val rdbmsDatabase = RdbmsDatabase()
+        rdbmsDatabase.driverClass = postgreSQLContainer.driverClassName
+        rdbmsDatabase.url = postgreSQLContainer.jdbcUrl
+        rdbmsDatabase.username = postgreSQLContainer.username
+        rdbmsDatabase.password = postgreSQLContainer.password
+
+        val jdbcSource = JdbcSource()
+        jdbcSource.fields = Sets.newHashSet(
+            Field("id"), Field("age"),
+            Field("sex", "case when #field = 0 then 'F' else 'T' end as #field")
+        )
+        jdbcSource.query = "select g.id, g.age, g.sex, g.result from guest g"
+        jdbcSource.rdbmsDatabase = rdbmsDatabase
+
+        val dataset = datasetService.load(jdbcSource)
+
+        assertNotNull(dataset)
+        assertTrue(dataset.schema().fields().size == 3)
+        assertTrue(Arrays.stream(dataset.schema().fields()).filter { it.name() == "sex" }
+            .allMatch { it.dataType() is StringType })
+    }
 
     @Test
     fun testStreamingWriteFromJsonFiles() {
@@ -88,11 +145,8 @@ class DatasetServiceImplTest {
 
     @Test
     fun testStreamingWriteFromKafka() {
-        val idField = Field()
-        idField.name = "id"
-
-        val field0Field = Field()
-        field0Field.name = "field0"
+        val idField = Field("id")
+        val field0Field = Field("field0")
 
         val kafkaCluster = KafkaCluster()
         kafkaCluster.servers = kafkaContainer.bootstrapServers
@@ -146,6 +200,17 @@ class DatasetServiceImplTest {
         }
 
         @Bean
+        protected fun dataSource(postgreSQLContainer: PostgreSQLContainer<*>): DataSource {
+            val datasource = PGSimpleDataSource()
+            datasource.setUrl(postgreSQLContainer.jdbcUrl)
+
+            datasource.user = postgreSQLContainer.username
+            datasource.password = postgreSQLContainer.password
+
+            return datasource
+        }
+
+        @Bean
         protected fun ignite(applicationContext: ApplicationContext): Ignite {
             val igniteConfiguration = IgniteConfiguration()
             igniteConfiguration.igniteInstanceName = DatasetServiceImplTest::class.java.simpleName
@@ -181,6 +246,9 @@ class DatasetServiceImplTest {
         }
 
         @Bean
+        protected fun jdbcTemplate(datasource: DataSource): JdbcTemplate = JdbcTemplate(datasource)
+
+        @Bean
         protected fun kafkaContainer(): KafkaContainer {
             val kafkaContainer = KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:latest"))
             kafkaContainer.start()
@@ -200,6 +268,18 @@ class DatasetServiceImplTest {
             )
 
             return KafkaTemplate(producerFactory)
+        }
+
+        @Bean
+        protected fun postgreSQLContainer(): PostgreSQLContainer<*> {
+            val postgreSQLContainer: PostgreSQLContainer<*> =
+                PostgreSQLContainer<PostgreSQLContainer<*>>("postgres:latest")
+            postgreSQLContainer.withPassword("test_password")
+            postgreSQLContainer.withUsername("test_user")
+
+            postgreSQLContainer.start()
+
+            return postgreSQLContainer
         }
 
         @Bean

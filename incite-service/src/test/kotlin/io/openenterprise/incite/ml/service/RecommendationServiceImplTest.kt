@@ -83,7 +83,7 @@ class RecommendationServiceImplTest {
             "io.openenterprise.incite.spark.sql.service", "io.openenterprise.springframework.context"
         ]
     )
-    @Import(AbstractMLServiceImplTest.Configuration::class)
+    @Import(AbstractMachineLearningServiceImplTest.Configuration::class)
     class Configuration {
 
         @Bean

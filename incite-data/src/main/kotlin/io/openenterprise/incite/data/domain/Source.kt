@@ -16,6 +16,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 )
 abstract class Source: Cloneable {
 
+    var fields: MutableSet<Field>? = null
+
     var watermark: Watermark? = null
 
     public override fun clone(): Any {
@@ -43,8 +45,6 @@ class JdbcSource: Source() {
 }
 
 class KafkaSource: StreamingSource() {
-
-    var fields: MutableSet<Field>? = null
 
     lateinit var kafkaCluster: KafkaCluster
 

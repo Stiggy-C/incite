@@ -164,12 +164,8 @@ class DatasetServiceImpl(
         val writers = sinks.stream()
             .map {
                 when (it) {
-                    is NonStreamingSink -> {
-                        write(dataset, it)
-                    }
-                    is StreamingSink -> {
-                        write(dataset, it)
-                    }
+                    is NonStreamingSink -> write(dataset, it)
+                    is StreamingSink -> write(dataset, it)
                     else -> throw UnsupportedOperationException()
                 }
             }
@@ -178,6 +174,29 @@ class DatasetServiceImpl(
         return writers
     }
 
+    /**
+     * Load a [Dataset] from a [JdbcSource].
+     *
+     * @return [Dataset]
+     */
+    private fun load(jdbcSource: JdbcSource): Dataset<Row> {
+        val dataset: Dataset<Row> = sparkSession.read()
+            .format("jdbc")
+            .option("query", jdbcSource.query)
+            .option("driver", jdbcSource.rdbmsDatabase.driverClass)
+            .option("url", jdbcSource.rdbmsDatabase.url)
+            .option("user", jdbcSource.rdbmsDatabase.username)
+            .option("password", jdbcSource.rdbmsDatabase.password)
+            .load()
+
+        return postLoad(jdbcSource, dataset)
+    }
+
+    /**
+     * Load a [Dataset] from a [KafkaSource]. As of Dec 11, 2021, only support JSON message for now.
+     *
+     * @return [Dataset]
+     */
     private fun load(kafkaSource: KafkaSource): Dataset<Row> {
         var dataset: Dataset<Row> = if (kafkaSource.streamingRead) sparkSession.readStream()
             .format("kafka")
@@ -192,72 +211,7 @@ class DatasetServiceImpl(
 
         dataset = dataset.selectExpr("cast(value as STRING)")
 
-        // As of Dec 11, 2021, only support JSON message for now
-        if (CollectionUtils.isNotEmpty(kafkaSource.fields)) {
-            val selects: Array<String> = kafkaSource.fields!!.stream()
-                .map { field ->
-                    var thisSelectClause = "get_json_object(value, '$." + field.name + "')"
-
-                    if (StringUtils.isNotEmpty(field.function)) {
-                        val evaluationContext = StandardEvaluationContext()
-                        evaluationContext.setVariable("field", thisSelectClause)
-                        val functionTokens = field.function!!.split("#field").stream()
-                            .map { token -> "\"" + token + "\"" }
-                            .collect(Collectors.toList())
-                        for (i in 0 until functionTokens.size) {
-                            var token = functionTokens[i]
-                            token = when (i) {
-                                0 -> {
-                                    "$token + "
-                                }
-                                functionTokens.size - 1 -> {
-                                    " + $token"
-                                }
-                                else -> {
-                                    " + $token + "
-                                }
-                            }
-                            functionTokens[i] = token
-                        }
-
-                        thisSelectClause = spelExpressionParser.parseExpression(
-                            java.lang.String.join("#field", functionTokens)
-                        ).getValue(evaluationContext, String::class.java)!!
-                    }
-
-                    if (StringUtils.isEmpty(field.function)
-                        || StringUtils.containsNone(field.function, "as")
-                    ) {
-                        thisSelectClause = "($thisSelectClause) as `${field.name}`"
-                    }
-
-                    return@map thisSelectClause
-                }
-                .toArray { size -> Array(size) { "" } }
-
-            dataset = dataset.selectExpr(*selects)
-        }
-
-        return if (kafkaSource.watermark == null) dataset else withWatermark(
-            dataset,
-            kafkaSource.watermark as Source.Watermark
-        )
-    }
-
-    private fun load(jdbcSource: JdbcSource): Dataset<Row> {
-        val dataset: Dataset<Row> = sparkSession.read()
-            .format("jdbc")
-            .option("query", jdbcSource.query)
-            .option("driver", jdbcSource.rdbmsDatabase.driverClass)
-            .option("url", jdbcSource.rdbmsDatabase.url)
-            .option("user", jdbcSource.rdbmsDatabase.username)
-            .option("password", jdbcSource.rdbmsDatabase.password)
-            .load()
-
-        return if (jdbcSource.watermark == null) dataset else withWatermark(
-            dataset,
-            jdbcSource.watermark as Source.Watermark
-        )
+        return postLoad(kafkaSource, dataset)
     }
 
     private fun manipulateSqlQuery(jdbcSource: JdbcSource, variables: Map<String, *>): JdbcSource {
@@ -269,12 +223,7 @@ class DatasetServiceImpl(
         var query: String = source.query
         val tokens = StringUtils.split(query, " ")
         val expressionTokens = Arrays.stream(tokens)
-            .filter { token: String? ->
-                StringUtils.startsWith(
-                    token,
-                    "#"
-                )
-            }
+            .filter { token: String? -> StringUtils.startsWith(token, "#") }
             .collect(Collectors.toSet())
 
         for (token in expressionTokens) {
@@ -288,6 +237,62 @@ class DatasetServiceImpl(
         source.query = query
 
         return source
+    }
+
+    private fun postLoad(source: Source, dataset: Dataset<Row>): Dataset<Row> {
+        val interimDataset = if (CollectionUtils.isEmpty(source.fields))
+            dataset
+        else {
+            val selects: Array<String> = source.fields!!.stream()
+                .map { field ->
+                    var selectClause = when (source) {
+                        is KafkaSource -> "get_json_object(value, '$." + field.name + "')"
+                        else -> field.name
+                    }
+
+                    if (StringUtils.isNotEmpty(field.function)) {
+                        val evaluationContext = StandardEvaluationContext()
+                        evaluationContext.setVariable("field", selectClause)
+
+                        val functionTokens = field.function!!.split("#field").stream()
+                            .map { token -> "\"" + token + "\"" }
+                            .collect(Collectors.toList())
+
+                        for (i in 0 until functionTokens.size) {
+                            var token = functionTokens[i]
+                            token = when (i) {
+                                0 -> "$token + "
+                                functionTokens.size - 1 -> " + $token"
+                                else -> " + $token + "
+                            }
+
+                            functionTokens[i] = token
+                        }
+
+                        selectClause = spelExpressionParser
+                            .parseExpression(java.lang.String.join("#field", functionTokens))
+                            .getValue(evaluationContext, String::class.java)!!
+                    }
+
+                    if (StringUtils.isEmpty(field.function)
+                        || StringUtils.containsNone(field.function, "as")
+                    ) {
+                        selectClause = "($selectClause) as `${field.name}`"
+                    }
+
+                    return@map selectClause
+                }
+                .toArray { size -> Array(size) { "" } }
+
+            dataset.selectExpr(*selects)
+        }
+
+        return if (source.watermark == null)
+            interimDataset
+        else withWatermark(
+            interimDataset,
+            source.watermark as Source.Watermark
+        )
     }
 
     private fun withWatermark(dataset: Dataset<Row>, waterMark: Source.Watermark) =

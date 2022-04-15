@@ -10,7 +10,6 @@ import io.openenterprise.ignite.spark.IgniteContext
 import io.openenterprise.incite.data.repository.AggregateRepository
 import io.openenterprise.incite.service.AggregateService
 import io.openenterprise.incite.service.AggregateServiceImpl
-import io.openenterprise.incite.service.AggregateServiceImplTest
 import io.openenterprise.incite.spark.service.DatasetServiceImplTest
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import io.openenterprise.incite.spark.sql.service.DatasetServiceImpl
@@ -53,7 +52,7 @@ import javax.cache.Cache
 import javax.cache.configuration.MutableConfiguration
 import javax.sql.DataSource
 
-abstract class AbstractMLServiceImplTest {
+abstract class AbstractMachineLearningServiceImplTest {
 
     @org.springframework.context.annotation.Configuration
     @ComponentScan(

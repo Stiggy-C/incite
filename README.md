@@ -6,7 +6,7 @@ technologies for non-developers (i.e. Business analysis) in an organization. As 
 concept stage.
 
 ### What can Incite do?
-* Data [streaming] aggregation
+* Data [streaming] aggregation & [streaming] transformation
 * Enterprise integration
 * Hybrid transaction/analytical processing (HTAP) SQL database
 * Machine Learning
@@ -20,11 +20,15 @@ As of now, the following frameworks are utilised by Incite,
 
 ![Component diagram](./component_diagram.png)
 
-## Data [streaming] aggregation
+## Data [streaming] aggregation & [streaming] transformation
 Data aggregation is to compile and combine data from different data-sources for different kind of data-processing. 
 Incite provides RESTful APIs which allow users to define and run data aggregation against multiple origins (sources) 
 and write the result of the aggregation to different destinations (sinks). Not only that, Incite supports streaming 
 aggregation as it supports streaming read and streaming write from/to different data-sources.
+
+Data transformation is the process of converting data from one format or structure into another format or structure. As
+of April 16, 2022, Incite can apply simple transformation via SQL like function to data loaded from each of the data 
+sources. 
 
 ![Aggregate flow diagram](./aggregate_flow_diagram.png)
 
@@ -174,11 +178,12 @@ select als_predict('569130e9-9210-4d2a-9e7e-3f6c82e27e12', 'select nr.id, nr.age
 
 ## Roadmap
 
+* Add FileSource & FileSink
 * Apache Spark 3.x (w/ Scala 2.12)
 * Calcite based SQL engine (w/ Apache Ignite 2.13.0)
 * Completion of documentation
 * Completion of unit tests
-* Data [streaming] transformation on top of [streaming] aggregate
+* Data [streaming] transformation on top of [streaming] aggregate :white_check_mark:
 * Dockerfile
 * Docker compose file
 * Java 11 Support

@@ -2,7 +2,6 @@ package io.openenterprise.incite.ml.service
 
 import com.google.common.collect.Sets
 import io.openenterprise.ignite.cache.query.ml.ClassificationFunction
-import io.openenterprise.ignite.cache.query.ml.ClusteringFunction
 import io.openenterprise.incite.data.domain.Classification
 import io.openenterprise.incite.data.domain.JdbcSource
 import io.openenterprise.incite.data.domain.LogisticRegression
@@ -97,7 +96,7 @@ class ClassificationServiceImplTest {
             "io.openenterprise.incite.spark.sql.service", "io.openenterprise.springframework.context"
         ]
     )
-    @Import(AbstractMLServiceImplTest.Configuration::class)
+    @Import(AbstractMachineLearningServiceImplTest.Configuration::class)
     class Configuration {
 
         @Bean
