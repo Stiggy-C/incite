@@ -1,13 +1,13 @@
 # Incite
 
 ## What is Incite?
-Incite is a wrapper of popular Java data related frameworks/libraries. It aims to provide easier access of these 
-technologies for non-developers (i.e. Business analysis) in an organization. As of now, Incite remains in proof of 
-concept stage.
+Incite is a wrapper of popular Java data related frameworks/tools. It aims to become an easy-to-use data platform by
+providing easier access of popular technologies to non-developers (i.e. Business analysis) in an organization. As of 
+now, Incite is in proof of concept stage.
 
 ### What can Incite do?
 * Data [streaming] aggregation & [streaming] transformation
-* Enterprise integration
+* Enterprise integration/message bus
 * Hybrid transaction/analytical processing (HTAP) SQL database
 * Machine Learning
 
@@ -110,63 +110,47 @@ retrieve the data from Incite for prediction).
 
 #### Classification
 ```roomsql
--- Build a model for a Classification entity stored to Incite
+-- Set up a classification entity with embedded ignite as both data source & data sink.
+select set_up_classification('LogisticRegression', '{"featureColumns": ["age", "sex"], "labelColumn": "result", "maxIterations": 10}', 'select * from guests', 'classified_guests', 'id');
+-- Return the ID of the entity
+
+-- Train a model for a saved Classification entity
 select build_classification_model('58b1a40f-571d-4b85-8b31-65cee8d9f9a2');
--- Return the UUID of the built model
+-- Return the ID of the built model
 
 -- Perform prediction for the given Classification entity with the given sql query and write the result to the sinks
 -- defined in the Classification entity.
 select classification_predict('58b1a40f-571d-4b85-8b31-65cee8d9f9a2', 'select * from sample_dataset');
 -- Return the result in JSON format
-
--- Build an ad-hoc logistic regression model (without creating a Classification entity)
-select build_logistic_regression_model('select * from sample_dataset', 'Multinomial', 'age,sex', 'result', 0.8, 1, 0.3);
---
-
--- Perform prediction with the logistic regression model from above and write the result to the given table. (Due to 
--- the nature of Apache Ignite, a primary key column need to be specified)
-select logistic_regression_predict('548393d6-df18-4b4f-a24e-895a6bb86d26', 'select nr.id, nr.age, nr.sex from newly_registered nr', 'resultTable', 'id');
---
 ```
 
 #### Clustering
 ```roomsql
--- Build a model for a Clustering entity stored to Incite
-select build_clustering_model('2036cd45-557e-41ce-a157-e64253295032');
+-- Set up a Clustering entity with embedded ignite as both data source & data sink.
+select set_up_clustering('KMeans', '{"featureColumns": ["age", "sex", "numbersOfKids"], "maxIterations": 1, "seed": 1}', 'select * from guests', 'guest_clusters', 'id');
+-- Return the ID of the entity
+
+-- Train a model for a saved Clustering entity
+select train_clustering_model('2036cd45-557e-41ce-a157-e64253295032');
 -- Return the UUID of the built model
 
 -- Perform prediction for the given Clustering entity and given sql query
 select clustering_predict('2036cd45-557e-41ce-a157-e64253295032', 'select * from sample_dataset');
 -- Return the result in JSON format
-
--- Build an ad-hoc bisecting k-means model (without creating a Clustering entity)
-select build_bisecting_k_means_model('select g.id, g.age, g.sex from guest g', 'age,sex', 4, 10, 1);
--- Return the UUID of the built model
-
--- Perform prediction with the bisecting k-means model from above and write the result to the given table. (Due to 
--- the nature of Apache Ignite, a primary key column need to be specified)
-select bisecting_k_means_predict('526d6e09-5c13-486f-951a-5dad58e3d36c', 'select nr.id, nr.age, nr.sex from newly_registered nr', 'resultTable', 'id');
--- Return the result in JSON format
 ```
 
 #### Recommendation
-
 ```roomsql
+-- Set up a Recommendation entity with embedded ignite as both data source & data sink.
+select set_up_recommendation('Alternating Least Squares', '{"itemColumn": "item", "maxIterations": 10, "userColumn": "user"}', 'select r."user", r.item, r.rating from rating r', 'recommendation_result', 'id');
+-- Return the ID of the entity
+
 -- Build a model for a Recommendation entity stored to Incite
-select build_recommendation_model('791ed421-4ba6-4fcb-8d09-22fda3d99696');
--- Return the UUID of the built model
+select train_recommendation_model('791ed421-4ba6-4fcb-8d09-22fda3d99696');
+-- Return the ID of the built model
 
 -- Perform prediction for the given Recommendation entity and given sql query
 select recommendation_predict('791ed421-4ba6-4fcb-8d09-22fda3d99696', 'select * from sample_dataset');
--- Return the result in JSON format
-
--- Build an ad-hoc ALS model (without creating a Recommendation entity)
-select build_als_model('select g.id, g.age, g.sex from guest g', 'age,sex', 4, 10, 1);
--- Return the UUID of the built model
-
--- Perform prediction with the ALS model from above and write the result to the given table. (Due to 
--- the nature of Apache Ignite, a primary key column need to be specified)
-select als_predict('569130e9-9210-4d2a-9e7e-3f6c82e27e12', 'select nr.id, nr.age, nr.sex from newly_registered nr', 'resultTable', 'id');
 -- Return the result in JSON format
 ```
 
@@ -179,7 +163,8 @@ select als_predict('569130e9-9210-4d2a-9e7e-3f6c82e27e12', 'select nr.id, nr.age
 ## Roadmap
 
 * Add FileSource & FileSink
-* Apache Spark 3.x (w/ Scala 2.12)
+* Add RedisStreamSource
+* Apache Spark 3.0 (w/ Scala 2.12)
 * Calcite based SQL engine (w/ Apache Ignite 2.13.0)
 * Completion of documentation
 * Completion of unit tests
@@ -189,6 +174,7 @@ select als_predict('569130e9-9210-4d2a-9e7e-3f6c82e27e12', 'select nr.id, nr.age
 * Java 11 Support
   * Replace org.apache.ignite:ignite-spark and related logic with custom logic due to Java 8 lock-in
 * SQL function to start data [streaming] aggregate
+
 
 ## Acknowledgment
 

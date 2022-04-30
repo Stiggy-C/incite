@@ -1,6 +1,8 @@
 package io.openenterprise.incite
 
+import org.apache.ignite.springframework.boot.autoconfigure.IgniteAutoConfiguration
 import org.springframework.boot.SpringBootConfiguration
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
@@ -19,6 +21,7 @@ import org.springframework.context.annotation.ComponentScan
         "org.apache.camel.spring.boot"
     ]
 )
+@EnableAutoConfiguration(exclude = [IgniteAutoConfiguration::class])
 @ImportAutoConfiguration(
     classes = [
         DataSourceAutoConfiguration::class, FlywayAutoConfiguration::class,

@@ -23,7 +23,7 @@ import javax.inject.Named
 import javax.persistence.DiscriminatorValue
 
 @Named
-class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<Route, String>() {
+open class RouteServiceImpl : RouteService, AbstractAbstractMutableEntityServiceImpl<Route, String>() {
 
     companion object {
 

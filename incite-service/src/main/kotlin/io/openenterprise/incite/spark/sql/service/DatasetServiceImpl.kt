@@ -23,7 +23,7 @@ import javax.inject.Inject
 import javax.inject.Named
 
 @Named
-class DatasetServiceImpl(
+open class DatasetServiceImpl(
     @Inject private val coroutineScope: CoroutineScope,
     @Value("\${io.openenterprise.incite.spark.checkpoint-location-root:./spark-checkpoints}") private val sparkCheckpointLocation: String,
     @Inject private val sparkSession: SparkSession,

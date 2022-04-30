@@ -1,11 +1,7 @@
 package io.openenterprise.incite.ml.service
 
 import com.google.common.collect.Sets
-import io.openenterprise.ignite.cache.query.ml.ClassificationFunction
-import io.openenterprise.incite.data.domain.Classification
-import io.openenterprise.incite.data.domain.JdbcSource
-import io.openenterprise.incite.data.domain.LogisticRegression
-import io.openenterprise.incite.data.domain.RdbmsDatabase
+import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.data.repository.ClassificationRepository
 import io.openenterprise.incite.service.AggregateService
 import io.openenterprise.incite.spark.sql.service.DatasetService
@@ -24,15 +20,19 @@ import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
+import org.springframework.test.context.junit4.SpringRunner
 import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils
 import java.util.*
 
-@RunWith(SpringJUnit4ClassRunner::class)
+@RunWith(SpringRunner::class)
 class ClassificationServiceImplTest {
 
     private var classification = Classification()
+
+    @Autowired
+    private lateinit var classificationRepository: ClassificationRepository
 
     @Autowired
     private lateinit var classificationService: ClassificationService
@@ -77,14 +77,39 @@ class ClassificationServiceImplTest {
     }
 
     @Test
-    fun buildModel() {
+    fun testSetUp() {
+        val algo = Classification.Algorithm.Supported.LogisticRegression.name
+        val algoSpecificParams = "{\"featureColumns\": [\"age\", \"sex\"], \"labelColumn\": \"result\", \"maxIterations\": 10}"
+        val sourceSql = "select g.id, g.age, g.sex, g.result from guest g"
+        val sinkTable = "test_set_up_classification"
+        val primaryKeyColumn = "id"
+
+        Mockito.`when`(classificationRepository.save(Mockito.any())).thenAnswer {
+            (it.arguments[0] as Classification).id = UUID.randomUUID().toString()
+
+            it.arguments[0]
+        }
+
+        val uuid = ClassificationService.setUp(
+            algo,
+            algoSpecificParams,
+            sourceSql,
+            sinkTable,
+            primaryKeyColumn
+        )
+
+        assertNotNull(uuid)
+    }
+
+    @Test
+    fun testTrainLogisticRegressionModel() {
         val algorithm = LogisticRegression()
         algorithm.labelColumn = "result"
         algorithm.featureColumns = Sets.newHashSet("age", "sex")
 
         classification.algorithm = algorithm
 
-        val logisticRegressionModel: LogisticRegressionModel = classificationService.buildModel(classification)
+        val logisticRegressionModel: LogisticRegressionModel = classificationService.train(classification)
 
         assertNotNull(logisticRegressionModel)
         assertTrue(logisticRegressionModel.hasSummary())
@@ -100,9 +125,6 @@ class ClassificationServiceImplTest {
     class Configuration {
 
         @Bean
-        protected fun classificationFunction(): ClassificationFunction = ClassificationFunction()
-
-        @Bean
         protected fun classificationRepository(): ClassificationRepository =
             Mockito.mock(ClassificationRepository::class.java)
 
@@ -110,9 +132,8 @@ class ClassificationServiceImplTest {
         protected fun classificationService(
             aggregateService: AggregateService,
             datasetService: DatasetService,
-            classificationFunction: ClassificationFunction,
             transactionTemplate: TransactionTemplate
         ): ClassificationService =
-            ClassificationServiceImpl(aggregateService, datasetService, classificationFunction, transactionTemplate)
+            ClassificationServiceImpl(aggregateService, datasetService, transactionTemplate)
     }
 }

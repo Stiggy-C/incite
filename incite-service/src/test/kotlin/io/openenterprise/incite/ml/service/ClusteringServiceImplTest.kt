@@ -2,7 +2,6 @@ package io.openenterprise.incite.ml.service
 
 import com.google.common.collect.ImmutableMap
 import com.google.common.collect.Sets
-import io.openenterprise.ignite.cache.query.ml.ClusteringFunction
 import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.data.repository.ClusteringRepository
 import io.openenterprise.incite.service.AggregateService
@@ -23,6 +22,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
+import org.springframework.test.context.junit4.SpringRunner
 import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.containers.PostgreSQLContainer
@@ -30,8 +30,11 @@ import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils
 import java.util.*
 import javax.inject.Inject
 
-@RunWith(SpringJUnit4ClassRunner::class)
+@RunWith(SpringRunner::class)
 class ClusteringServiceImplTest {
+
+    @Autowired
+    private lateinit var clusteringRepository: ClusteringRepository
 
     @Autowired
     private lateinit var clusteringService: ClusteringService
@@ -67,7 +70,27 @@ class ClusteringServiceImplTest {
     }
 
     @Test
-    fun testBuildBisectingKMeansModel() {
+    fun testSetUp() {
+        val algo = Clustering.Algorithm.Supported.BisectingKMeans.name
+        val algoSpecificParams = "{\"featureColumns\": [\"age\", \"sex\"], \"k\": 5, \"maxIterations\": 10}"
+        val sqlString = "select g.id, g.age, g.sex from guest g"
+        val sinkTable = "test_set_up_clustering"
+        val primaryKeyColumn = "id"
+
+        Mockito.`when`(clusteringRepository.save(Mockito.any())).thenAnswer {
+            (it.arguments[0] as Clustering).id = UUID.randomUUID().toString()
+
+            it.arguments[0]
+        }
+
+        val clusteringId: UUID =
+            ClusteringService.setUp(algo, algoSpecificParams, sqlString, sinkTable, primaryKeyColumn)
+
+        Assert.assertNotNull(clusteringId)
+    }
+
+    @Test
+    fun testTrainBisectingKMeansModel() {
         val jdbcSource = jdbcSource()
 
         val algorithm = BisectingKMeans()
@@ -81,7 +104,7 @@ class ClusteringServiceImplTest {
 
         givenClusteringIdReturnClusteringEntity(clustering)
 
-        val bisectingKMeansModel: BisectingKMeansModel = clusteringService.buildModel(clustering)
+        val bisectingKMeansModel: BisectingKMeansModel = clusteringService.train(clustering)
 
         Assert.assertNotNull(bisectingKMeansModel)
         Assert.assertTrue(bisectingKMeansModel.clusterCenters().isNotEmpty())
@@ -89,7 +112,7 @@ class ClusteringServiceImplTest {
     }
 
     @Test
-    fun testBuildKMeansModel() {
+    fun testTrainKMeansModel() {
         val jdbcSource = jdbcSource()
 
         val algorithm = KMeans()
@@ -103,7 +126,7 @@ class ClusteringServiceImplTest {
 
         givenClusteringIdReturnClusteringEntity(clustering)
 
-        val kMeansModel: KMeansModel = clusteringService.buildModel(clustering)
+        val kMeansModel: KMeansModel = clusteringService.train(clustering)
 
         Assert.assertNotNull(kMeansModel)
         Assert.assertTrue(kMeansModel.clusterCenters().isNotEmpty())
@@ -111,7 +134,7 @@ class ClusteringServiceImplTest {
     }
 
     @Test
-    fun testBuildKMeansModelFromJointDatasets() {
+    fun testTrainKMeansModelFromJointDatasets() {
         val topic = "testBuildKMeansModelFromJointDatasets"
 
         val jdbcSource = jdbcSource()
@@ -154,7 +177,7 @@ class ClusteringServiceImplTest {
 
         givenClusteringIdReturnClusteringEntity(clustering)
 
-        val bisectingKMeansModel: BisectingKMeansModel = clusteringService.buildModel(clustering)
+        val bisectingKMeansModel: BisectingKMeansModel = clusteringService.train(clustering)
 
         Assert.assertNotNull(bisectingKMeansModel)
         Assert.assertTrue(bisectingKMeansModel.clusterCenters().isNotEmpty())
@@ -202,9 +225,6 @@ class ClusteringServiceImplTest {
     class Configuration {
 
         @Bean
-        protected fun clusteringFunction(): ClusteringFunction = ClusteringFunction()
-
-        @Bean
         protected fun clusteringRepository(): ClusteringRepository =
             Mockito.mock(ClusteringRepository::class.java)
 
@@ -212,10 +232,9 @@ class ClusteringServiceImplTest {
         protected fun clusteringService(
             aggregateService: AggregateService,
             datasetService: DatasetService,
-            clusteringFunction: ClusteringFunction,
             transactionTemplate: TransactionTemplate
         ): ClusteringService {
-            return ClusteringServiceImpl(aggregateService, datasetService, clusteringFunction, transactionTemplate)
+            return ClusteringServiceImpl(aggregateService, datasetService, transactionTemplate)
         }
     }
 }

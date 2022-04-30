@@ -32,7 +32,7 @@ import javax.inject.Named
 import javax.persistence.EntityNotFoundException
 
 @Named
-class AggregateServiceImpl(
+open class AggregateServiceImpl(
     @Inject private val datasetService: DatasetService,
     @Inject private val ignite: Ignite
 ) : AggregateService,

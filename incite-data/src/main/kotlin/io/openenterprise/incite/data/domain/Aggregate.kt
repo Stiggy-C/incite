@@ -22,7 +22,7 @@ open class Aggregate : AbstractMutableEntity<String>() {
     open var lastRunDateTime: OffsetDateTime? = null
 
     @Convert(converter = SinksJsonAttributeConverter::class)
-    var sinks: MutableList<Sink>  = ArrayList()
+    open var sinks: MutableList<Sink>  = ArrayList()
 
     @Convert(converter = SourcesJsonAttributeConverter::class)
     open var sources: MutableList<Source> = ArrayList()

@@ -7,7 +7,7 @@ import javax.inject.Inject
 import javax.inject.Named
 
 @Named
-class MessagingServiceImpl : MessagingService {
+open class MessagingServiceImpl : MessagingService {
 
     @Inject
     private lateinit var ignite: Ignite

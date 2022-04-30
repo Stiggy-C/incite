@@ -1,8 +1,8 @@
 package io.openenterprise.incite.ml.ws.rs
 
-import io.openenterprise.ignite.cache.query.ml.RecommendationFunction
 import io.openenterprise.incite.data.domain.Recommendation
 import javax.inject.Named
+import javax.json.JsonMergePatch
 import javax.ws.rs.*
 import javax.ws.rs.container.AsyncResponse
 import javax.ws.rs.container.Suspended
@@ -11,7 +11,7 @@ import javax.ws.rs.core.MediaType
 @Named
 @Path("/recommendations")
 class RecommendationResourceImpl : RecommendationResource,
-    AbstractMachineLearningResourceImpl<Recommendation, RecommendationFunction>() {
+    AbstractMachineLearningResourceImpl<Recommendation>() {
 
     @GET
     @Path("/{id}/model")
@@ -50,7 +50,12 @@ class RecommendationResourceImpl : RecommendationResource,
 
     @PATCH
     @Path("/{id}")
-    override fun update(id: String, entity: Recommendation, asyncResponse: AsyncResponse) {
-        super.update(id, entity, asyncResponse)
+    @Consumes("application/merge-patch+json")
+    override fun update(
+        @PathParam("id") id: String,
+        jsonMergePatch: JsonMergePatch,
+        @Suspended asyncResponse: AsyncResponse
+    ) {
+        super.update(id, jsonMergePatch, asyncResponse)
     }
 }

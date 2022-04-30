@@ -32,7 +32,12 @@ class Classification: MachineLearning<Classification.Model>() {
 
         lateinit var featureColumns: Set<String>
 
-        lateinit var labelColumn: String
+        var labelColumn: String = "label"
+
+        enum class Supported(val clazz: Class<*>) {
+
+            LogisticRegression(io.openenterprise.incite.data.domain.LogisticRegression::class.java)
+        }
     }
 
     @Converter
@@ -56,14 +61,7 @@ class LogisticRegression: Classification.Algorithm() {
 
     var elasticNetMixing: Double = 0.8
 
-    var family: Family? = null
-
-    var maxIteration: Int = 1
+    var maxIterations: Int = 1
 
     var regularization: Double = 0.3
-
-    enum class Family {
-
-        Binomial, Multinomial
-    }
 }

@@ -28,13 +28,19 @@ class Recommendation: MachineLearning<Recommendation.Model>() {
             JsonSubTypes.Type(value = AlternatingLeastSquares::class, name = "ALS")
         ]
     )
-    abstract class Algorithm
+    abstract class Algorithm {
+
+        enum class Supported(val clazz: Class<*>) {
+
+            AlternatingLeastSquares(io.openenterprise.incite.data.domain.AlternatingLeastSquares::class.java)
+        }
+    }
 
     @Converter
     class AlgorithmJsonAttributeConverter : AbstractJsonAttributeConverter<Classification.Algorithm>()
 
     @Entity
-    @Table(name = "collaborative_filtering_model")
+    @Table(name = "recommendation_model")
     class Model : AbstractEntity<String>(), Comparable<Model> {
 
         var rootMeanSquaredError: Double? = null
@@ -51,11 +57,17 @@ class AlternatingLeastSquares: Recommendation.Algorithm() {
 
     var implicitPreference: Boolean = false
 
+    var itemColumn: String = "item"
+
     var maxIteration: Int = 10
 
     var numberOfItemBlocks: Int = 10
 
     var numberOfUserBlocks: Int = 10
 
+    var ratingColumn: String = "rating"
+
     var regularization: Double = 1.0
+
+    var userColumn: String = "user"
 }

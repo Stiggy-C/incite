@@ -53,14 +53,14 @@ create table if not exists clustering(
 
 create table if not exists clustering_model(
     id UUID,
-    cluster_analysis_id UUID,
+    clustering_id UUID,
     silhouette double,
     created_by varchar(320) not null,
     created_date_time timestamp not null,
-    primary key(id, cluster_analysis_id)
-) with "template=default,affinity_key=cluster_analysis_id";
+    primary key(id, clustering_id)
+) with "template=default,affinity_key=clustering_id";
 
-create table if not exists collaborative_filtering(
+create table if not exists recommendation(
     id UUID primary key,
     algorithm varchar,
     description varchar,
@@ -75,14 +75,14 @@ create table if not exists collaborative_filtering(
     updated_date_time timestamp
 )  with "template=default";
 
-create table if not exists collaborative_filtering_model(
+create table if not exists recommendation_model(
     id UUID,
-    collaborative_filtering_id UUID,
+    recommendation_id UUID,
     root_mean_squared_error double,
     created_by varchar(320) not null,
     created_date_time timestamp not null,
-    primary key(id, collaborative_filtering_id)
-) with "template=default,affinity_key=collaborative_filtering_id";
+    primary key(id, recommendation_id)
+) with "template=default,affinity_key=recommendation_id";
 
 create table if not exists route(
     id UUID primary key,

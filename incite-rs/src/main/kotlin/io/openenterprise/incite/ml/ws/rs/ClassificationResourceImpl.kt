@@ -1,11 +1,8 @@
 package io.openenterprise.incite.ml.ws.rs
 
-import io.openenterprise.ignite.cache.query.ml.ClassificationFunction
 import io.openenterprise.incite.data.domain.Classification
-import io.openenterprise.incite.ml.service.ClassificationService
-import io.openenterprise.ws.rs.AbstractAbstractMutableEntityResourceImpl
-import kotlinx.coroutines.launch
 import javax.inject.Named
+import javax.json.JsonMergePatch
 import javax.ws.rs.*
 import javax.ws.rs.container.AsyncResponse
 import javax.ws.rs.container.Suspended
@@ -14,7 +11,7 @@ import javax.ws.rs.core.MediaType
 @Named
 @Path("/classifications")
 class ClassificationResourceImpl : ClassificationResource,
-    AbstractMachineLearningResourceImpl<Classification, ClassificationFunction>() {
+    AbstractMachineLearningResourceImpl<Classification>() {
 
     @GET
     @Path("/{id}/model")
@@ -53,7 +50,12 @@ class ClassificationResourceImpl : ClassificationResource,
 
     @PATCH
     @Path("/{id}")
-    override fun update(id: String, entity: Classification, asyncResponse: AsyncResponse) {
-        super.update(id, entity, asyncResponse)
+    @Consumes("application/merge-patch+json")
+    override fun update(
+        @PathParam("id") id: String,
+        jsonMergePatch: JsonMergePatch,
+        @Suspended asyncResponse: AsyncResponse
+    ) {
+        super.update(id, jsonMergePatch, asyncResponse)
     }
 }

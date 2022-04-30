@@ -12,7 +12,7 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc
 class WebSecurityConfiguration: WebSecurityConfigurerAdapter() {
 
     override fun configure(http: HttpSecurity?) {
-        http!!.authorizeRequests().antMatchers("/rs/routes").permitAll()
+        http!!.authorizeRequests().antMatchers("/rs/*").permitAll()
 
         http.cors().and().csrf().disable().sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
     }

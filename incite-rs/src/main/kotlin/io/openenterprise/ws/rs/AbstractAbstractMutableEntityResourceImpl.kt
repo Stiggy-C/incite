@@ -1,12 +1,15 @@
 package io.openenterprise.ws.rs
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.convertValue
 import io.openenterprise.data.domain.AbstractMutableEntity
 import io.openenterprise.service.AbstractMutableEntityService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.springframework.beans.factory.annotation.Autowired
 import java.io.Serializable
+import javax.json.JsonMergePatch
+import javax.json.JsonObject
 import javax.persistence.EntityNotFoundException
 import javax.ws.rs.container.AsyncResponse
 import javax.ws.rs.core.Response
@@ -20,19 +23,20 @@ abstract class AbstractAbstractMutableEntityResourceImpl<T : AbstractMutableEnti
     @Autowired
     lateinit var objectMapper: ObjectMapper
 
-    override fun update(id: ID, entity: T, asyncResponse: AsyncResponse) {
+    override fun update(id: ID, jsonMergePatch: JsonMergePatch, asyncResponse: AsyncResponse) {
         coroutineScope.launch(Dispatchers.IO) {
             try {
-                val persistedEntity = abstractEntityService.retrieve(id)
+                val persistedEntity: T? = abstractEntityService.retrieve(id)
 
                 if (persistedEntity == null) {
                     asyncResponse.resume(EntityNotFoundException())
                 }
 
-                val jsonString = objectMapper.writeValueAsString(entity)
-                val updatedEntity = objectMapper.readerForUpdating(persistedEntity).readValue<T>(jsonString)
+                val persistedEntityAsJsonObject = objectMapper.convertValue(persistedEntity, JsonObject::class.java)
+                val mergedEntityAsJsonObject = jsonMergePatch.apply(persistedEntityAsJsonObject)
+                val mergedEntity = objectMapper.convertValue(mergedEntityAsJsonObject, persistedEntity!!::class.java)
 
-                abstractMutableEntityService.update(updatedEntity)
+                abstractMutableEntityService.update(mergedEntity)
             } catch (e: Exception) {
                 asyncResponse.resume(e)
             }

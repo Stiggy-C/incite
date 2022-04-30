@@ -1,12 +1,11 @@
 package io.openenterprise.incite.ml.service
 
-import io.openenterprise.ignite.cache.query.ml.RecommendationFunction
 import io.openenterprise.incite.data.domain.AlternatingLeastSquares
 import io.openenterprise.incite.data.domain.Recommendation
 import io.openenterprise.incite.service.AggregateService
-import io.openenterprise.incite.service.AggregateServiceImpl
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import org.apache.spark.ml.Model
+import org.apache.spark.ml.recommendation.ALS
 import org.apache.spark.ml.recommendation.ALSModel
 import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.sql.Dataset
@@ -18,16 +17,14 @@ import javax.inject.Named
 import javax.persistence.EntityNotFoundException
 
 @Named
-class RecommendationServiceImpl(
+open class RecommendationServiceImpl(
     @Inject private val aggregateService: AggregateService,
     @Inject private val datasetService: DatasetService,
-    @Inject private val recommendationFunction: RecommendationFunction,
     @Inject private val transactionTemplate: TransactionTemplate
 ) : RecommendationService,
-    AbstractMachineLearningServiceImpl<Recommendation, RecommendationFunction>(
+    AbstractMachineLearningServiceImpl<Recommendation>(
         aggregateService,
-        datasetService,
-        recommendationFunction
+        datasetService
     ) {
 
     override fun recommendForAllUsers(
@@ -43,7 +40,7 @@ class RecommendationServiceImpl(
             is AlternatingLeastSquares -> {
                 val alsModel: ALSModel = getFromCache(UUID.fromString(model.id))
 
-                recommendationFunction.recommendForAllUsers(alsModel, numberOfItems)
+                recommendForAllUsers(alsModel, numberOfItems)
             }
             else -> throw UnsupportedOperationException()
         }
@@ -67,7 +64,7 @@ class RecommendationServiceImpl(
             is AlternatingLeastSquares -> {
                 val alsModel: ALSModel = getFromCache(UUID.fromString(model.id))
 
-                recommendationFunction.recommendForUsersSubset(alsModel, jsonOrSql, numberOfItems)
+                recommendForUsersSubset(alsModel, jsonOrSql, numberOfItems)
             }
             else -> throw UnsupportedOperationException()
         }
@@ -78,13 +75,13 @@ class RecommendationServiceImpl(
 
     }
 
-    override fun <M : Model<M>> buildModel(entity: Recommendation): M {
+    override fun <M : Model<M>> train(entity: Recommendation): M {
         val dataset = getAggregatedDataset(entity)
 
         @Suppress("UNCHECKED_CAST")
         return when (val algorithm = entity.algorithm) {
             is AlternatingLeastSquares -> {
-                recommendationFunction.buildAlsModel(
+                buildAlsModel(
                     dataset,
                     algorithm.implicitPreference,
                     algorithm.maxIteration,
@@ -117,15 +114,46 @@ class RecommendationServiceImpl(
         }
 
         val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
-        val sparkModel: Model<*> =  when (val algorithm = entity.algorithm) {
+        val sparkModel: Model<*> = when (val algorithm = entity.algorithm) {
             is AlternatingLeastSquares -> getFromCache<ALSModel>(UUID.fromString(model.id))
             else -> throw UnsupportedOperationException()
         }
 
-        val result = recommendationFunction.predict(sparkModel, jsonOrSql)
+        val result = predict(sparkModel, jsonOrSql)
 
         datasetService.write(result, entity.sinks, false)
 
         return result
+    }
+
+    private fun buildAlsModel(
+        dataset: Dataset<Row>,
+        implicitPreference: Boolean = false,
+        maxIteration: Int = 10,
+        numberOfItemBlocks: Int = 10,
+        numberOfUserBlocks: Int = 10,
+        regularization: Double = 1.0
+    ): ALSModel {
+        val als = ALS()
+        als.implicitPrefs = implicitPreference
+        als.maxIter = maxIteration
+        als.numItemBlocks = numberOfItemBlocks
+        als.numUserBlocks = numberOfUserBlocks
+        als.regParam = regularization
+
+        return als.fit(dataset)
+    }
+
+    private fun recommendForAllUsers(alsModel: ALSModel, numberOfItems: Int): Dataset<Row> =
+        alsModel.recommendForAllUsers(numberOfItems)
+
+    private fun recommendForUsersSubset(alsModel: ALSModel, jsonOrSql: String, numberOfItems: Int): Dataset<Row> {
+        val dataset = if (isJson(jsonOrSql)) {
+            loadDatasetFromJson(jsonOrSql)
+        } else {
+            loadDatasetFromSql(jsonOrSql)
+        }
+
+        return alsModel.recommendForUserSubset(dataset, numberOfItems)
     }
 }

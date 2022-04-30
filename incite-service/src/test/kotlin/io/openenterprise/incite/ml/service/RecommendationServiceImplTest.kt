@@ -1,15 +1,12 @@
 package io.openenterprise.incite.ml.service
 
-import io.openenterprise.ignite.cache.query.ml.RecommendationFunction
-import io.openenterprise.incite.data.domain.AlternatingLeastSquares
-import io.openenterprise.incite.data.domain.JdbcSource
-import io.openenterprise.incite.data.domain.RdbmsDatabase
-import io.openenterprise.incite.data.domain.Recommendation
+import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.data.repository.RecommendationRepository
 import io.openenterprise.incite.service.AggregateService
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import org.apache.spark.ml.recommendation.ALSModel
 import org.junit.Assert
+import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,12 +18,16 @@ import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
+import org.springframework.test.context.junit4.SpringRunner
 import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.containers.PostgreSQLContainer
 import java.util.*
 
-@RunWith(SpringJUnit4ClassRunner::class)
+@RunWith(SpringRunner::class)
 class RecommendationServiceImplTest {
+
+    @Autowired
+    private lateinit var recommendationRepository: RecommendationRepository
 
     @Autowired
     private lateinit var recommendationService: RecommendationService
@@ -60,21 +61,39 @@ class RecommendationServiceImplTest {
         jdbcTemplate.execute("create table if not exists rating (id bigint primary key, \"user\" bigint not null, " +
                 "item bigint not null, rating float not null)")
 
-        jdbcTemplate.update("insert into rating values (1, 1021324, 13243, 7.7)")
-        jdbcTemplate.update("insert into rating values (2, 2132435, 113355, 6.8)")
-        jdbcTemplate.update("insert into rating values (3, 5241303, 23364, 9.4)")
-        jdbcTemplate.update("insert into rating values (4, 5241303, 13243, 8.0)")
-        jdbcTemplate.update("insert into rating values (5, 5241303, 113355, 5.5)")
-        jdbcTemplate.update("insert into rating values (6, 1021324, 113355, 7.5)")
-        jdbcTemplate.update("insert into rating values (7, 1021324, 23364, 8.9)")
-        jdbcTemplate.update("insert into rating values (8, 2041628, 23364, 9.9)")
+        jdbcTemplate.update("insert into rating values (1, 1021324, 13243, 7.7) on conflict do nothing")
+        jdbcTemplate.update("insert into rating values (2, 2132435, 113355, 6.8) on conflict do nothing")
+        jdbcTemplate.update("insert into rating values (3, 5241303, 23364, 9.4) on conflict do nothing")
+        jdbcTemplate.update("insert into rating values (4, 5241303, 13243, 8.0) on conflict do nothing")
+        jdbcTemplate.update("insert into rating values (5, 5241303, 113355, 5.5) on conflict do nothing")
+        jdbcTemplate.update("insert into rating values (6, 1021324, 113355, 7.5) on conflict do nothing")
+        jdbcTemplate.update("insert into rating values (7, 1021324, 23364, 8.9) on conflict do nothing")
+        jdbcTemplate.update("insert into rating values (8, 2041628, 23364, 9.9) on conflict do nothing")
     }
 
     @Test
-    fun buildModel() {
-        val alsModel: ALSModel = recommendationService.buildModel(recommendation)
+    fun testSetUp() {
+        val algo = "AlternatingLeastSquares"
+        val algoSpecificParams = "{\"itemColumn\": \"item\", \"maxIterations\": 10, \"userColumn\": \"user\"}"
+        val sourceSql = "select r.\"user\", r.item, r.rating from rating r"
+        val sinkTable = "test_set_up_recommendation"
+        val primaryKeyColumn = "id"
 
-        Assert.assertNotNull(alsModel)
+        Mockito.`when`(recommendationRepository.save(Mockito.any())).thenAnswer {
+            (it.arguments[0] as Recommendation).id = UUID.randomUUID().toString()
+
+            it.arguments[0]
+        }
+        val uuid = RecommendationService.setUp(algo, algoSpecificParams, sourceSql, sinkTable, primaryKeyColumn)
+
+        assertNotNull(uuid)
+    }
+
+    @Test
+    fun testTrainAlternatingLeastSquares() {
+        val alsModel: ALSModel = recommendationService.train(recommendation)
+
+        assertNotNull(alsModel)
     }
 
     @TestConfiguration
@@ -87,10 +106,6 @@ class RecommendationServiceImplTest {
     class Configuration {
 
         @Bean
-        protected fun recommendationFunction(): RecommendationFunction =
-            RecommendationFunction()
-
-        @Bean
         protected fun recommendationRepository(): RecommendationRepository =
             Mockito.mock(RecommendationRepository::class.java)
 
@@ -98,9 +113,8 @@ class RecommendationServiceImplTest {
         protected fun recommendationService(
             aggregateService: AggregateService,
             datasetService: DatasetService,
-            recommendationFunction: RecommendationFunction,
             transactionTemplate: TransactionTemplate
         ): RecommendationService =
-            RecommendationServiceImpl(aggregateService, datasetService, recommendationFunction, transactionTemplate)
+            RecommendationServiceImpl(aggregateService, datasetService, transactionTemplate)
     }
 }

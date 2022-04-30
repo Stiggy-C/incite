@@ -38,6 +38,7 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.support.serializer.JsonSerializer
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
+import org.springframework.test.context.junit4.SpringRunner
 import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils
@@ -48,7 +49,7 @@ import javax.sql.DataSource
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-@RunWith(SpringJUnit4ClassRunner::class)
+@RunWith(SpringRunner::class)
 class DatasetServiceImplTest {
 
     @Inject

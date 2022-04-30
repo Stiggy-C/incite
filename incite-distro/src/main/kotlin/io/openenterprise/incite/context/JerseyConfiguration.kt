@@ -1,6 +1,7 @@
 package io.openenterprise.incite.context
 
 import io.openenterprise.glassfish.jersey.spring.SpringBridgeFeature
+import io.openenterprise.ws.rs.ext.JsonMergePatchMessageBodyReader
 import org.apache.commons.collections4.SetUtils
 import org.glassfish.jersey.server.ResourceConfig
 import org.reflections.Reflections
@@ -27,6 +28,7 @@ class JerseyConfiguration : ResourceConfig() {
     @PostConstruct
     fun postConstruct() {
         // Providers:
+        registerClasses(JsonMergePatchMessageBodyReader::class.java)
         registerInstances(SpringBridgeFeature(applicationContext))
 
         // Resources:

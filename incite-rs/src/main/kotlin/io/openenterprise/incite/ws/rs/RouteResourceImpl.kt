@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import java.io.IOException
 import java.util.*
 import javax.inject.Named
+import javax.json.JsonMergePatch
 import javax.persistence.EntityNotFoundException
 import javax.ws.rs.*
 import javax.ws.rs.container.AsyncResponse
@@ -141,8 +142,12 @@ class RouteResourceImpl : RouteResource, AbstractAbstractMutableEntityResourceIm
     @PATCH
     @Path("/{id}")
     @Consumes("application/merge-patch+json")
-    override fun update(@PathParam("id") id: String, entity: Route, @Suspended asyncResponse: AsyncResponse) {
-        super.update(id, entity, asyncResponse)
+    override fun update(
+        @PathParam("id") id: String,
+        jsonMergePatch: JsonMergePatch,
+        @Suspended asyncResponse: AsyncResponse
+    ) {
+        super.update(id, jsonMergePatch, asyncResponse)
     }
 
     private fun determineType(string: String): Route.Type? =

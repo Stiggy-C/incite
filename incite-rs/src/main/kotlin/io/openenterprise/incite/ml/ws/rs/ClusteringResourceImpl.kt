@@ -1,11 +1,8 @@
 package io.openenterprise.incite.ml.ws.rs
 
-import io.openenterprise.ignite.cache.query.ml.ClusteringFunction
 import io.openenterprise.incite.data.domain.Clustering
-import io.openenterprise.incite.ml.service.ClusteringService
-import io.openenterprise.ws.rs.AbstractAbstractMutableEntityResourceImpl
-import kotlinx.coroutines.launch
 import javax.inject.Named
+import javax.json.JsonMergePatch
 import javax.ws.rs.*
 import javax.ws.rs.container.AsyncResponse
 import javax.ws.rs.container.Suspended
@@ -14,7 +11,7 @@ import javax.ws.rs.core.MediaType
 @Named
 @Path("/cluster-analyses")
 class ClusteringResourceImpl : ClusteringResource,
-    AbstractMachineLearningResourceImpl<Clustering, ClusteringFunction>() {
+    AbstractMachineLearningResourceImpl<Clustering>() {
 
     @GET
     @Path("/{id}/model")
@@ -53,7 +50,12 @@ class ClusteringResourceImpl : ClusteringResource,
 
     @PATCH
     @Path("/{id}")
-    override fun update(id: String, entity: Clustering, asyncResponse: AsyncResponse) {
-        super.update(id, entity, asyncResponse)
+    @Consumes("application/merge-patch+json")
+    override fun update(
+        @PathParam("id") id: String,
+        jsonMergePatch: JsonMergePatch,
+        @Suspended asyncResponse: AsyncResponse
+    ) {
+        super.update(id, jsonMergePatch, asyncResponse)
     }
 }

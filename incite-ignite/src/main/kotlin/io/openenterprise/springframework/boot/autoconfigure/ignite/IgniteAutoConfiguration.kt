@@ -1,23 +1,23 @@
 package io.openenterprise.springframework.boot.autoconfigure.ignite
 
-import io.openenterprise.springframework.jdbc.support.IgniteStartupValidator
 import org.apache.commons.lang.BooleanUtils
 import org.apache.commons.lang.StringUtils
+import org.apache.commons.lang3.ArrayUtils
 import org.apache.ignite.Ignite
 import org.apache.ignite.IgniteCluster
 import org.apache.ignite.IgniteJdbcThinDataSource
+import org.apache.ignite.Ignition
 import org.apache.ignite.configuration.ClientConnectorConfiguration
 import org.apache.ignite.configuration.IgniteConfiguration
-import org.apache.ignite.configuration.SqlConfiguration
-import org.flywaydb.core.Flyway
+import org.apache.ignite.springframework.boot.autoconfigure.IgniteConfigurer
 import org.springframework.beans.factory.config.BeanDefinition
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
+import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.*
-import org.springframework.core.Ordered
-import org.springframework.core.annotation.Order
+import java.util.*
 import java.util.Objects.isNull
 import javax.sql.DataSource
 
@@ -25,14 +25,19 @@ import javax.sql.DataSource
 @ComponentScan("io.openenterprise.ignite.cache.query.ml")
 @ConditionalOnClass(Ignite::class)
 @EnableConfigurationProperties
-class IgniteAutoConfiguration : org.apache.ignite.springframework.boot.autoconfigure.IgniteAutoConfiguration() {
+class IgniteAutoConfiguration {
 
-    /*@Bean
-    @ConditionalOnBean(Flyway::class)
-    @DependsOn("igniteJdbcThinDateSource")
-    fun flywayDependsOnPostProcessor(): FlywayDependsOnPostProcessor {
-        return FlywayDependsOnPostProcessor()
-    }*/
+    @Bean
+    @ConditionalOnMissingBean
+    @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
+    protected fun ignite(
+        igniteConfiguration: IgniteConfiguration,
+        igniteConfigurer: IgniteConfigurer
+    ): Ignite {
+        igniteConfigurer.accept(igniteConfiguration)
+
+        return Ignition.start(igniteConfiguration)
+    }
 
     @Bean
     protected fun igniteCluster(ignite: Ignite): IgniteCluster {
@@ -51,18 +56,27 @@ class IgniteAutoConfiguration : org.apache.ignite.springframework.boot.autoconfi
         return igniteCluster
     }
 
-    /*@Bean
-    fun igniteDatabaseStartupValidator(igniteJdbcThinDataSource: IgniteJdbcThinDataSource): IgniteStartupValidator {
-        val igniteStartupValidator = IgniteStartupValidator()
-        igniteStartupValidator.setDataSource(igniteJdbcThinDataSource)
+    @Bean
+    @ConditionalOnMissingBean
+    @ConfigurationProperties(prefix = "ignite")
+    protected fun igniteConfiguration(): IgniteConfiguration = IgniteConfiguration()
 
-        return igniteStartupValidator
-    }*/
+    @Bean
+    @ConditionalOnMissingBean
+    protected fun igniteConfigurer(): IgniteConfigurer =
+        IgniteConfigurer { igniteConfig ->
+            igniteConfig.sqlConfiguration?.let { sqlConfig ->
+                // If none of the query engine is being set as default, set the first one as default
+                if (ArrayUtils.isNotEmpty(sqlConfig.queryEnginesConfiguration) &&
+                    Arrays.stream(sqlConfig.queryEnginesConfiguration).allMatch { !it.isDefault }
+                ) sqlConfig.queryEnginesConfiguration[0].isDefault = true
+            }
+        }
 
     @Bean
     @DependsOn("igniteCluster")
     @Primary
-    fun igniteJdbcThinDataSource(ignite: Ignite): DataSource {
+    protected fun igniteJdbcThinDataSource(ignite: Ignite): DataSource {
         val igniteConfiguration = ignite.configuration()
         val clientConnectorConfiguration = igniteConfiguration.clientConnectorConfiguration
         val clientConnectorPort =

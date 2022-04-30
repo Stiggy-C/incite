@@ -1,13 +1,19 @@
 package io.openenterprise.incite.ml.service
 
-import io.openenterprise.ignite.cache.query.ml.ClassificationFunction
 import io.openenterprise.incite.data.domain.Classification
 import io.openenterprise.incite.data.domain.LogisticRegression
 import io.openenterprise.incite.service.AggregateService
 import io.openenterprise.incite.service.AggregateServiceImpl
 import io.openenterprise.incite.spark.sql.service.DatasetService
+import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.Model
+import org.apache.spark.ml.classification.ClassificationModel
+import org.apache.spark.ml.classification.Classifier
 import org.apache.spark.ml.classification.LogisticRegressionModel
+import org.apache.spark.ml.feature.StringIndexer
+import org.apache.spark.ml.feature.VectorAssembler
+import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.param.shared.HasFeaturesCol
 import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
@@ -19,20 +25,18 @@ import javax.inject.Named
 import javax.persistence.EntityNotFoundException
 
 @Named
-class ClassificationServiceImpl(
+open class ClassificationServiceImpl(
     @Inject private val aggregateService: AggregateService,
     @Inject private val datasetService: DatasetService,
-    @Inject private val classificationFunction: ClassificationFunction,
     @Inject private val transactionTemplate: TransactionTemplate
 ) :
     ClassificationService,
-    AbstractMachineLearningServiceImpl<Classification, ClassificationFunction>(
+    AbstractMachineLearningServiceImpl<Classification>(
         aggregateService,
-        datasetService,
-        classificationFunction
+        datasetService
     ) {
 
-    override fun <M : Model<M>> buildModel(entity: Classification): M {
+    override fun <M : Model<M>> train(entity: Classification): M {
         val dataset = getAggregatedDataset(entity)
 
         @Suppress("UNCHECKED_CAST")
@@ -40,13 +44,12 @@ class ClassificationServiceImpl(
             is LogisticRegression -> {
                 val logisticRegression = entity.algorithm as LogisticRegression
 
-                classificationFunction.buildLogisticRegressionModel(
+                buildLogisticRegressionModel(
                     dataset,
-                    if (logisticRegression.family == null) null else logisticRegression.family!!.name.lowercase(),
                     logisticRegression.featureColumns.stream().collect(Collectors.joining(",")),
                     logisticRegression.labelColumn,
                     logisticRegression.elasticNetMixing,
-                    logisticRegression.maxIteration,
+                    logisticRegression.maxIterations,
                     logisticRegression.regularization
                 )
             }
@@ -85,10 +88,42 @@ class ClassificationServiceImpl(
                 throw UnsupportedOperationException()
         }
 
-        val dataset = classificationFunction.predict(sparkModel, jsonOrSql)
+        val dataset = predict(sparkModel, jsonOrSql)
 
         datasetService.write(dataset, entity.sinks, false)
 
         return dataset
+    }
+
+    private fun buildLogisticRegressionModel(
+        dataset: Dataset<Row>,
+        featuresColumns: String,
+        labelColumn: String,
+        elasticNetMixing: Double,
+        maxIteration: Int,
+        regularization: Double
+    ): LogisticRegressionModel {
+        val logisticRegression = org.apache.spark.ml.classification.LogisticRegression()
+        logisticRegression.elasticNetParam = elasticNetMixing
+        logisticRegression.maxIter = maxIteration
+        logisticRegression.regParam = regularization
+
+        return buildSparkModel(logisticRegression, dataset, labelColumn, StringUtils.split(featuresColumns, ","))
+    }
+
+    private fun <A : Classifier<Vector, *, M>, M : ClassificationModel<Vector, M>> buildSparkModel(
+        algorithm: A,
+        dataset: Dataset<Row>,
+        labelColumn: String,
+        featuresColumns: Array<String>
+    ): M {
+        @Suppress("unchecked_cast")
+        val transformedDataset0 =
+            StringIndexer().setInputCol(labelColumn).setOutputCol("label").fit(dataset).transform(dataset)
+        val transformedDataset1 =
+            VectorAssembler().setInputCols(featuresColumns).setOutputCol(((algorithm as HasFeaturesCol).featuresCol))
+                .transform(transformedDataset0)
+
+        return algorithm.fit(transformedDataset1)
     }
 }

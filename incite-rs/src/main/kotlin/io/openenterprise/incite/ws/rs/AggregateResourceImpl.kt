@@ -7,6 +7,7 @@ import io.openenterprise.ws.rs.AbstractAbstractMutableEntityResourceImpl
 import io.openenterprise.ws.rs.core.Status
 import kotlinx.coroutines.launch
 import javax.inject.Named
+import javax.json.JsonMergePatch
 import javax.persistence.EntityNotFoundException
 import javax.ws.rs.*
 import javax.ws.rs.container.AsyncResponse
@@ -92,7 +93,11 @@ class AggregateResourceImpl : AggregateResource, AbstractAbstractMutableEntityRe
     @PATCH
     @Path("/{id}")
     @Consumes("application/merge-patch+json")
-    override fun update(@PathParam("id") id: String, entity: Aggregate, @Suspended asyncResponse: AsyncResponse) {
-        super.update(id, entity, asyncResponse)
+    override fun update(
+        @PathParam("id") id: String,
+        jsonMergePatch: JsonMergePatch,
+        @Suspended asyncResponse: AsyncResponse
+    ) {
+        super.update(id, jsonMergePatch, asyncResponse)
     }
 }

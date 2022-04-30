@@ -44,7 +44,11 @@ class Clustering : MachineLearning<Clustering.Model>() {
 
         var k: Int = 0
 
-        var maxIteration: Int = 1
+        enum class Supported(val clazz: Class<*>) {
+
+            BisectingKMeans(io.openenterprise.incite.data.domain.BisectingKMeans::class.java),
+            KMeans(io.openenterprise.incite.data.domain.KMeans::class.java)
+        }
     }
 
     @Converter
@@ -53,6 +57,8 @@ class Clustering : MachineLearning<Clustering.Model>() {
     abstract class FeatureColumnsBasedAlgorithm : Algorithm() {
 
         lateinit var featureColumns: Set<String>
+
+        var maxIterations: Int = 1
 
         var seed: Long = 1L
     }
@@ -71,6 +77,6 @@ class Clustering : MachineLearning<Clustering.Model>() {
     }
 }
 
-class BisectingKMeans: Clustering.FeatureColumnsBasedAlgorithm()
+class BisectingKMeans : Clustering.FeatureColumnsBasedAlgorithm()
 
 class KMeans : Clustering.FeatureColumnsBasedAlgorithm()

@@ -6,6 +6,10 @@
 ```text
 POST    {{httpProtocol}}://{{host}}:{{port}}/rs/aggregates
 ```
+
+:warning: As of April 16, 2022, if source.fields is empty, all fields read from source will be included. Otherwise, only
+those declared in source.fields will be included.
+
 #### Example
 ```text
 curl --location --request POST 'http://localhost:8080/rs/aggregates' \
