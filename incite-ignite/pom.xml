@@ -59,7 +59,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-core</artifactId>
+            <artifactId>ignite-calcite</artifactId>
             <version>${ignite.version}</version>
         </dependency>
         <dependency>

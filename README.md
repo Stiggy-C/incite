@@ -14,9 +14,9 @@ now, Incite is in proof of concept stage.
 ### What frameworks/libraries are being utilised by Incite?
 As of now, the following frameworks are utilised by Incite,
 
-* Apache Camel (Enterprise integration)
-* Apache Incite (Compute grid/In memory database/Message grid)
-* Apache Spark (Data analytic & machine learning)
+* Apache Camel 3.11.6 (Enterprise integration)
+* Apache Ignite 2.13.0 (Compute grid/In memory database/Message grid)
+* Apache Spark 2.4.8 (Data analytic & machine learning)
 
 ![Component diagram](./component_diagram.png)
 
@@ -57,16 +57,35 @@ egress the processed data to other systems or databases.
 [Read more](./incite-rs/README.md)
 
 ## HTAP SQL database
-Incite is powered by Apache Ignite, a hybrid transaction/analytical processing (HTAP) SQL database. This means that 
-Incite is friendly to both analytical & transactional workload. One does not have to transfer data stored by 
-transactional operations to a standalone data warehouse to be analysed which saves resources and time.
+Incite is built with Apache Ignite 2.x, a hybrid transaction/analytical processing (HTAP) SQL database, in mind. This 
+means that Incite is friendly to both analytical & transactional workload. One does not have to transfer data stored by 
+transactional operations to a standalone data warehouse to be analysed which may significantly save resources and time.
+
+There are two SQL engines offered by Apache Ignite since 2.13.0. They are Calcite (currently in beta) & H2. H2 is the
+default SQL engine at this moment.
 
 ```properties
-## Example SpringBoot configuration
+# Example SpringBoot configuration (Calcite)
 spring.datasource.driver-class-name=org.apache.ignite.IgniteJdbcThinDriver
-spring.datasource.url=jdbc:ignite:thin://${incite.host}:${incite.port}/incite?lazy=true
+spring.datasource.url=jdbc:ignite:thin://${incite.host}:${incite.port}/incite?lazy=true&queryEngine=calcite
 spring.datasource.username=${incite.username}
 spring.datasource.password=${incite.password}
+```
+
+```properties
+# Example SpringBoot configuration (H2)
+spring.datasource.driver-class-name=org.apache.ignite.IgniteJdbcThinDriver
+spring.datasource.url=jdbc:ignite:thin://${incite.host}:${incite.port}/incite?lazy=true&queryEngine=h2
+spring.datasource.username=${incite.username}
+spring.datasource.password=${incite.password}
+```
+
+Alternatively, user can use query hint to use the desired SQL engine on the fly.
+```roomsql
+-- Calcite
+SELECT /*+ QUERY_ENGINE('calcite') */ * FROM table;
+-- H2
+SELECT /*+ QUERY_ENGINE('h2') */ * FROM table;
 ```
 
 ## Machine Learning (ML)
@@ -92,10 +111,10 @@ Currently, Incite only supports the following ML algorithms.
 ###### Supported algorithm:
 * Alternating Least Squares (ALS)
 
-:warning: For Alternating Least Squares (ALS), source dataset must include the following columns,
-* user [Int/Long]
-* item [Int/Long]
-* rating [Double/Float]
+For Alternating Least Squares (ALS), user may change the following configuration,
+* userColumn [Int/Long] (Default: user)
+* itemColumn [Int/Long] (Default: item)
+* ratingColumn [Double/Float] (Default: rating)
 
 ### RESTful API
 
@@ -164,8 +183,8 @@ select recommendation_predict('791ed421-4ba6-4fcb-8d09-22fda3d99696', 'select * 
 
 * Add FileSource & FileSink
 * Add RedisStreamSource
-* Apache Spark 3.0 (w/ Scala 2.12)
-* Calcite based SQL engine (w/ Apache Ignite 2.13.0)
+* Apache Spark 3.0.3 (w/ Scala 2.12)
+* Calcite based SQL engine (w/ Apache Ignite 2.13.0) :white_check_mark:
 * Completion of documentation
 * Completion of unit tests
 * Data [streaming] transformation on top of [streaming] aggregate :white_check_mark:
