@@ -43,7 +43,7 @@
 		<postgresql-jdbc.version>42.3.3</postgresql-jdbc.version>
 		<reflections.version>0.10.2</reflections.version>
 		<snakeyaml.version>1.30</snakeyaml.version>
-		<spark.version>2.4.8</spark.version>
+		<spark.version><!--2.4.8-->3.2.1</spark.version>
 		<spring-boot.version>2.5.13</spring-boot.version>
 		<testcontainers.version>1.16.3</testcontainers.version>
 		<zeroturnaround.version>1.15</zeroturnaround.version>

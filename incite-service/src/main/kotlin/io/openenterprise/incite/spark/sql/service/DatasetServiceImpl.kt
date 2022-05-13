@@ -1,6 +1,6 @@
 package io.openenterprise.incite.spark.sql.service
 
-import io.openenterprise.ignite.spark.IgniteDataFrameConstants
+import io.openenterprise.ignite.spark.IgniteJdbcConstants
 import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.spark.sql.DatasetNonStreamingWriter
 import io.openenterprise.incite.spark.sql.DatasetWriter
@@ -9,8 +9,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.apache.commons.collections.CollectionUtils
 import org.apache.commons.lang3.StringUtils
-import org.apache.ignite.spark.IgniteDataFrameSettings
+import org.apache.spark.api.java.function.VoidFunction2
 import org.apache.spark.sql.*
+import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.streaming.Trigger
 import org.slf4j.LoggerFactory
@@ -93,13 +94,18 @@ open class DatasetServiceImpl(
             is StreamingWrapper -> {
                 dataset
                     .writeStream()
-                    .foreachBatch { batch, batchId ->
-                        LOG.info("About to write dataset of batch {} to non-streaming sink, {}", batchId, sink)
+                    .foreachBatch(
+                        VoidFunction2<Dataset<Row>, Long> { batch, batchId ->
+                            LOG.info("About to write dataset of batch {} to non-streaming sink, {}", batchId, sink)
 
-                        write(batch, sink.nonStreamingSink)
-                    }
+                            write(batch, sink.nonStreamingSink)
+                        }
+                    )
             }
-            else -> throw UnsupportedOperationException()
+            else -> // As of Dec 11, 2021, only support JSON for now
+            {
+                throw UnsupportedOperationException()
+            }
         }
         dataStreamWriter = dataStreamWriter
             .option("checkpointLocation", "$sparkCheckpointLocation/${sink.id}")
@@ -120,20 +126,40 @@ open class DatasetServiceImpl(
      */
     override fun write(dataset: Dataset<Row>, sink: NonStreamingSink): DatasetNonStreamingWriter {
         var dataFrameWriter = when (sink) {
-            is EmbeddedIgniteSink -> {
+            is IgniteSink -> {
                 dataset.write()
-                    .format(IgniteDataFrameConstants.FORMAT)
-                    .option(IgniteDataFrameSettings.OPTION_CREATE_TABLE_PRIMARY_KEY_FIELDS(), sink.primaryKeyColumns)
-                    .option(IgniteDataFrameSettings.OPTION_TABLE(), sink.table)
+                    .format(IgniteJdbcConstants.FORMAT)
+                    .option(IgniteJdbcConstants.PRIMARY_KEY_COLUMNS, sink.primaryKeyColumns)
             }
-            is IgniteSink -> throw NotImplementedError()
             is JdbcSink -> {
                 dataset.write()
                     .format("jdbc")
-                    .option("dbtable", sink.table)
-                    .option("url", sink.rdbmsDatabase.url)
+            }
+            else -> {
+                throw UnsupportedOperationException()
+            }
+        }
+
+        dataFrameWriter = when (sink) {
+            is JdbcSink -> {
+                dataFrameWriter = dataFrameWriter
                     .option("user", sink.rdbmsDatabase.username)
                     .option("password", sink.rdbmsDatabase.password)
+                    .option(JDBCOptions.JDBC_DRIVER_CLASS(), sink.rdbmsDatabase.driverClass)
+                    .option(JDBCOptions.JDBC_TABLE_NAME(), sink.table)
+                    .option(JDBCOptions.JDBC_URL(), sink.rdbmsDatabase.url)
+
+                if (StringUtils.isNotEmpty(sink.createTableColumnTypes)) {
+                    dataFrameWriter = dataFrameWriter
+                        .option(JDBCOptions.JDBC_CREATE_TABLE_COLUMN_TYPES(), sink.createTableColumnTypes)
+                }
+
+                if (StringUtils.isNotEmpty(sink.createTableOptions)) {
+                    dataFrameWriter = dataFrameWriter
+                        .option(JDBCOptions.JDBC_CREATE_TABLE_OPTIONS(), sink.createTableOptions)
+                }
+
+                dataFrameWriter
             }
             else -> {
                 throw UnsupportedOperationException()

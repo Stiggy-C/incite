@@ -78,7 +78,7 @@ interface ClusteringService : MachineLearningService<Clustering>,
             jdbcSource.rdbmsDatabase = embeddedIgniteRdbmsDatabase
             jdbcSource.query = sourceSql
 
-            val jdbcSink = EmbeddedIgniteSink()
+            val jdbcSink = IgniteSink()
             jdbcSink.rdbmsDatabase = embeddedIgniteRdbmsDatabase
             jdbcSink.table = sinkTable
             jdbcSink.primaryKeyColumns = primaryKeyColumns

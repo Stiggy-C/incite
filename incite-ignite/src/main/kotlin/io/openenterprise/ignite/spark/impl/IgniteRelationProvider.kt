@@ -1,47 +1,43 @@
 package io.openenterprise.ignite.spark.impl
 
-import io.openenterprise.ignite.spark.IgniteContext
-import io.openenterprise.ignite.spark.IgniteDataFrameConstants
-import io.openenterprise.springframework.context.ApplicationContextUtils
-import org.apache.commons.collections4.MapUtils
+import io.openenterprise.ignite.spark.IgniteJdbcConstants
+import org.apache.commons.lang3.BooleanUtils
+import org.apache.commons.lang3.NotImplementedException
 import org.apache.commons.lang3.StringUtils
-import org.apache.ignite.spark.IgniteDataFrameSettings
-import org.apache.ignite.spark.impl.IgniteSQLRelation
-import org.apache.ignite.spark.impl.QueryHelper
+import org.apache.ignite.IgniteJdbcThinDriver
 import org.apache.spark.SparkException
+import org.apache.spark.api.java.function.ForeachPartitionFunction
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.SaveMode
+import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
+import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
+import org.apache.spark.sql.execution.datasources.jdbc.JdbcRelationProvider
+import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils
+import org.apache.spark.sql.jdbc.JdbcType
 import org.apache.spark.sql.sources.BaseRelation
-import scala.Option
-import scala.Some
-import scala.collection.JavaConverters.asScalaBufferConverter
-import scala.collection.JavaConverters.mapAsJavaMapConverter
+import org.apache.spark.sql.types.*
+import org.slf4j.LoggerFactory
+import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.jdbc.datasource.SingleConnectionDataSource
+import scala.Function0
 import scala.collection.immutable.Map
-import javax.inject.Inject
+import java.io.Serializable
+import java.sql.Connection
+import java.util.*
+import java.util.stream.Collectors
 
-/**
- * As of 2022-01-18, Spark optimization is not being handled.
- */
-class IgniteRelationProvider : org.apache.ignite.spark.impl.IgniteRelationProvider() {
+class IgniteRelationProvider : JdbcRelationProvider(), Serializable {
 
-    @Inject
-    lateinit var igniteContext: IgniteContext
+    companion object {
 
-    init {
-        assert(ApplicationContextUtils.getApplicationContext() != null)
-
-        ApplicationContextUtils.getApplicationContext()!!.autowireCapableBeanFactory.autowireBean(this)
+        @JvmStatic
+        private val LOG = LoggerFactory.getLogger(IgniteRelationProvider::class.java)
     }
 
-    override fun createRelation(sqlContext: SQLContext, parameters: Map<String, String>): BaseRelation {
-        return IgniteSQLRelation<Any, Any>(
-            igniteContext,
-            parameters[IgniteDataFrameSettings.OPTION_TABLE()].get(),
-            parameters[IgniteDataFrameSettings.OPTION_SCHEMA()],
-            sqlContext
-        )
+    override fun shortName(): String {
+        return IgniteJdbcConstants.FORMAT
     }
 
     override fun createRelation(
@@ -50,50 +46,25 @@ class IgniteRelationProvider : org.apache.ignite.spark.impl.IgniteRelationProvid
         parameters: Map<String, String>,
         dataset: Dataset<Row>
     ): BaseRelation {
-
-        val ignite = igniteContext.ignite()
-        val igniteSqlConfiguration = ignite.configuration().sqlConfiguration
-        val igniteSchema = if (parameters.contains(IgniteDataFrameSettings.OPTION_SCHEMA())) {
-            parameters[IgniteDataFrameSettings.OPTION_SCHEMA()]
-        } else if (igniteSqlConfiguration.sqlSchemas == null || igniteSqlConfiguration.sqlSchemas.isEmpty()) {
-            Some("PUBLIC")
-        } else {
-            Some(igniteSqlConfiguration.sqlSchemas[0])
+        if (!parameters.contains(IgniteJdbcConstants.PRIMARY_KEY_COLUMNS)) {
+            throw SparkException("${IgniteJdbcConstants.PRIMARY_KEY_COLUMNS} is not provided for ${IgniteJdbcConstants.FORMAT} format.")
         }
-        val igniteTableName = parameters[IgniteDataFrameSettings.OPTION_TABLE()].get()
-        val igniteCacheName = "SQL_${igniteSchema.get()}_$igniteTableName".uppercase()
-        val igniteTableExists = ignite.cacheNames().stream().anyMatch{ it == igniteCacheName }
-        val igniteTable = if (igniteTableExists) ignite.cache<Any, Any>(igniteCacheName) else null
-        val schema = dataset.schema()
 
-        if (igniteTable == null) {
-            QueryHelper.ensureCreateTableOptions(schema, parameters, igniteContext)
+        if (!parameters.contains(JDBCOptions.JDBC_DRIVER_CLASS())) {
+            parameters.updated(JDBCOptions.JDBC_DRIVER_CLASS(), IgniteJdbcThinDriver::class.java.name)
+        }
 
-            val createTableParameters = parameters[IgniteDataFrameSettings.OPTION_CREATE_TABLE_PARAMETERS()]
-            val primaryKeys = StringUtils.split(
-                parameters[IgniteDataFrameSettings.OPTION_CREATE_TABLE_PRIMARY_KEY_FIELDS()].get(),
-                ','
-            ).asList()
+        val jdbcOptionsInWrite = JdbcOptionsInWrite(parameters)
+        val connection: Connection = JdbcUtils.createConnectionFactory(jdbcOptionsInWrite).apply()
+        val singleConnectionDataSource = SingleConnectionDataSource(connection, false)
+        val jdbcTemplate = JdbcTemplate(singleConnectionDataSource)
 
-            QueryHelper.createTable(
-                schema,
-                igniteTableName,
-                asScalaBufferConverter(primaryKeys).asScala().toSeq(),
-                createTableParameters,
-                ignite
-            )
-            QueryHelper.saveTable(
-                dataset, igniteTableName, igniteSchema, igniteContext,
-                parameters[IgniteDataFrameSettings.OPTION_STREAMER_ALLOW_OVERWRITE()] as Option<Any>,
-                parameters[IgniteDataFrameSettings.OPTION_STREAMER_SKIP_STORE()] as Option<Any>,
-                parameters[IgniteDataFrameSettings.OPTION_STREAMER_FLUSH_FREQUENCY()] as Option<Any>,
-                parameters[IgniteDataFrameSettings.OPTION_STREAMER_PER_NODE_BUFFER_SIZE()] as Option<Any>,
-                parameters[IgniteDataFrameSettings.OPTION_STREAMER_PER_NODE_PARALLEL_OPERATIONS()] as Option<Any>
-            )
-        } else {
+        val tableExists = tableExists(jdbcTemplate, parameters)
+
+        if (tableExists) {
             when (saveMode) {
                 SaveMode.ErrorIfExists -> {
-                    throw SparkException("Table or view, $igniteTableName, already exists. SaveMode: ErrorIfExists.")
+                    throw SparkException("Table or view, ${jdbcOptionsInWrite.table()}, already exists. SaveMode: ErrorIfExists")
                 }
                 SaveMode.Ignore -> {
                     // Do nothing.
@@ -104,43 +75,231 @@ class IgniteRelationProvider : org.apache.ignite.spark.impl.IgniteRelationProvid
                             // Do nothing.
                         }
                         SaveMode.Overwrite -> {
-                            val createTableParameters =
-                                parameters[IgniteDataFrameSettings.OPTION_CREATE_TABLE_PARAMETERS()]
-                            val primaryKeys = StringUtils.split(
-                                parameters[IgniteDataFrameSettings.OPTION_CREATE_TABLE_PRIMARY_KEY_FIELDS()].get(),
-                                ','
-                            ).asList()
-
-                            QueryHelper.ensureCreateTableOptions(schema, parameters, igniteContext)
-                            QueryHelper.dropTable(igniteTableName, ignite)
-                            QueryHelper.createTable(
-                                schema,
-                                igniteTableName,
-                                asScalaBufferConverter(primaryKeys).asScala().toSeq(),
-                                createTableParameters,
-                                ignite
-                            )
+                            if (jdbcOptionsInWrite.isTruncate) {
+                                truncateTable(jdbcTemplate, parameters)
+                            } else {
+                                dropTable(jdbcTemplate, parameters)
+                                createTable(jdbcTemplate, dataset, parameters)
+                            }
                         }
-                        else -> throw IllegalStateException()
+                        else ->
+                            throw SparkException("Should not happen", IllegalStateException())
                     }
 
-                    QueryHelper.saveTable(
-                        dataset, igniteTableName, igniteSchema, igniteContext,
-                        parameters[IgniteDataFrameSettings.OPTION_STREAMER_ALLOW_OVERWRITE()] as Option<Any>,
-                        parameters[IgniteDataFrameSettings.OPTION_STREAMER_SKIP_STORE()] as Option<Any>,
-                        parameters[IgniteDataFrameSettings.OPTION_STREAMER_FLUSH_FREQUENCY()] as Option<Any>,
-                        parameters[IgniteDataFrameSettings.OPTION_STREAMER_PER_NODE_BUFFER_SIZE()] as Option<Any>,
-                        parameters[IgniteDataFrameSettings.OPTION_STREAMER_PER_NODE_PARALLEL_OPERATIONS()] as Option<Any>
-                    )
+                    saveTable(dataset, parameters)
                 }
             }
+        } else {
+            createTable(jdbcTemplate, dataset, parameters)
+            saveTable(dataset, parameters)
         }
+
+        connection.close()
 
         return this.createRelation(sqlContext, parameters)
     }
 
-    override fun shortName(): String {
-        return IgniteDataFrameConstants.FORMAT
+    private class ForEachPartitionSaveTableFunction(
+        private val connectionFactory: Function0<Connection>,
+        private val insertStatement: String,
+        private val schema: StructType
+    ) : ForeachPartitionFunction<Row>, Serializable {
+
+        override fun call(iterator: MutableIterator<Row>) {
+            val valuesList = mutableListOf<Array<Any>>()
+            val fields = schema.fields()
+
+            iterator.forEachRemaining { row ->
+                val values = Arrays.stream(fields)
+                    .map { field ->
+                        row.get(row.fieldIndex(field.name()))
+                    }
+                    .toArray()
+
+                valuesList.add(values)
+            }
+
+            val connection: Connection = connectionFactory.apply()
+            val singleConnectionDataSource = SingleConnectionDataSource(connection, false)
+            val jdbcTemplate = JdbcTemplate(singleConnectionDataSource)
+
+            LoggerFactory.getLogger(this::class.java)
+                .info("About to save partition with statement, $insertStatement")
+
+            jdbcTemplate.batchUpdate(insertStatement, valuesList)
+
+            connection.close()
+        }
     }
 
+    private fun createTable(jdbcTemplate: JdbcTemplate, dataset: Dataset<Row>, parameters: Map<String, String>) {
+        val jdbcOptionsInWrite = JdbcOptionsInWrite(parameters)
+
+        val caseSensitive = parameters.contains(IgniteJdbcConstants.CASE_SENSITIVE) &&
+                BooleanUtils.toBoolean(parameters.get(IgniteJdbcConstants.CASE_SENSITIVE).get())
+        val columnOverrides: MutableMap<String, String> = getColumnsOverrides(jdbcOptionsInWrite)
+        val datasetFields = dataset.schema().fields()
+        val tableName = getTableName(parameters)
+
+        val createTableStatement = buildString {
+            append("CREATE TABLE $tableName (")
+
+            val tableColumns = Arrays.stream(datasetFields).map {
+                val columnName: String = if (caseSensitive) "\"${it.name()}\"" else it.name()
+                val dataType: String = if (columnOverrides.containsKey(it.name())) {
+                    columnOverrides[it.name()]!!
+                } else {
+                    getIgniteDataType(it.dataType()).databaseTypeDefinition()
+                }
+
+                "$columnName $dataType"
+            }.collect(Collectors.joining(", "))
+
+            append(tableColumns)
+
+            val primaryKeyColumns =
+                Arrays.stream(
+                    StringUtils.split(parameters[IgniteJdbcConstants.PRIMARY_KEY_COLUMNS].get(), ",")
+                )
+                    .map {
+                        if (caseSensitive) "\"$it\"" else it
+                    }
+                    .collect(Collectors.joining(", "))
+
+            append(", PRIMARY KEY ($primaryKeyColumns)")
+
+            append(")")
+
+            if (StringUtils.isNotEmpty(jdbcOptionsInWrite.createTableOptions())) {
+                append(" WITH ${jdbcOptionsInWrite.createTableOptions()}")
+            }
+        }
+
+        LOG.info("About to create table, $tableName, with statement, $createTableStatement")
+
+        jdbcTemplate.update(createTableStatement)
+    }
+
+    private fun dropTable(jdbcTemplate: JdbcTemplate, parameters: Map<String, String>) {
+        val tableName = getTableName(parameters)
+
+        val dropTableStatement = "DROP TABLE IF EXISTS $tableName"
+
+        LOG.info("About to drop table, $tableName")
+
+        jdbcTemplate.update(dropTableStatement)
+    }
+
+    private fun getColumnsOverrides(jdbcOptionsInWrite: JdbcOptionsInWrite): MutableMap<String, String> {
+        val columnOverrides: MutableMap<String, String> = if (jdbcOptionsInWrite.createTableColumnTypes().isEmpty) {
+            Collections.emptyMap()
+        } else {
+            val createTableColumnTypes = jdbcOptionsInWrite.createTableColumnTypes().get()
+            val overrideColumns = StringUtils.split(createTableColumnTypes, ",", 2)
+
+            Arrays.stream(overrideColumns)
+                .map {
+                    val tokens = it.split(" ")
+
+                    Pair(tokens[0], tokens[1])
+                }
+                .collect(Collectors.toMap(Pair<String, String>::first, Pair<String, String>::second))
+        }
+        return columnOverrides
+    }
+
+    private fun getIgniteDataType(dataType: DataType): JdbcType {
+        return when (dataType) {
+            is BooleanType ->
+                JdbcType("BOOLEAN", -7)
+            is BinaryType ->
+                JdbcType("BINARY", 2004)
+            is ByteType ->
+                JdbcType("TINYINT", -6)
+            is DateType ->
+                JdbcType("DATE", 91)
+            is DecimalType ->
+                JdbcType("DECIMAL",  3)
+            is DoubleType ->
+                JdbcType("DOUBLE", 8)
+            is FloatType ->
+                JdbcType("REAL", 6)
+            is IntegerType ->
+                JdbcType("INTEGER",4)
+            is LongType ->
+                JdbcType("BIGINT", -5)
+            is ShortType ->
+                JdbcType("SMALLINT", 5)
+            is StringType ->
+                JdbcType("VARCHAR", 2005)
+            is TimestampType ->
+                JdbcType("TIMESTAMP", 93)
+            else ->
+                throw SparkException("Given type not supported by Apache Ignite", UnsupportedOperationException())
+        }
+    }
+
+    private fun getTableName(parameters: Map<String, String>): String? {
+        val caseSensitive = parameters.contains(IgniteJdbcConstants.CASE_SENSITIVE) &&
+                BooleanUtils.toBoolean(parameters.get(IgniteJdbcConstants.CASE_SENSITIVE).get())
+        val jdbcOptionsInWrite = JdbcOptionsInWrite(parameters)
+
+        val tableName = if (caseSensitive) {
+            "\"${jdbcOptionsInWrite.table()}\""
+        } else {
+            jdbcOptionsInWrite.table()
+        }
+
+        return tableName
+    }
+
+    private fun saveTable(dataset: Dataset<Row>, parameters: Map<String, String>) {
+        val caseSensitive = parameters.contains(IgniteJdbcConstants.CASE_SENSITIVE) &&
+                BooleanUtils.toBoolean(parameters.get(IgniteJdbcConstants.CASE_SENSITIVE).get())
+        val schema = dataset.schema()
+        val fields = schema.fields()
+        val tableName = getTableName(parameters)
+
+        val insertStatement = buildString {
+            append("INSERT INTO $tableName (")
+
+            val columns = Arrays.stream(fields).map {
+                if (caseSensitive) "\"${it.name()}\"" else it.name()
+            }.collect(Collectors.joining(", "))
+
+            append(columns)
+            append(") values (")
+
+            val params = Arrays.stream(fields).map {
+                "?"
+            }.collect(Collectors.joining(", "))
+
+            append(params)
+            append(")")
+        }
+
+        val jdbcOptionsInWrite = JdbcOptionsInWrite(parameters)
+        val createConnectionFactoryFunction = JdbcUtils.createConnectionFactory(jdbcOptionsInWrite)
+
+        dataset.foreachPartition(
+            ForEachPartitionSaveTableFunction(createConnectionFactoryFunction, insertStatement, schema)
+        )
+    }
+
+    private fun tableExists(jdbcTemplate: JdbcTemplate, parameters: Map<String, String>): Boolean {
+        val tableName = getTableName(parameters)
+        val selectStatement = "SELECT 1 FROM $tableName WHERE 1=0"
+
+        try {
+            jdbcTemplate.execute(selectStatement)
+        } catch (e: Exception) {
+            return false
+        }
+
+        return true
+    }
+
+    private fun truncateTable(jdbcTemplate: JdbcTemplate, parameters: Map<String, String>) {
+        throw NotImplementedException()
+    }
 }

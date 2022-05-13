@@ -145,7 +145,7 @@ class ClusteringServiceImplTest {
                 Field("average_spending", "cast(#field as double) as average_spending")
             )
 
-        val algorithm = BisectingKMeans()
+        val algorithm = KMeans()
         algorithm.featureColumns = Sets.newHashSet("age", "sex", "average_spending")
         algorithm.k = 4
 
@@ -177,7 +177,7 @@ class ClusteringServiceImplTest {
 
         givenClusteringIdReturnClusteringEntity(clustering)
 
-        val bisectingKMeansModel: BisectingKMeansModel = clusteringService.train(clustering)
+        val bisectingKMeansModel: KMeansModel = clusteringService.train(clustering)
 
         Assert.assertNotNull(bisectingKMeansModel)
         Assert.assertTrue(bisectingKMeansModel.clusterCenters().isNotEmpty())

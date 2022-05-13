@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.google.common.collect.ImmutableMap
-import io.openenterprise.ignite.spark.IgniteContext
 import io.openenterprise.incite.data.repository.AggregateRepository
 import io.openenterprise.incite.service.AggregateService
 import io.openenterprise.incite.service.AggregateServiceImpl
@@ -21,10 +20,11 @@ import org.apache.ignite.Ignition
 import org.apache.ignite.cache.CachingProvider
 import org.apache.ignite.cluster.ClusterState
 import org.apache.ignite.configuration.IgniteConfiguration
+import org.apache.ignite.configuration.SqlConfiguration
+import org.apache.ignite.indexing.IndexingQueryEngineConfiguration
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.UUIDSerializer
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.ignite.IgniteSparkSession
 import org.mockito.Mockito
 import org.postgresql.ds.PGSimpleDataSource
 import org.springframework.beans.factory.annotation.Value
@@ -96,8 +96,15 @@ abstract class AbstractMachineLearningServiceImplTest {
 
         @Bean
         protected fun ignite(applicationContext: ApplicationContext): Ignite {
+            val indexingQueryEngineConfiguration = IndexingQueryEngineConfiguration()
+            indexingQueryEngineConfiguration.isDefault = true
+
+            val sqlConfiguration = SqlConfiguration()
+            sqlConfiguration.setQueryEnginesConfiguration(indexingQueryEngineConfiguration)
+
             val igniteConfiguration = IgniteConfiguration()
-            igniteConfiguration.igniteInstanceName = DatasetServiceImplTest::class.java.simpleName
+            igniteConfiguration.igniteInstanceName = this::class.java.simpleName
+            igniteConfiguration.sqlConfiguration = sqlConfiguration
 
             return Ignition.getOrStart(igniteConfiguration)
         }
@@ -112,20 +119,6 @@ abstract class AbstractMachineLearningServiceImplTest {
                 igniteCluster.state(ClusterState.ACTIVE)
             }
         }
-
-        @Bean
-        @ConditionalOnBean(Ignite::class)
-        @DependsOn("applicationContextUtils", "sparkSession")
-        fun igniteContext(applicationContext: ApplicationContext): IgniteContext {
-            val sparkSession = applicationContext.getBean("sparkSession", SparkSession::class.java)
-
-            return IgniteContext(sparkSession.sparkContext())
-        }
-
-        @Bean
-        @Primary
-        protected fun igniteSparkSession(igniteContext: IgniteContext): SparkSession =
-            IgniteSparkSession(igniteContext, igniteContext.sqlContext().sparkSession())
 
         @Bean
         protected fun jdbcTemplate(datasource: DataSource): JdbcTemplate = JdbcTemplate(datasource)
@@ -192,6 +185,10 @@ abstract class AbstractMachineLearningServiceImplTest {
             return SparkSession.builder()
                 .appName(DatasetServiceImplTest::class.java.simpleName)
                 .master("local[*]")
+                .config("spark.executor.memory", "512m")
+                .config("spark.executor.memoryOverhead", "512m")
+                .config("spark.memory.offHeap.enabled", true)
+                .config("spark.memory.offHeap.size", "512m")
                 .config("spark.sql.streaming.schemaInference", true)
                 .orCreate
         }

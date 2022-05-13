@@ -1,7 +1,7 @@
 package io.openenterprise.incite.ml.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import io.openenterprise.incite.data.domain.EmbeddedIgniteSink
+import io.openenterprise.incite.data.domain.IgniteSink
 import io.openenterprise.incite.data.domain.JdbcSource
 import io.openenterprise.incite.data.domain.Recommendation
 import io.openenterprise.service.AbstractMutableEntityService
@@ -70,7 +70,7 @@ interface RecommendationService : MachineLearningService<Recommendation>,
             jdbcSource.rdbmsDatabase = embeddedIgniteRdbmsDatabase
             jdbcSource.query = sourceSql
 
-            val jdbcSink = EmbeddedIgniteSink()
+            val jdbcSink = IgniteSink()
             jdbcSink.rdbmsDatabase = embeddedIgniteRdbmsDatabase
             jdbcSink.table = sinkTable
             jdbcSink.primaryKeyColumns = primaryKeyColumns

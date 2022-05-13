@@ -1,7 +1,7 @@
 # Incite
 
 ## What is Incite?
-Incite is a wrapper of popular Java data related frameworks/tools. It aims to become an easy-to-use data platform by
+Incite is a wrapper of popular Java data related frameworks/tools. It aims to become an easy-to-use data portal by
 providing easier access of popular technologies to non-developers (i.e. Business analysis) in an organization. As of 
 now, Incite is in proof of concept stage.
 

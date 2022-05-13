@@ -3,10 +3,7 @@ package io.openenterprise.springframework.boot.autoconfigure.ignite
 import org.apache.commons.lang.BooleanUtils
 import org.apache.commons.lang.StringUtils
 import org.apache.commons.lang3.ArrayUtils
-import org.apache.ignite.Ignite
-import org.apache.ignite.IgniteCluster
-import org.apache.ignite.IgniteJdbcThinDataSource
-import org.apache.ignite.Ignition
+import org.apache.ignite.*
 import org.apache.ignite.configuration.ClientConnectorConfiguration
 import org.apache.ignite.configuration.IgniteConfiguration
 import org.apache.ignite.springframework.boot.autoconfigure.IgniteConfigurer
@@ -19,6 +16,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.*
 import java.util.*
 import java.util.Objects.isNull
+import javax.annotation.PostConstruct
 import javax.sql.DataSource
 
 @Configuration

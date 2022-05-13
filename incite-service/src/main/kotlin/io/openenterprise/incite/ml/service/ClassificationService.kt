@@ -1,13 +1,10 @@
 package io.openenterprise.incite.ml.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.common.collect.Sets
 import io.openenterprise.incite.data.domain.Classification
-import io.openenterprise.incite.data.domain.EmbeddedIgniteSink
+import io.openenterprise.incite.data.domain.IgniteSink
 import io.openenterprise.incite.data.domain.JdbcSource
-import io.openenterprise.incite.data.domain.LogisticRegression
 import io.openenterprise.service.AbstractMutableEntityService
-import org.apache.commons.lang3.StringUtils
 import org.apache.ignite.cache.query.annotations.QuerySqlFunction
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.util.MLWritable
@@ -16,7 +13,6 @@ import javax.json.Json
 import javax.json.JsonObject
 import javax.json.JsonValue
 import javax.persistence.EntityNotFoundException
-import kotlin.jvm.Throws
 
 interface ClassificationService : MachineLearningService<Classification>,
     AbstractMutableEntityService<Classification, String> {
@@ -72,7 +68,7 @@ interface ClassificationService : MachineLearningService<Classification>,
             jdbcSource.rdbmsDatabase = embeddedIgniteRdbmsDatabase
             jdbcSource.query = sourceSql
 
-            val jdbcSink = EmbeddedIgniteSink()
+            val jdbcSink = IgniteSink()
             jdbcSink.rdbmsDatabase = embeddedIgniteRdbmsDatabase
             jdbcSink.table = sinkTable
             jdbcSink.primaryKeyColumns = primaryKeyColumns

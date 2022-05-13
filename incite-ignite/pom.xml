@@ -47,11 +47,21 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        <!--<dependency>
+        <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-calcite</artifactId>
             <version>${ignite.version}</version>
-        </dependency>-->
+            <exclusions>
+                <exclusion>
+                    <groupId>org.codehaus.janino</groupId>
+                    <artifactId>janino</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.codehaus.janino</groupId>
+                    <artifactId>commons-compiler</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-compress</artifactId>
@@ -59,19 +69,14 @@
         </dependency>
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-calcite</artifactId>
-            <version>${ignite.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-direct-io</artifactId>
             <version>${ignite.version}</version>
         </dependency>
-        <dependency>
+        <!--<dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-spark-2.4</artifactId>
             <version>${ignite.version}</version>
-        </dependency>
+        </dependency>-->
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-spring-boot-autoconfigure-ext</artifactId>
@@ -80,7 +85,18 @@
         <dependency>
             <groupId>org.codehaus.janino</groupId>
             <artifactId>janino</artifactId>
-            <version>[3.0.16]</version>
+            <version>3.0.16</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.codehaus.janino</groupId>
+                    <artifactId>commons-compiler</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.codehaus.janino</groupId>
+            <artifactId>commons-compiler</artifactId>
+            <version>3.0.16</version>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>

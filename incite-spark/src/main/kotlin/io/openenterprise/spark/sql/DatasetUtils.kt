@@ -1,5 +1,6 @@
 package io.openenterprise.spark.sql
 
+import org.apache.spark.api.java.function.ForeachPartitionFunction
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.SparkSession
@@ -38,10 +39,13 @@ sealed class DatasetUtils {
             jsonStringsMap[session] = StringBuilder()
             jsonStringsMap[session]!!.append("[")
 
-            dataset.repartition(200).toJSON().foreachPartition {
-                jsonStringsMap[session]!!.append(it.asSequence().toList().stream().collect(Collectors.joining(",")))
-                jsonStringsMap[session]!!.append(",")
-            }
+            dataset
+                .repartition(200)
+                .toJSON()
+                .foreachPartition(ForeachPartitionFunction {
+                    jsonStringsMap[session]!!.append(it.asSequence().toList().stream().collect(Collectors.joining(",")))
+                    jsonStringsMap[session]!!.append(",")
+                })
 
             val lastCommaIndex = jsonStringsMap[session]!!.lastIndexOf(",")
             if (lastCommaIndex == jsonStringsMap[session]!!.length - 1) {

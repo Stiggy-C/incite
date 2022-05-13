@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.google.common.collect.ImmutableMap
-import io.openenterprise.ignite.spark.IgniteContext
 import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.data.repository.AggregateRepository
 import io.openenterprise.incite.spark.sql.service.DatasetService
@@ -18,13 +17,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.apache.ignite.Ignite
 import org.apache.ignite.IgniteCluster
+import org.apache.ignite.IgniteJdbcThinDriver
 import org.apache.ignite.Ignition
 import org.apache.ignite.cluster.ClusterState
 import org.apache.ignite.configuration.IgniteConfiguration
+import org.apache.ignite.configuration.SqlConfiguration
+import org.apache.ignite.indexing.IndexingQueryEngineConfiguration
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.UUIDSerializer
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.ignite.IgniteSparkSession
 import org.assertj.core.util.Lists
 import org.junit.Assert.*
 import org.junit.Before
@@ -33,15 +34,11 @@ import org.junit.runner.RunWith
 import org.mockito.Mockito
 import org.mockito.internal.util.collections.Sets
 import org.postgresql.ds.PGSimpleDataSource
-import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
-import org.springframework.context.annotation.DependsOn
-import org.springframework.context.annotation.Primary
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.expression.spel.standard.SpelExpressionParser
@@ -241,14 +238,14 @@ class AggregateServiceImplTest {
         igniteTable: String,
         kafkaTopic: String
     ): Aggregate {
-        val rdbmsDatabase = RdbmsDatabase()
-        rdbmsDatabase.url = postgreSQLContainer.jdbcUrl
-        rdbmsDatabase.driverClass = "org.postgresql.Driver"
-        rdbmsDatabase.password = postgreSQLContainer.password
-        rdbmsDatabase.username = postgreSQLContainer.username
+        val rdbmsDatabase0 = RdbmsDatabase()
+        rdbmsDatabase0.url = postgreSQLContainer.jdbcUrl
+        rdbmsDatabase0.driverClass = "org.postgresql.Driver"
+        rdbmsDatabase0.password = postgreSQLContainer.password
+        rdbmsDatabase0.username = postgreSQLContainer.username
 
         val jdbcSource = JdbcSource()
-        jdbcSource.rdbmsDatabase = rdbmsDatabase
+        jdbcSource.rdbmsDatabase = rdbmsDatabase0
         jdbcSource.query =
             "select g.id as guest_id, g.membership_number, g.created_date_time, g.last_login_date_time from guest g order by last_login_date_time desc"
 
@@ -271,12 +268,19 @@ class AggregateServiceImplTest {
         kafkaSource.topic = kafkaTopic
         kafkaSource.watermark = Source.Watermark("purchase_date_time", "5 minutes")
 
-        val embeddedIgniteSink = EmbeddedIgniteSink()
-        embeddedIgniteSink.id = embeddedIgniteSinkId
-        embeddedIgniteSink.primaryKeyColumns = "transaction_id"
-        embeddedIgniteSink.table = igniteTable
+        val rdbmsDatabase1 = RdbmsDatabase()
+        rdbmsDatabase1.driverClass = IgniteJdbcThinDriver::class.java.name
+        rdbmsDatabase1.url = "jdbc:ignite:thin://localhost:10800?lazy=true&queryEngine=h2"
+        rdbmsDatabase1.username = "ignite"
+        rdbmsDatabase1.password = "ignite"
 
-        val embeddedIgniteSinkStreamingWrapper = StreamingWrapper(embeddedIgniteSink)
+        val igniteSink = IgniteSink()
+        igniteSink.id = embeddedIgniteSinkId
+        igniteSink.primaryKeyColumns = "transaction_id"
+        igniteSink.rdbmsDatabase = rdbmsDatabase1
+        igniteSink.table = igniteTable
+
+        val embeddedIgniteSinkStreamingWrapper = StreamingWrapper(igniteSink)
         embeddedIgniteSinkStreamingWrapper.triggerInterval = 500L
 
         val join = Join()
@@ -342,8 +346,15 @@ class AggregateServiceImplTest {
 
         @Bean
         protected fun ignite(applicationContext: ApplicationContext): Ignite {
+            val indexingQueryEngineConfiguration = IndexingQueryEngineConfiguration()
+            indexingQueryEngineConfiguration.isDefault = true
+
+            val sqlConfiguration = SqlConfiguration()
+            sqlConfiguration.setQueryEnginesConfiguration(indexingQueryEngineConfiguration)
+
             val igniteConfiguration = IgniteConfiguration()
-            igniteConfiguration.igniteInstanceName = DatasetServiceImplTest::class.java.simpleName
+            igniteConfiguration.igniteInstanceName = this::class.java.simpleName
+            igniteConfiguration.sqlConfiguration = sqlConfiguration
 
             return Ignition.getOrStart(igniteConfiguration)
         }
@@ -360,24 +371,7 @@ class AggregateServiceImplTest {
         }
 
         @Bean
-        @ConditionalOnBean(Ignite::class)
-        @DependsOn("applicationContextUtils", "sparkSession")
-        fun igniteContext(applicationContext: ApplicationContext): IgniteContext {
-            val sparkSession = applicationContext.getBean("sparkSession", SparkSession::class.java)
-
-            return IgniteContext(sparkSession.sparkContext())
-        }
-
-        @Bean
-        @Primary
-        @Qualifier("igniteSparkSession")
-        protected fun igniteSparkSession(igniteContext: IgniteContext): SparkSession =
-            IgniteSparkSession(igniteContext, igniteContext.sqlContext().sparkSession())
-
-
-        @Bean
         protected fun jdbcTemplate(datasource: DataSource): JdbcTemplate = JdbcTemplate(datasource)
-
 
         @Bean
         protected fun kafkaContainer(): KafkaContainer {
@@ -432,6 +426,10 @@ class AggregateServiceImplTest {
             return SparkSession.builder()
                 .appName(DatasetServiceImplTest::class.java.simpleName)
                 .master("local[*]")
+                .config("spark.executor.memory", "512m")
+                .config("spark.executor.memoryOverhead", "512m")
+                .config("spark.memory.offHeap.enabled", true)
+                .config("spark.memory.offHeap.size", "512m")
                 .config("spark.sql.streaming.schemaInference", true)
                 .orCreate
         }

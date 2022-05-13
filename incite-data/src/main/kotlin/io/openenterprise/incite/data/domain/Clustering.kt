@@ -56,7 +56,7 @@ class Clustering : MachineLearning<Clustering.Model>() {
 
     abstract class FeatureColumnsBasedAlgorithm : Algorithm() {
 
-        lateinit var featureColumns: Set<String>
+        var featureColumns: Set<String> = mutableSetOf()
 
         var maxIterations: Int = 1
 

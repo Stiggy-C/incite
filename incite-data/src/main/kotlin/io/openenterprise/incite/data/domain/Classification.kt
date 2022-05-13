@@ -30,7 +30,7 @@ class Classification: MachineLearning<Classification.Model>() {
     )
     abstract class Algorithm {
 
-        lateinit var featureColumns: Set<String>
+        var featureColumns: Set<String> = mutableSetOf()
 
         var labelColumn: String = "label"
 

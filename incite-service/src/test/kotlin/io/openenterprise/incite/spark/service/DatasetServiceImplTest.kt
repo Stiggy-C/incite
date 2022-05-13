@@ -3,41 +3,37 @@ package io.openenterprise.incite.spark.service
 import com.fasterxml.jackson.core.type.TypeReference
 import com.google.common.collect.ImmutableMap
 import com.google.common.collect.Sets
-import io.openenterprise.ignite.spark.IgniteContext
 import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.spark.sql.service.DatasetService
-import io.openenterprise.springframework.context.ApplicationContextUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.apache.ignite.Ignite
 import org.apache.ignite.IgniteCluster
+import org.apache.ignite.IgniteJdbcThinDriver
 import org.apache.ignite.Ignition
 import org.apache.ignite.cluster.ClusterState
+import org.apache.ignite.configuration.CacheConfiguration
 import org.apache.ignite.configuration.IgniteConfiguration
+import org.apache.ignite.configuration.SqlConfiguration
+import org.apache.ignite.indexing.IndexingQueryEngineConfiguration
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.UUIDSerializer
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.ignite.IgniteSparkSession
 import org.apache.spark.sql.types.StringType
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.postgresql.ds.PGSimpleDataSource
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Qualifier
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
-import org.springframework.context.annotation.DependsOn
-import org.springframework.context.annotation.Primary
 import org.springframework.expression.spel.standard.SpelExpressionParser
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.kafka.core.DefaultKafkaProducerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.support.serializer.JsonSerializer
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
 import org.springframework.test.context.junit4.SpringRunner
 import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.containers.PostgreSQLContainer
@@ -119,12 +115,20 @@ class DatasetServiceImplTest {
     @Test
     fun testStreamingWriteFromJsonFiles() {
         val dataset = sparkSession.readStream().json("./src/test/resources/test_objects*.json")
-        val embeddedIgniteSink = EmbeddedIgniteSink()
-        embeddedIgniteSink.id = UUID.randomUUID()
-        embeddedIgniteSink.primaryKeyColumns = "id"
-        embeddedIgniteSink.table = "test_streaming_write_from_json_files"
 
-        val streamingWrapper = StreamingWrapper(embeddedIgniteSink)
+        val rdbmsDatabase = RdbmsDatabase()
+        rdbmsDatabase.driverClass = IgniteJdbcThinDriver::class.java.name
+        rdbmsDatabase.url = "jdbc:ignite:thin://localhost:10800?lazy=true&queryEngine=h2"
+        rdbmsDatabase.username = "ignite"
+        rdbmsDatabase.password = "ignite"
+
+        val igniteSink = IgniteSink()
+        igniteSink.id = UUID.randomUUID()
+        igniteSink.primaryKeyColumns = "id"
+        igniteSink.rdbmsDatabase = rdbmsDatabase
+        igniteSink.table = "test_streaming_write_from_json_files"
+
+        val streamingWrapper = StreamingWrapper(igniteSink)
         streamingWrapper.triggerType = StreamingSink.TriggerType.PROCESSING_TIME
         streamingWrapper.triggerInterval = 500L
 
@@ -138,7 +142,7 @@ class DatasetServiceImplTest {
 
         assertTrue(datasetStreamingWriter.streamingQuery.recentProgress().isNotEmpty())
 
-        val igniteTableName = "SQL_PUBLIC_${embeddedIgniteSink.table.uppercase()}"
+        val igniteTableName = "SQL_PUBLIC_${igniteSink.table.uppercase()}"
         val igniteCache = ignite.cache<Any, Any>(igniteTableName)
 
         assertTrue(igniteCache.size() > 0)
@@ -160,12 +164,19 @@ class DatasetServiceImplTest {
 
         val dataset = datasetService.load(kafkaSource)
 
-        val embeddedIgniteSink = EmbeddedIgniteSink()
-        embeddedIgniteSink.id = UUID.randomUUID()
-        embeddedIgniteSink.primaryKeyColumns = "id"
-        embeddedIgniteSink.table = "test_streaming_write_from_kafka"
+        val rdbmsDatabase = RdbmsDatabase()
+        rdbmsDatabase.driverClass = IgniteJdbcThinDriver::class.java.name
+        rdbmsDatabase.url = "jdbc:ignite:thin://localhost:10800?lazy=true&queryEngine=h2"
+        rdbmsDatabase.username = "ignite"
+        rdbmsDatabase.password = "ignite"
 
-        val streamingWrapper = StreamingWrapper(embeddedIgniteSink)
+        val igniteSink = IgniteSink()
+        igniteSink.id = UUID.randomUUID()
+        igniteSink.primaryKeyColumns = "id"
+        igniteSink.rdbmsDatabase = rdbmsDatabase
+        igniteSink.table = "test_streaming_write_from_kafka"
+
+        val streamingWrapper = StreamingWrapper(igniteSink)
         streamingWrapper.triggerType = StreamingSink.TriggerType.PROCESSING_TIME
         streamingWrapper.triggerInterval = 500L
 
@@ -185,7 +196,7 @@ class DatasetServiceImplTest {
 
         assertTrue(datasetStreamingWriter.streamingQuery.recentProgress().isNotEmpty())
 
-        val igniteTableName = "SQL_PUBLIC_${embeddedIgniteSink.table.uppercase()}"
+        val igniteTableName = "SQL_PUBLIC_${igniteSink.table.uppercase()}"
         val igniteCache = ignite.cache<Any, Any>(igniteTableName)
 
         assertTrue(igniteCache.size() > 0)
@@ -213,8 +224,21 @@ class DatasetServiceImplTest {
 
         @Bean
         protected fun ignite(applicationContext: ApplicationContext): Ignite {
+            val cacheConfiguration = CacheConfiguration<Any, Any>()
+            cacheConfiguration.name = "default"
+            cacheConfiguration.isSqlEscapeAll = true
+
+            val indexingQueryEngineConfiguration = IndexingQueryEngineConfiguration()
+            indexingQueryEngineConfiguration.isDefault = true
+
+            val sqlConfiguration = SqlConfiguration()
+            sqlConfiguration.setQueryEnginesConfiguration(indexingQueryEngineConfiguration)
+
             val igniteConfiguration = IgniteConfiguration()
-            igniteConfiguration.igniteInstanceName = DatasetServiceImplTest::class.java.simpleName
+            igniteConfiguration.igniteInstanceName = this::class.java.simpleName
+            igniteConfiguration.sqlConfiguration = sqlConfiguration
+
+            igniteConfiguration.setCacheConfiguration(cacheConfiguration)
 
             return Ignition.getOrStart(igniteConfiguration)
         }
@@ -230,21 +254,6 @@ class DatasetServiceImplTest {
             }
         }
 
-        @Bean
-        @ConditionalOnBean(Ignite::class)
-        @DependsOn("applicationContextUtils", "sparkSession")
-        protected fun igniteContext(applicationContext: ApplicationContext): IgniteContext {
-            val sparkSession = applicationContext.getBean("sparkSession", SparkSession::class.java)
-
-            return IgniteContext(sparkSession.sparkContext())
-        }
-
-        @Bean
-        @Primary
-        @Qualifier("igniteSparkSession")
-        protected fun igniteSparkSession(igniteContext: IgniteContext): SparkSession {
-            return IgniteSparkSession(igniteContext, igniteContext.sqlContext().sparkSession())
-        }
 
         @Bean
         protected fun jdbcTemplate(datasource: DataSource): JdbcTemplate = JdbcTemplate(datasource)
@@ -284,7 +293,6 @@ class DatasetServiceImplTest {
         }
 
         @Bean
-        @Qualifier("sparkSession")
         protected fun sparkSession(): SparkSession {
             return SparkSession.builder()
                 .appName(DatasetServiceImplTest::class.java.simpleName)

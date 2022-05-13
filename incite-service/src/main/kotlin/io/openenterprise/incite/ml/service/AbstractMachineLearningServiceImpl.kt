@@ -15,7 +15,9 @@ import org.apache.commons.lang3.ArrayUtils
 import org.apache.commons.lang3.reflect.MethodUtils
 import org.apache.ignite.Ignite
 import org.apache.ignite.IgniteJdbcThinDriver
+import org.apache.ignite.calcite.CalciteQueryEngineConfiguration
 import org.apache.ignite.configuration.ClientConnectorConfiguration
+import org.apache.ignite.indexing.IndexingQueryEngineConfiguration
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.sql.Dataset
@@ -84,11 +86,26 @@ abstract class AbstractMachineLearningServiceImpl<T: MachineLearning<*>>(
                 clientConnectorConfiguration!!.port
         val sqlConfiguration = igniteConfiguration.sqlConfiguration
         val sqlSchema = if (ArrayUtils.isEmpty(sqlConfiguration.sqlSchemas)) "incite" else sqlConfiguration.sqlSchemas[0]
+        val defaultQueryEngine = if (ArrayUtils.isEmpty(sqlConfiguration.queryEnginesConfiguration))
+            "h2"
+        else {
+            Arrays.stream(sqlConfiguration.queryEnginesConfiguration)
+                .filter { it.isDefault }
+                .map {
+                    when (it) {
+                        is CalciteQueryEngineConfiguration -> "calcite"
+                        is IndexingQueryEngineConfiguration -> "h2"
+                        else -> throw UnsupportedOperationException()
+                    }
+                }
+                .findFirst()
+                .get()
+        }
 
         val rdbmsDatabase = RdbmsDatabase()
         rdbmsDatabase.driverClass = IgniteJdbcThinDriver::class.java.name
         rdbmsDatabase.password = "ignite"
-        rdbmsDatabase.url = "jdbc:ignite:thin://localhost:${clientConnectorPort}/${sqlSchema}?lazy=true"
+        rdbmsDatabase.url = "jdbc:ignite:thin://localhost:${clientConnectorPort}/${sqlSchema}?lazy=true&queryEngine=${defaultQueryEngine}"
         rdbmsDatabase.username = "ignite"
         return rdbmsDatabase
     }

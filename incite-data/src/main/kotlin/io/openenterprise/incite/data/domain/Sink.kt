@@ -12,7 +12,6 @@ import java.util.*
 )
 @JsonSubTypes(
     value = [
-        JsonSubTypes.Type(value = EmbeddedIgniteSink::class, name = "EmbeddedIgniteSink"),
         JsonSubTypes.Type(value = IgniteSink::class, name = "IgniteSink"),
         JsonSubTypes.Type(value = JdbcSink::class, name = "JdbcSink"),
         JsonSubTypes.Type(value = KafkaSink::class, name = "KafkaSink")
@@ -49,13 +48,9 @@ abstract class StreamingSink : Sink() {
     }
 }
 
-class EmbeddedIgniteSink : IgniteSink()
-
-open class IgniteSink : JdbcSink() {
+class IgniteSink : JdbcSink() {
 
     lateinit var primaryKeyColumns: String
-
-    var tableParameters: String? = null
 }
 
 open class JdbcSink : NonStreamingSink() {
