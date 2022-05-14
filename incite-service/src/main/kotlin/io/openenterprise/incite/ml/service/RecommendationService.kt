@@ -54,7 +54,7 @@ interface RecommendationService : MachineLearningService<Recommendation>,
             val objectMapper = getBean(ObjectMapper::class.java)
 
             var algorithm =
-                Recommendation.Algorithm.Supported.valueOf(algo).clazz.newInstance() as Recommendation.Algorithm
+                Recommendation.SupportedAlgorithm.valueOf(algo).clazz.newInstance() as Recommendation.Algorithm
             var algorithmAsJsonObject: JsonValue = objectMapper.convertValue(algorithm, JsonObject::class.java)
             val algorithmSpecificParamsAsJsonObject = objectMapper.readValue(algoSpecificParams, JsonObject::class.java)
             val jsonMergePatch = Json.createMergePatch(algorithmSpecificParamsAsJsonObject)

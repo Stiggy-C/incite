@@ -34,10 +34,6 @@ class Classification: MachineLearning<Classification.Model>() {
 
         var labelColumn: String = "label"
 
-        enum class Supported(val clazz: Class<*>) {
-
-            LogisticRegression(io.openenterprise.incite.data.domain.LogisticRegression::class.java)
-        }
     }
 
     @Converter
@@ -54,6 +50,11 @@ class Classification: MachineLearning<Classification.Model>() {
                 if (it.createdDateTime == null) OffsetDateTime.MIN else it.createdDateTime
             }.reversed().compare(this, other)
         }
+    }
+
+    enum class SupportedAlgorithm(val clazz: Class<*>) {
+
+        LogisticRegression(io.openenterprise.incite.data.domain.LogisticRegression::class.java)
     }
 }
 

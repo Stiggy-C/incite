@@ -3,12 +3,10 @@ package io.openenterprise.incite.ml.service
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.openenterprise.incite.data.domain.*
 import io.openenterprise.service.AbstractMutableEntityService
-import org.apache.commons.lang3.StringUtils
 import org.apache.ignite.cache.query.annotations.QuerySqlFunction
 import org.apache.spark.ml.clustering.BisectingKMeansModel
 import org.apache.spark.ml.clustering.KMeansModel
 import java.util.*
-import java.util.stream.Collectors
 import javax.json.Json
 import javax.json.JsonObject
 import javax.json.JsonValue
@@ -62,7 +60,7 @@ interface ClusteringService : MachineLearningService<Clustering>,
             val objectMapper = getBean(ObjectMapper::class.java)
 
             var algorithm =
-                Clustering.Algorithm.Supported.valueOf(algo).clazz.newInstance() as Clustering.Algorithm
+                Clustering.SupportedAlgorithm.valueOf(algo).clazz.newInstance() as Clustering.Algorithm
             var algorithmAsJsonObject: JsonValue = objectMapper.convertValue(algorithm, JsonObject::class.java)
             val algorithmSpecificParamsAsJsonObject = objectMapper.readValue(algoSpecificParams, JsonObject::class.java)
             val jsonMergePatch = Json.createMergePatch(algorithmSpecificParamsAsJsonObject)

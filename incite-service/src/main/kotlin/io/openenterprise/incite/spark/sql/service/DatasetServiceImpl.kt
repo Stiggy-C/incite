@@ -46,6 +46,7 @@ open class DatasetServiceImpl(
         }
 
         return when (source) {
+            is FileSource -> load(source)
             is KafkaSource -> load(source)
             is JdbcSource -> load(source)
             else -> throw UnsupportedOperationException()
@@ -68,13 +69,13 @@ open class DatasetServiceImpl(
         sink: StreamingSink
     ): DatasetStreamingWriter {
         val trigger = when (sink.triggerType) {
-            StreamingSink.TriggerType.CONTINUOUS -> {
+            StreamingSink.TriggerType.Continuous -> {
                 Trigger.Continuous(sink.triggerInterval)
             }
-            StreamingSink.TriggerType.ONCE -> {
+            StreamingSink.TriggerType.Once -> {
                 Trigger.Once()
             }
-            StreamingSink.TriggerType.PROCESSING_TIME -> {
+            StreamingSink.TriggerType.ProcessingTime -> {
                 Trigger.ProcessingTime(sink.triggerInterval)
             }
             else -> {
@@ -83,6 +84,11 @@ open class DatasetServiceImpl(
         }
 
         var dataStreamWriter: DataStreamWriter<*> = when (sink) {
+            is FileSink -> {
+                dataset.writeStream()
+                    .format(sink.format.name.lowercase())
+                    .option("path", sink.path)
+            }
             is KafkaSink -> {
                 // As of Dec 11, 2021, only support JSON for now
                 dataset.toJSON()
@@ -200,6 +206,29 @@ open class DatasetServiceImpl(
         return writers
     }
 
+    private fun load(fileSource: FileSource): Dataset<Row> {
+        val dataset: Dataset<Row> = if (fileSource.streamingRead) sparkSession.readStream()
+            .format(fileSource.format.name.lowercase())
+            .option("path", fileSource.path)
+            .option("maxFilesPerTrigger", fileSource.maxFilesPerTrigger)
+            .option("latestFirst", fileSource.latestFirst)
+            .option("maxFileAge", fileSource.maxFileAge)
+            .option("cleanSource", fileSource.cleanSource.name.lowercase())
+            .option("sourceArchiveDirectory", fileSource.sourceArchiveDirectory)
+            .load()
+        else sparkSession.read()
+            .format(fileSource.format.name.lowercase())
+            .option("path", fileSource.path)
+            .option("maxFilesPerTrigger", fileSource.maxFilesPerTrigger)
+            .option("latestFirst", fileSource.latestFirst)
+            .option("maxFileAge", fileSource.maxFileAge)
+            .option("cleanSource", fileSource.cleanSource.name.lowercase())
+            .option("sourceArchiveDirectory", fileSource.sourceArchiveDirectory)
+            .load()
+
+        return postLoad(fileSource, dataset)
+    }
+
     /**
      * Load a [Dataset] from a [JdbcSource].
      *
@@ -229,7 +258,8 @@ open class DatasetServiceImpl(
             .option("kafka.bootstrap.servers", kafkaSource.kafkaCluster.servers)
             .option("startingOffsets", kafkaSource.startingOffset)
             .option("subscribe", kafkaSource.topic)
-            .load() else sparkSession.read().format("kafka")
+            .load()
+        else sparkSession.read().format("kafka")
             .option("kafka.bootstrap.servers", kafkaSource.kafkaCluster.servers)
             .option("startingOffsets", "earliest")
             .option("subscribe", kafkaSource.topic)

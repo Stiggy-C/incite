@@ -33,7 +33,7 @@ abstract class StreamingSink : Sink() {
 
     var streamingWrite: Boolean = true
 
-    var triggerType: TriggerType = TriggerType.PROCESSING_TIME
+    var triggerType: TriggerType = TriggerType.ProcessingTime
 
     var triggerInterval: Long = 1000L
 
@@ -44,7 +44,19 @@ abstract class StreamingSink : Sink() {
 
     enum class TriggerType {
 
-        CONTINUOUS, ONCE, PROCESSING_TIME
+        Continuous, Once, ProcessingTime
+    }
+}
+
+class FileSink: StreamingSink() {
+
+    var format: Format = Format.Json
+
+    lateinit var path: String
+
+    enum class Format {
+
+        Csv, Json
     }
 }
 

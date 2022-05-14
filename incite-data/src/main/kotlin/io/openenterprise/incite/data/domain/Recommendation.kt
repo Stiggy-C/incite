@@ -30,10 +30,6 @@ class Recommendation: MachineLearning<Recommendation.Model>() {
     )
     abstract class Algorithm {
 
-        enum class Supported(val clazz: Class<*>) {
-
-            AlternatingLeastSquares(io.openenterprise.incite.data.domain.AlternatingLeastSquares::class.java)
-        }
     }
 
     @Converter
@@ -50,6 +46,11 @@ class Recommendation: MachineLearning<Recommendation.Model>() {
                 if (it.createdDateTime == null) OffsetDateTime.MIN else it.createdDateTime
             }.reversed().compare(this, other)
         }
+    }
+
+    enum class SupportedAlgorithm(val clazz: Class<*>) {
+
+        AlternatingLeastSquares(io.openenterprise.incite.data.domain.AlternatingLeastSquares::class.java)
     }
 }
 

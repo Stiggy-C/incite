@@ -40,7 +40,7 @@
 		<kotlin.version><!--1.5.32-->1.6.21</kotlin.version>
 		<kotlin-coroutines.version><!--1.5.2-native-mt-->1.6.1-native-mt</kotlin-coroutines.version>
 		<mockito.version>4.3.1</mockito.version>
-		<postgresql-jdbc.version>42.3.3</postgresql-jdbc.version>
+		<postgresql-jdbc.version>42.3.5</postgresql-jdbc.version>
 		<reflections.version>0.10.2</reflections.version>
 		<snakeyaml.version>1.30</snakeyaml.version>
 		<spark.version><!--2.4.8-->3.2.1</spark.version>

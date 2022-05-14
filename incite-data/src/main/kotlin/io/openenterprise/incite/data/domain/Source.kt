@@ -37,6 +37,33 @@ abstract class Source: Cloneable {
     }
 }
 
+class FileSource: StreamingSource() {
+
+    lateinit var path: String
+
+    var format: Format = Format.Json
+
+    var maxFilesPerTrigger: Long = 1
+
+    var latestFirst: Boolean = false
+
+    var maxFileAge: String = "7d"
+
+    var cleanSource: CleanSourceOption = CleanSourceOption.Off
+
+    var sourceArchiveDirectory: String? = null
+
+    enum class CleanSourceOption {
+
+        Archive, Delete, Off
+    }
+
+    enum class Format {
+
+        Json
+    }
+}
+
 class JdbcSource: Source() {
 
     lateinit var rdbmsDatabase: RdbmsDatabase

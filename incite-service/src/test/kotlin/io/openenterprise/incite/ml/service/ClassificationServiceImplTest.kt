@@ -19,7 +19,6 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
 import org.springframework.test.context.junit4.SpringRunner
 import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.containers.PostgreSQLContainer
@@ -78,7 +77,7 @@ class ClassificationServiceImplTest {
 
     @Test
     fun testSetUp() {
-        val algo = Classification.Algorithm.Supported.LogisticRegression.name
+        val algo = Classification.SupportedAlgorithm.LogisticRegression.name
         val algoSpecificParams = "{\"featureColumns\": [\"age\", \"sex\"], \"labelColumn\": \"result\", \"maxIterations\": 10}"
         val sourceSql = "select g.id, g.age, g.sex, g.result from guest g"
         val sinkTable = "test_set_up_classification"

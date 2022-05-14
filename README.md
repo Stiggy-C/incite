@@ -14,9 +14,9 @@ now, Incite is in proof of concept stage.
 ### What frameworks/libraries are being utilised by Incite?
 As of now, the following frameworks are utilised by Incite,
 
-* Apache Camel 3.11.6 (Enterprise integration)
+* Apache Camel 3.11.7 (Enterprise integration)
 * Apache Ignite 2.13.0 (Compute grid/In memory database/Message grid)
-* Apache Spark 2.4.8 (Data analytic & machine learning)
+* Apache Spark 3.2.1 (Data analytic & machine learning)
 
 ![Component diagram](./component_diagram.png)
 
@@ -183,8 +183,8 @@ select recommendation_predict('791ed421-4ba6-4fcb-8d09-22fda3d99696', 'select * 
 
 * Add FileSource & FileSink
 * Add RedisStreamSource
-* Apache Spark 3.0.3 (w/ Scala 2.12)
-* Calcite based SQL engine (w/ Apache Ignite 2.13.0) :white_check_mark:
+* Apache Spark 3.2.x (w/ Scala 2.12) :white_check_mark:
+* Calcite based SQL engine (w/ Apache Ignite 2.13.x) :white_check_mark:
 * Completion of documentation
 * Completion of unit tests
 * Data [streaming] transformation on top of [streaming] aggregate :white_check_mark:

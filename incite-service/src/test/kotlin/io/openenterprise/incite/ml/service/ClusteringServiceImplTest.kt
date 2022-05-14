@@ -21,7 +21,6 @@ import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.kafka.core.KafkaTemplate
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
 import org.springframework.test.context.junit4.SpringRunner
 import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.containers.KafkaContainer
@@ -71,7 +70,7 @@ class ClusteringServiceImplTest {
 
     @Test
     fun testSetUp() {
-        val algo = Clustering.Algorithm.Supported.BisectingKMeans.name
+        val algo = Clustering.SupportedAlgorithm.BisectingKMeans.name
         val algoSpecificParams = "{\"featureColumns\": [\"age\", \"sex\"], \"k\": 5, \"maxIterations\": 10}"
         val sqlString = "select g.id, g.age, g.sex from guest g"
         val sinkTable = "test_set_up_clustering"

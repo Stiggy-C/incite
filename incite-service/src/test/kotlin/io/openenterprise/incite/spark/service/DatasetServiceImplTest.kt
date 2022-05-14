@@ -89,7 +89,7 @@ class DatasetServiceImplTest {
 
 
     @Test
-    fun testStreamingReadFromRdbms() {
+    fun testLoadFromRdbms() {
         val rdbmsDatabase = RdbmsDatabase()
         rdbmsDatabase.driverClass = postgreSQLContainer.driverClassName
         rdbmsDatabase.url = postgreSQLContainer.jdbcUrl
@@ -113,8 +113,13 @@ class DatasetServiceImplTest {
     }
 
     @Test
-    fun testStreamingWriteFromJsonFiles() {
-        val dataset = sparkSession.readStream().json("./src/test/resources/test_objects*.json")
+    fun testStreamingWriteFromFile() {
+        // val dataset = sparkSession.readStream().json("./src/test/resources/test_objects*.json")
+
+        val fileSource = FileSource()
+        fileSource.path = "./src/test/resources/test_objects*.json"
+
+        val dataset = datasetService.load(fileSource)
 
         val rdbmsDatabase = RdbmsDatabase()
         rdbmsDatabase.driverClass = IgniteJdbcThinDriver::class.java.name
@@ -129,8 +134,8 @@ class DatasetServiceImplTest {
         igniteSink.table = "test_streaming_write_from_json_files"
 
         val streamingWrapper = StreamingWrapper(igniteSink)
-        streamingWrapper.triggerType = StreamingSink.TriggerType.PROCESSING_TIME
-        streamingWrapper.triggerInterval = 500L
+        streamingWrapper.triggerType = StreamingSink.TriggerType.ProcessingTime
+        streamingWrapper.triggerInterval = 1000L
 
         val datasetStreamingWriter = datasetService.write(dataset, streamingWrapper)
 
@@ -177,8 +182,8 @@ class DatasetServiceImplTest {
         igniteSink.table = "test_streaming_write_from_kafka"
 
         val streamingWrapper = StreamingWrapper(igniteSink)
-        streamingWrapper.triggerType = StreamingSink.TriggerType.PROCESSING_TIME
-        streamingWrapper.triggerInterval = 500L
+        streamingWrapper.triggerType = StreamingSink.TriggerType.ProcessingTime
+        streamingWrapper.triggerInterval = 1000L
 
         val datasetStreamingWriter = datasetService.write(dataset, streamingWrapper)
 

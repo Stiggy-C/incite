@@ -1,7 +1,6 @@
 package io.openenterprise.camel.dsl.yaml
 
 import org.apache.camel.builder.RouteBuilder
-import org.apache.camel.dsl.yaml.YamlRoutesBuilderLoader
 import org.apache.camel.model.RouteDefinition
 import org.apache.commons.lang3.reflect.TypeUtils
 import org.snakeyaml.engine.v2.api.LoadSettings
@@ -10,7 +9,7 @@ import javax.annotation.PostConstruct
 import javax.inject.Named
 
 @Named
-class YamlRoutesBuilderLoader: YamlRoutesBuilderLoader() {
+class YamlRoutesBuilderLoader: org.apache.camel.dsl.yaml.YamlRoutesBuilderLoader() {
 
     fun builder(routeId: String, yaml: String): RouteBuilder {
         val compose = Compose(LoadSettings.builder().build())

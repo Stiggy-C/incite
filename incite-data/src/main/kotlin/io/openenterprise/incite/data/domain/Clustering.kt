@@ -44,11 +44,6 @@ class Clustering : MachineLearning<Clustering.Model>() {
 
         var k: Int = 0
 
-        enum class Supported(val clazz: Class<*>) {
-
-            BisectingKMeans(io.openenterprise.incite.data.domain.BisectingKMeans::class.java),
-            KMeans(io.openenterprise.incite.data.domain.KMeans::class.java)
-        }
     }
 
     @Converter
@@ -74,6 +69,12 @@ class Clustering : MachineLearning<Clustering.Model>() {
                 if (it.createdDateTime == null) OffsetDateTime.MIN else it.createdDateTime
             }.reversed().compare(this, other)
         }
+    }
+
+    enum class SupportedAlgorithm(val clazz: Class<*>) {
+
+        BisectingKMeans(io.openenterprise.incite.data.domain.BisectingKMeans::class.java),
+        KMeans(io.openenterprise.incite.data.domain.KMeans::class.java)
     }
 }
 

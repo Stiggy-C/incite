@@ -52,7 +52,7 @@ interface ClassificationService : MachineLearningService<Classification>,
             val objectMapper = getBean(ObjectMapper::class.java)
 
             var algorithm =
-                Classification.Algorithm.Supported.valueOf(algo).clazz.newInstance() as Classification.Algorithm
+                Classification.SupportedAlgorithm.valueOf(algo).clazz.newInstance() as Classification.Algorithm
             var algorithmAsJsonObject: JsonValue = objectMapper.convertValue(algorithm, JsonObject::class.java)
             val algorithmSpecificParamsAsJsonObject = objectMapper.readValue(algoSpecificParams, JsonObject::class.java)
             val jsonMergePatch = Json.createMergePatch(algorithmSpecificParamsAsJsonObject)
