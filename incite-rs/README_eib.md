@@ -7,7 +7,10 @@
 POST    {{httpProtocol}}://{{host}}:{{port}}/rs/routes
 ```
 
-Upon successful creation (i.e. API returns HTTP 201), the route will be started automatically.
+#### HTTP headers
+| HTTP Header  | Value      |
+|--------------|------------|
+| Content-Type | text/plain |
 
 #### Example
 ```text
@@ -37,6 +40,21 @@ curl --location --request POST 'http://localhost:8080/rs/routes' \
         - to: "jdbc:igniteJdbcThinDataSource"'
 ```
 
+### Update route
+```text
+PATCH    {{httpProtocol}}://{{host}}:{{port}}/rs/routes/{{id}}
+```
+
+#### HTTP headers
+| HTTP Header  | Value |
+|--------------|-------|
+| Content-Type | application/merge-patch+json   |
+
+#### Example
+```text
+TODO
+```
+
 ### Delete route
 ```text
 DELETE    {{httpProtocol}}://{{host}}:{{port}}/rs/routes/{{id}}
@@ -60,9 +78,4 @@ POST    {{httpProtocol}}://{{host}}:{{port}}/rs/routes/{{id}}/stop
 ### Suspend route
 ```text
 POST    {{httpProtocol}}://{{host}}:{{port}}/rs/routes/{{id}}/suspend
-```
-
-### Update route
-```text
-PATCH    {{httpProtocol}}://{{host}}:{{port}}/rs/routes/{{id}}
 ```

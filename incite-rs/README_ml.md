@@ -7,8 +7,38 @@
 POST    {{httpProtocol}}://{{host}}:{{port}}/rs/classifications
 ```
 
+#### HTTP headers
+| HTTP Header  | Value            |
+|--------------|------------------|
+| Content-Type | application/json |
+
 #### Example
 TODO
+
+### Retrieve (the definition of) a classification task
+```text
+GET    {{httpProtocol}}://{{host}}:{{port}}/rs/classifications/{{id}}
+```
+
+### Update (the definition of) a classification task
+```text
+PATCH    {{httpProtocol}}://{{host}}:{{port}}/rs/classifications/{{id}}
+```
+
+#### HTTP headers
+| HTTP Header  | Value |
+|--------------|-------|
+| Content-Type | application/merge-patch+json   |
+
+#### Example
+```text
+TODO
+```
+
+### Delete (the definition of) a classification task
+```text
+DELETE    {{httpProtocol}}://{{host}}:{{port}}/rs/classifications/{{id}}
+```
 
 ### Build a model for a defined classification task
 ```text
@@ -24,6 +54,11 @@ POST    {{httpProtocol}}://{{host}}:{{port}}/rs/classifications/{{id}}/predict
 ```text
 POST    {{httpProtocol}}://{{host}}:{{port}}/rs/cluster-analyses
 ```
+
+#### HTTP headers
+| HTTP Header  | Value            |
+|--------------|------------------|
+| Content-Type | application/json |
 
 #### Example
 ```text
@@ -41,11 +76,17 @@ curl --location --request POST 'http://localhost:8080/rs/cluster-analyses' \
     "fixedDelay": 0,
     "sinks": [
         {
-            "@type": "EmbeddedIgniteSink",
-            "id": "d692e214-77da-40f8-a85b-e5f41a016060",
+            "@type": "IgniteSink",
+            "id": "c0bbbc24-ffe4-4437-b08d-41017a9ffb83",
             "saveMode": "Append",
-            "primaryKeyColumns": "guest_id",
-            "table": "guest_clustering_result"
+            "rdbmsDatabase": {
+                "driverClass": "org.apache.ignite.IgniteJdbcThinDriver",
+                "url": "jdbc:ignite:thin://localhost:10800?lazy=true&queryEngine=h2",
+                "username": "ignite",
+                "password": "ignite"
+            },
+            "table": "guest_cluster_analysis",
+            "primaryKeyColumns": "id"
         }
     ],
     "sources": [
@@ -89,9 +130,33 @@ curl --location --request POST 'http://localhost:8080/rs/cluster-analyses' \
             "sex"
         ],
         "seed": 1
-    },
-    "models": []
+    }
 }'
+```
+
+### Retrieve (the definition of) a clustering task
+```text
+GET    {{httpProtocol}}://{{host}}:{{port}}/rs/cluster-analyses/{{id}}
+```
+
+### Update (the definition of) a clustering task
+```text
+PATCH    {{httpProtocol}}://{{host}}:{{port}}/rs/cluster-analyses/{{id}}
+```
+
+#### HTTP headers
+| HTTP Header  | Value |
+|--------------|-------|
+| Content-Type | application/merge-patch+json   |
+
+#### Example
+```text
+TODO
+```
+
+### Delete (the definition of) a clustering task
+```text
+DELETE    {{httpProtocol}}://{{host}}:{{port}}/rs/cluster-analyses/{{id}}
 ```
 
 ### Build a model for a defined clustering task
@@ -111,6 +176,31 @@ POST    {{httpProtocol}}://{{host}}:{{port}}/rs/recommendations
 
 #### Example
 TODO
+
+### Retrieve (the definition of) a recommendation task
+```text
+GET    {{httpProtocol}}://{{host}}:{{port}}/rs/recommendations/{{id}}
+```
+
+### Update (the definition of) a recommendation task
+```text
+PATCH    {{httpProtocol}}://{{host}}:{{port}}/rs/recommendations/{{id}}
+```
+
+#### HTTP headers
+| HTTP Header  | Value |
+|--------------|-------|
+| Content-Type | application/merge-patch+json   |
+
+#### Example
+```text
+TODO
+```
+
+### Delete (the definition of) a recommendation task
+```text
+DELETE    {{httpProtocol}}://{{host}}:{{port}}/rs/recommendations/{{id}}
+```
 
 ### Build a model for a defined recommendation task
 ```text

@@ -1,9 +1,10 @@
+
 # Incite
 
 ## What is Incite?
-Incite is a wrapper of popular Java data related frameworks/tools. It aims to become an easy-to-use data portal by
-providing easier access of popular technologies to non-developers (i.e. Business analysis) in an organization. As of 
-now, Incite is in proof of concept stage.
+Incite is a wrapper of popular data related frameworks/tools in the Java ecosystem. It aims to become an easy-to-use 
+data hub by providing easier access of popular technologies to non-developers (i.e. Business analysis) in an 
+organization. As of now, Incite is in proof of concept stage and is not recommended for production use.
 
 ### What can Incite do?
 * Data [streaming] aggregation & [streaming] transformation
@@ -14,7 +15,7 @@ now, Incite is in proof of concept stage.
 ### What frameworks/libraries are being utilised by Incite?
 As of now, the following frameworks are utilised by Incite,
 
-* Apache Camel 3.11.7 (Enterprise integration)
+* Apache Camel 3.11.6 (Enterprise integration)
 * Apache Ignite 2.13.0 (Compute grid/In memory database/Message grid)
 * Apache Spark 3.2.1 (Data analytic & machine learning)
 
@@ -181,17 +182,19 @@ select recommendation_predict('791ed421-4ba6-4fcb-8d09-22fda3d99696', 'select * 
 
 ## Roadmap
 
-* Add FileSource & FileSink
-* Add RedisStreamSource
-* Apache Spark 3.2.x (w/ Scala 2.12) :white_check_mark:
+* Apache Spark 3.2.x :white_check_mark:
 * Calcite based SQL engine (w/ Apache Ignite 2.13.x) :white_check_mark:
 * Completion of documentation
 * Completion of unit tests
 * Data [streaming] transformation on top of [streaming] aggregate :white_check_mark:
 * Dockerfile
 * Docker compose file
+* FileSource & FileSink :white_check_mark:
 * Java 11 Support
   * Replace org.apache.ignite:ignite-spark and related logic with custom logic due to Java 8 lock-in
+* More Machine Learning algorithms
+  * Regression
+* RedisStreamSource
 * SQL function to start data [streaming] aggregate
 
 
