@@ -35,12 +35,32 @@ sources.
 
 ### Supported [data] sources & [data] sinks
 #### Sources
-* JDBC (includes Embedded Ignite & Ignite) <Non-streaming>
+* File (includes S3) <Non-streaming & Streaming>
+
+:warning: S3 support requires the following properties.
+```properties
+spark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem
+spark.hadoop.fs.s3a.path.style.access=true
+
+# The following is only needed if you are connecting to AWS S3 but something like LocalStack
+spark.hadoop.fs.s3a.endpoint=*CHANGE ME!!!*
+
+# The following is needed if you are using IAM role to connect to AWS S3
+spark.hadoop.fs.s3a.aws.credentials.provider=org.apache.hadoop.fs.s3a.auth.AssumedRoleCredentialProvider
+spark.hadoop.fs.s3a.assumed.role.arn=*CHANGE ME!!!*
+
+# The following is needed if you are using keys pair to connect to AWS S3
+spark.hadoop.fs.s3a.access.key=*CHANGE ME!!!*
+spark.hadoop.fs.s3a.secret.key=*CHANGE ME!!!*
+```
+
+* JDBC (includes Ignite) <Non-streaming>
 * Kafka <Non-Streaming & Streaming>
 
 #### Sinks
-* Embedded Ignite <Non-streaming>
-* JDBC (excludes Embedded Ignite & Ignite) <Non-streaming>
+* Ignite <Non-streaming>
+* File (includes S3) <Non-streaming & Streaming>
+* JDBC (excludes Ignite) <Non-streaming>
 * Kafka <Non-streaming & Streaming>
 
 ### RESTful API
@@ -183,6 +203,7 @@ select recommendation_predict('791ed421-4ba6-4fcb-8d09-22fda3d99696', 'select * 
 ## Roadmap
 
 * Apache Spark 3.2.x :white_check_mark:
+* Apache Spark 3.3.x
 * Calcite based SQL engine (w/ Apache Ignite 2.13.x) :white_check_mark:
 * Completion of documentation
 * Completion of unit tests
@@ -190,11 +211,13 @@ select recommendation_predict('791ed421-4ba6-4fcb-8d09-22fda3d99696', 'select * 
 * Dockerfile
 * Docker compose file
 * FileSource & FileSink :white_check_mark:
-* Java 11 Support
-  * Replace org.apache.ignite:ignite-spark and related logic with custom logic due to Java 8 lock-in
+  * S3 support :white_check_mark:
+* Java 11 Support :white_check_mark:
+  * Replace org.apache.ignite:ignite-spark and related logic with custom logic to avoid Java 8 lock-in :white_check_mark:
 * More Machine Learning algorithms
   * Regression
 * RedisStreamSource
+* Spring Boot 2.6.x
 * SQL function to start data [streaming] aggregate
 
 

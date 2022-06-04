@@ -11,7 +11,7 @@ import java.util.*
 class DatasetUtilsTest {
 
     @Test
-    fun toJson() {
+    fun testToJson() {
         val list = arrayListOf<TestObject>()
         Random()
         val sparkSession =

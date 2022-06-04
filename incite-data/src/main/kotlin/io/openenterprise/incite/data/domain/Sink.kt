@@ -29,9 +29,14 @@ abstract class NonStreamingSink : Sink() {
 
 abstract class StreamingSink : Sink() {
 
-    var outputMode: OutputMode = OutputMode.Append
+    var outputMode: OutputMode = OutputMode.Update
 
     var streamingWrite: Boolean = true
+        set(value) {
+            if (value) this.outputMode = OutputMode.Update else OutputMode.Append
+
+            field = value
+        }
 
     var triggerType: TriggerType = TriggerType.ProcessingTime
 
@@ -48,7 +53,7 @@ abstract class StreamingSink : Sink() {
     }
 }
 
-class FileSink: StreamingSink() {
+class FileSink : StreamingSink() {
 
     var format: Format = Format.Json
 
@@ -85,7 +90,7 @@ class KafkaSink : StreamingSink() {
 
 class StreamingWrapper() : StreamingSink() {
 
-    constructor(nonStreamingSink: NonStreamingSink): this() {
+    constructor(nonStreamingSink: NonStreamingSink) : this() {
         this.id = nonStreamingSink.id
         this.nonStreamingSink = nonStreamingSink
     }

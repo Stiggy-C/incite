@@ -3,7 +3,7 @@
 
 !theme mars
 
-title "Data aggregate flow diagram"
+title "Data aggregation & transformation flow diagram"
 
 database "Kafka" as kafka
 
@@ -25,8 +25,8 @@ node "Container" {
     }
 }
 
-incite ..> ignite : load (aggregate) definition
-incite .> spark : join datasets/write result
+incite ..> ignite : load (aggregation & transformation) definition
+incite .> spark : aggregate/transform/write result
 kafka --> spark
 mysql --> spark
 spark --> postgres

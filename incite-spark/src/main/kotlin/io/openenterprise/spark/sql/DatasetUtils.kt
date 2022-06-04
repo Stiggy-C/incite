@@ -15,25 +15,6 @@ sealed class DatasetUtils {
         val jsonStringsMap = HashMap<UUID, StringBuilder>()
 
         @JvmStatic
-        fun load(
-            sparkSession: SparkSession,
-            sql: String,
-            driverClass: String,
-            url: String,
-            username: String,
-            password: String
-        ): Dataset<Row> {
-            return sparkSession.read()
-                .format("jdbc")
-                .option("query", sql)
-                .option("driver", driverClass)
-                .option("url", url)
-                .option("user", username)
-                .option("password", password)
-                .load()
-        }
-
-        @JvmStatic
         fun <T> toJson(dataset: Dataset<T>): String {
             val session = UUID.randomUUID()
             jsonStringsMap[session] = StringBuilder()

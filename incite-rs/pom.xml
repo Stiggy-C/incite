@@ -42,17 +42,17 @@
             <version>${project.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>org.apache.ignite</groupId>
-                    <artifactId>ignite-spark-2.4</artifactId>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>jersey-client</artifactId>
                 </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>io.openenterprise</groupId>
-            <artifactId>incite-spark</artifactId>
-            <version>${project.version}</version>
-            <scope>provided</scope>
-            <exclusions>
+                <exclusion>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>jersey-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>jersey-servlet</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>log4j</groupId>
                     <artifactId>log4j</artifactId>

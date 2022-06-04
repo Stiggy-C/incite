@@ -260,8 +260,8 @@ class IgniteRelationProvider : JdbcRelationProvider(), Serializable {
         val fields = schema.fields()
         val tableName = getTableName(parameters)
 
-        val insertStatement = buildString {
-            append("INSERT INTO $tableName (")
+        val mergeStatement = buildString {
+            append("MERGE INTO $tableName (")
 
             val columns = Arrays.stream(fields).map {
                 if (caseSensitive) "\"${it.name()}\"" else it.name()
@@ -282,7 +282,7 @@ class IgniteRelationProvider : JdbcRelationProvider(), Serializable {
         val createConnectionFactoryFunction = JdbcUtils.createConnectionFactory(jdbcOptionsInWrite)
 
         dataset.foreachPartition(
-            ForEachPartitionSaveTableFunction(createConnectionFactoryFunction, insertStatement, schema)
+            ForEachPartitionSaveTableFunction(createConnectionFactoryFunction, mergeStatement, schema)
         )
     }
 

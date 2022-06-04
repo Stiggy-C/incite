@@ -1,5 +1,7 @@
 package io.openenterprise.incite.spark.service
 
+import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.fasterxml.jackson.core.type.TypeReference
 import com.google.common.collect.ImmutableMap
 import com.google.common.collect.Sets
@@ -18,6 +20,7 @@ import org.apache.ignite.configuration.SqlConfiguration
 import org.apache.ignite.indexing.IndexingQueryEngineConfiguration
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.UUIDSerializer
+import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types.StringType
 import org.junit.Before
@@ -37,37 +40,53 @@ import org.springframework.kafka.support.serializer.JsonSerializer
 import org.springframework.test.context.junit4.SpringRunner
 import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.containers.localstack.LocalStackContainer
 import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils
 import org.testcontainers.utility.DockerImageName
+import java.net.URI
+import java.nio.file.Paths
 import java.util.*
-import javax.inject.Inject
 import javax.sql.DataSource
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 @RunWith(SpringRunner::class)
 class DatasetServiceImplTest {
 
-    @Inject
+    @Autowired
+    private lateinit var amazonS3: AmazonS3
+
+    @Autowired
     private lateinit var datasetService: DatasetService
 
-    @Inject
+    @Autowired
     private lateinit var ignite: Ignite
 
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
 
-    @Inject
+    @Autowired
+    private lateinit var localStackContainer: LocalStackContainer
+
+    @Autowired
     private lateinit var kafkaContainer: KafkaContainer
 
-    @Inject
+    @Autowired
     private lateinit var kafkaTemplate: KafkaTemplate<UUID, TestObject>
 
-    @Inject
-    private lateinit var sparkSession: SparkSession
+    @Autowired
+    private lateinit var postgreSQLContainer: PostgreSQLContainer<*>
 
     @Before
     fun before() {
+        amazonS3.createBucket(this::class.java.simpleName.lowercase())
+        amazonS3.putObject(
+            this::class.java.simpleName.lowercase(),
+            "test_object.json",
+            Paths.get("./src/test/resources/test_objects.json").toFile()
+        )
+
         jdbcTemplate.update(
             "create table if not exists guest (id bigint primary key, membership_number varchar, age smallint, " +
                     "sex smallint, result smallint, created_date_time timestamp with time zone, last_login_date_time timestamp with time zone)"
@@ -83,10 +102,6 @@ class DatasetServiceImplTest {
         jdbcTemplate.update("insert into guest values (9, '${RandomStringUtils.randomNumeric(9)}', 9, 1, 1, now(), now()) on conflict do nothing")
         jdbcTemplate.update("insert into guest values (10, '${RandomStringUtils.randomNumeric(9)}', 46, 1, 5, now(), now()) on conflict do nothing")
     }
-
-    @Autowired
-    private lateinit var postgreSQLContainer: PostgreSQLContainer<*>
-
 
     @Test
     fun testLoadFromRdbms() {
@@ -110,6 +125,18 @@ class DatasetServiceImplTest {
         assertTrue(dataset.schema().fields().size == 3)
         assertTrue(Arrays.stream(dataset.schema().fields()).filter { it.name() == "sex" }
             .allMatch { it.dataType() is StringType })
+    }
+
+    @Test
+    fun testLoadFromS3() {
+        val fileSource = FileSource()
+        fileSource.format = FileSource.Format.Json
+        fileSource.path = "s3a://${this::class.java.simpleName.lowercase()}/test_object.json"
+        fileSource.streamingRead = false
+
+        val dataset = datasetService.load(fileSource)
+
+        assertEquals(1L, dataset.count())
     }
 
     @Test
@@ -212,6 +239,13 @@ class DatasetServiceImplTest {
     class Configuration {
 
         @Bean
+        protected fun amazonS3(localStackContainer: LocalStackContainer): AmazonS3 =
+            AmazonS3ClientBuilder.standard()
+                .withCredentials(localStackContainer.defaultCredentialsProvider)
+                .withEndpointConfiguration(localStackContainer.getEndpointConfiguration(LocalStackContainer.Service.S3))
+                .build()
+
+        @Bean
         protected fun coroutineScope(): CoroutineScope {
             return CoroutineScope(Dispatchers.Default)
         }
@@ -286,6 +320,16 @@ class DatasetServiceImplTest {
         }
 
         @Bean
+        protected fun localStackContainer(): LocalStackContainer {
+            val localStackContainer = LocalStackContainer(DockerImageName.parse("localstack/localstack:latest"))
+                .withServices(LocalStackContainer.Service.S3)
+            localStackContainer.start()
+
+            return localStackContainer
+        }
+
+
+        @Bean
         protected fun postgreSQLContainer(): PostgreSQLContainer<*> {
             val postgreSQLContainer: PostgreSQLContainer<*> =
                 PostgreSQLContainer<PostgreSQLContainer<*>>("postgres:latest")
@@ -298,13 +342,20 @@ class DatasetServiceImplTest {
         }
 
         @Bean
-        protected fun sparkSession(): SparkSession {
-            return SparkSession.builder()
-                .appName(DatasetServiceImplTest::class.java.simpleName)
-                .master("local[*]")
-                .config("spark.sql.streaming.schemaInference", true)
-                .orCreate
-        }
+        protected fun sparkSession(localStackContainer: LocalStackContainer): SparkSession = SparkSession.builder()
+            .appName(DatasetServiceImplTest::class.java.simpleName)
+            .master("local[*]")
+            .config(
+                "spark.hadoop.fs.s3a.endpoint",
+                localStackContainer.getEndpointConfiguration(LocalStackContainer.Service.S3).serviceEndpoint
+            )
+            .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
+            .config("spark.hadoop.fs.s3a.path.style.access", true)
+            .config("spark.hadoop.fs.s3a.access.key", localStackContainer.accessKey)
+            .config("spark.hadoop.fs.s3a.secret.key", localStackContainer.secretKey)
+            .config("spark.sql.streaming.schemaInference", true)
+            .orCreate
+
 
         @Bean
         protected fun spelExpressionParser(): SpelExpressionParser {

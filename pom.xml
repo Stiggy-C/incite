@@ -33,6 +33,7 @@
 		<commons-collections4.version>4.4</commons-collections4.version>
 		<commons-lagn3.version>3.12.0</commons-lagn3.version>
 		<flyway.version>7.11.4</flyway.version>
+		<hadoop.version>3.3.1</hadoop.version>
 		<ignite.version>2.13.0</ignite.version>
 		<jackson.version>2.12.6</jackson.version>
 		<junit.version>4.13.2</junit.version>
@@ -44,7 +45,7 @@
 		<reflections.version>0.10.2</reflections.version>
 		<snakeyaml.version>1.30</snakeyaml.version>
 		<spark.version><!--2.4.8-->3.2.1</spark.version>
-		<spring-boot.version>2.5.13</spring-boot.version>
+		<spring-boot.version>2.5.14</spring-boot.version>
 		<testcontainers.version>1.16.3</testcontainers.version>
 		<zeroturnaround.version>1.15</zeroturnaround.version>
 	</properties>
