@@ -5,6 +5,11 @@
 
 title "Machine learning (ML) flow diagram"
 
+cloud "AWS" {
+
+    node "S3" as s3
+}
+
 database "Kafka" as kafka
 
 database "RDBMS" as mysql
@@ -28,7 +33,9 @@ node "Container" {
 incite .> ignite : load (ML) definition/save model
 incite ..> spark : build model/predict/write prediction
 kafka --> spark
-mysql -> spark
+mysql --> spark
+s3 -> spark
 spark --> postgres
+spark -> s3
 
 @enduml

@@ -5,6 +5,12 @@
 
 title "Data aggregation & transformation flow diagram"
 
+cloud "AWS" {
+
+    node "S3" as s3
+
+}
+
 database "Kafka" as kafka
 
 database "RDBMS" as mysql
@@ -29,6 +35,7 @@ incite ..> ignite : load (aggregation & transformation) definition
 incite .> spark : aggregate/transform/write result
 kafka --> spark
 mysql --> spark
+s3 <--> spark
 spark --> postgres
 
 @enduml

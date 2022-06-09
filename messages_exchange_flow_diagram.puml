@@ -1,0 +1,44 @@
+@startuml
+'https://plantuml.com/component-diagram
+
+!theme mars
+
+title "Messages exchange flow diagram"
+
+cloud "AWS" {
+
+    node "SQS" as sqs
+
+    interface "HTTPS" as https0
+    node "Other service" as service0
+
+    service0 -- https0
+}
+
+database "Kafka" as kafka
+
+database "Redis" as redis
+
+node "Container" {
+
+    node "JVM" {
+
+        package "Spring Boot" {
+
+            component "Incite" as incite
+            component "Apache Camel" as camel
+            component "Apache Ignite" as ignite
+
+        }
+    }
+}
+
+incite .> camel : start route/stop route
+incite ..> ignite : load definition
+kafka --> camel
+redis --> camel
+sqs ---> camel
+camel -> https0
+
+
+@enduml

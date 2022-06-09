@@ -10,6 +10,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 )
 @JsonSubTypes(
     value = [
+        JsonSubTypes.Type(value = FileSource::class, name = "FileSource"),
         JsonSubTypes.Type(value = JdbcSource::class, name = "JdbcSource"),
         JsonSubTypes.Type(value = KafkaSource::class, name = "KafkaSource")
     ]
