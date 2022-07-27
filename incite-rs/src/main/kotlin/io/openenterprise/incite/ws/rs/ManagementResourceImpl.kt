@@ -6,6 +6,7 @@ import org.apache.ignite.IgniteCluster
 import org.apache.ignite.IgniteException
 import org.apache.ignite.cluster.ClusterState
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.stereotype.Component
 import javax.inject.Named
 import javax.ws.rs.POST
 import javax.ws.rs.Path
@@ -14,8 +15,8 @@ import javax.ws.rs.container.AsyncResponse
 import javax.ws.rs.container.Suspended
 import javax.ws.rs.core.Response
 
-@Named
 @Path("/management")
+@Component
 class ManagementResourceImpl : ManagementResource {
 
     @Autowired

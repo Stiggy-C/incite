@@ -1,6 +1,6 @@
 package io.openenterprise.incite.ws.rs
 
-import io.openenterprise.incite.data.domain.Aggregate
+import io.openenterprise.incite.data.domain.Pipeline
 import io.openenterprise.ws.rs.AbstractMutableEntityResource
 import javax.ws.rs.GET
 import javax.ws.rs.POST
@@ -9,12 +9,12 @@ import javax.ws.rs.PathParam
 import javax.ws.rs.container.AsyncResponse
 import javax.ws.rs.container.Suspended
 
-@Path("/aggregates")
-interface AggregateResource: AbstractMutableEntityResource<Aggregate, String> {
+@Path("/pipelines")
+interface PipelineResource: AbstractMutableEntityResource<Pipeline, String> {
 
     @POST
-    @Path("/{id}/aggregate")
-    fun aggregate(@PathParam("id") id: String, @Suspended asyncResponse: AsyncResponse)
+    @Path("/{id}/start")
+    fun start(@PathParam("id") id: String, @Suspended asyncResponse: AsyncResponse)
 
     @GET
     @Path("/{id}/status")

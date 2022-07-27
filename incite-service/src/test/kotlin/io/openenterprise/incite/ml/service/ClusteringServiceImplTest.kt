@@ -4,7 +4,7 @@ import com.google.common.collect.ImmutableMap
 import com.google.common.collect.Sets
 import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.data.repository.ClusteringRepository
-import io.openenterprise.incite.service.AggregateService
+import io.openenterprise.incite.service.PipelineService
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import org.apache.spark.ml.clustering.BisectingKMeansModel
 import org.apache.spark.ml.clustering.KMeansModel
@@ -70,7 +70,7 @@ class ClusteringServiceImplTest {
 
     @Test
     fun testSetUp() {
-        val algo = Clustering.SupportedAlgorithm.BisectingKMeans.name
+        val algo = Clustering.SupportedAlgorithm.BISECTING_K_MEANS.name
         val algoSpecificParams = "{\"featureColumns\": [\"age\", \"sex\"], \"k\": 5, \"maxIterations\": 10}"
         val sqlString = "select g.id, g.age, g.sex from guest g"
         val sinkTable = "test_set_up_clustering"
@@ -207,7 +207,7 @@ class ClusteringServiceImplTest {
         val kafkaSource = KafkaSource()
         kafkaSource.fields = Sets.newHashSet(*fields)
         kafkaSource.kafkaCluster = kafkaCluster
-        kafkaSource.startingOffset = "earliest"
+        kafkaSource.startingOffset = KafkaSource.Offset.Earliest
         kafkaSource.streamingRead = false
         kafkaSource.topic = topic
 
@@ -229,7 +229,7 @@ class ClusteringServiceImplTest {
 
         @Bean
         protected fun clusteringService(
-            aggregateService: AggregateService,
+            aggregateService: PipelineService,
             datasetService: DatasetService,
             transactionTemplate: TransactionTemplate
         ): ClusteringService {

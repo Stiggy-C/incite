@@ -58,10 +58,7 @@ import javax.sql.DataSource
 import kotlin.collections.HashMap
 
 @RunWith(SpringJUnit4ClassRunner::class)
-class AggregateServiceImplTest {
-
-    @Inject
-    private lateinit var aggregateService: AggregateService
+class PipelineServiceImplTest {
 
     @Inject
     private lateinit var coroutineScope: CoroutineScope
@@ -77,6 +74,9 @@ class AggregateServiceImplTest {
 
     @Inject
     private lateinit var kafkaTemplate: KafkaTemplate<UUID, AwsDmsMessage>
+
+    @Inject
+    private lateinit var pipelineService: PipelineService
 
     @Inject
     private lateinit var postgreSQLContainer: PostgreSQLContainer<*>
@@ -101,7 +101,7 @@ class AggregateServiceImplTest {
         val igniteTable = "guest_transactions_0"
 
         coroutineScope.launch {
-            runAggregate(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
+            runPipeline(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
         }
 
         Thread.sleep(2500)
@@ -109,7 +109,7 @@ class AggregateServiceImplTest {
         var exception: Exception? = null
 
         try {
-            runAggregate(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
+            runPipeline(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
         } catch (e: Exception) {
             exception = e
         }
@@ -124,7 +124,7 @@ class AggregateServiceImplTest {
         val kafkaTopic = "transactions_1"
         val igniteTable = "guest_transactions_1"
 
-        val aggregate = runAggregate(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
+        val aggregate = runPipeline(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
 
         assertNotNull(aggregate.lastRunDateTime)
 
@@ -146,12 +146,12 @@ class AggregateServiceImplTest {
 
         Thread.sleep(20000)
 
-        val aggregateContext = aggregateService.getContext(aggregate.id!!)
+        val pipelineContext = pipelineService.getContext(aggregate.id!!)
 
-        assertNotNull(aggregateContext)
-        assertTrue(aggregateContext!!.datasetWriters.stream().allMatch { it is DatasetStreamingWriter })
+        assertNotNull(pipelineContext)
+        assertTrue(pipelineContext!!.datasetWriters!!.stream().allMatch { it is DatasetStreamingWriter })
         assertTrue(
-            aggregateContext.datasetWriters.stream()
+            pipelineContext.datasetWriters!!.stream()
                 .allMatch { (it as DatasetStreamingWriter).streamingQuery.isActive })
 
         val igniteCacheName = "SQL_PUBLIC_${igniteTable.uppercase()}"
@@ -166,7 +166,7 @@ class AggregateServiceImplTest {
         val embeddedIgniteSinkId = UUID.randomUUID()
         val igniteTable = "guest_transactions_2"
 
-        var aggregate = runAggregate(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
+        var aggregate = runPipeline(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
 
         assertNotNull(aggregate.lastRunDateTime)
 
@@ -188,16 +188,16 @@ class AggregateServiceImplTest {
 
         Thread.sleep(5000)
 
-        var aggregateContext = aggregateService.getContext(aggregate.id!!)
+        var pipelineContext = pipelineService.getContext(aggregate.id!!)
 
-        aggregateContext!!.datasetWriters.stream()
+        pipelineContext!!.datasetWriters!!.stream()
             .filter { it is DatasetStreamingWriter }
             .map { it as DatasetStreamingWriter }
             .map { it.streamingQuery }
             .peek { it.processAllAvailable() }
             .forEach { it.stop() }
 
-        aggregate = runAggregate(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
+        aggregate = runPipeline(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
 
         val awsDmsMessage1 = AwsDmsMessage()
         awsDmsMessage1.data = ImmutableMap.of(
@@ -217,12 +217,12 @@ class AggregateServiceImplTest {
 
         Thread.sleep(5000)
 
-        aggregateContext = aggregateService.getContext(aggregate.id!!)
+        pipelineContext = pipelineService.getContext(aggregate.id!!)
 
-        assertNotNull(aggregateContext)
-        assertTrue(aggregateContext!!.datasetWriters.stream().allMatch { it is DatasetStreamingWriter })
+        assertNotNull(pipelineContext)
+        assertTrue(pipelineContext!!.datasetWriters!!.stream().allMatch { it is DatasetStreamingWriter })
         assertTrue(
-            aggregateContext.datasetWriters.stream()
+            pipelineContext.datasetWriters!!.stream()
                 .allMatch { (it as DatasetStreamingWriter).streamingQuery.isActive })
 
         val igniteCacheName = "SQL_PUBLIC_${igniteTable.uppercase()}"
@@ -232,12 +232,12 @@ class AggregateServiceImplTest {
         assertTrue(ignite.cache<Any, Any>(igniteCacheName).size() > 1)
     }
 
-    private fun runAggregate(
-        aggregateId: String,
+    private fun runPipeline(
+        pipelineId: String,
         embeddedIgniteSinkId: UUID,
         igniteTable: String,
         kafkaTopic: String
-    ): Aggregate {
+    ): Pipeline {
         val rdbmsDatabase0 = RdbmsDatabase()
         rdbmsDatabase0.url = postgreSQLContainer.jdbcUrl
         rdbmsDatabase0.driverClass = "org.postgresql.Driver"
@@ -264,7 +264,7 @@ class AggregateServiceImplTest {
             )
         )
         kafkaSource.kafkaCluster = kafkaCluster
-        kafkaSource.startingOffset = "earliest"
+        kafkaSource.startingOffset = KafkaSource.Offset.Earliest
         kafkaSource.topic = kafkaTopic
         kafkaSource.watermark = Source.Watermark("purchase_date_time", "5 minutes")
 
@@ -275,7 +275,7 @@ class AggregateServiceImplTest {
         rdbmsDatabase1.password = "ignite"
 
         val igniteSink = IgniteSink()
-        igniteSink.id = embeddedIgniteSinkId
+        igniteSink.id = embeddedIgniteSinkId.toString()
         igniteSink.primaryKeyColumns = "transaction_id"
         igniteSink.rdbmsDatabase = rdbmsDatabase1
         igniteSink.table = igniteTable
@@ -289,14 +289,14 @@ class AggregateServiceImplTest {
         join.rightIndex = 1
         join.type = Join.Type.INNER
 
-        val aggregate = Aggregate()
-        aggregate.id = aggregateId
-        aggregate.description = "Unit test"
-        aggregate.joins = Lists.list(join)
-        aggregate.sources = Lists.list(kafkaSource, jdbcSource)
-        aggregate.sinks = Lists.list(embeddedIgniteSinkStreamingWrapper)
+        val pipeline = Pipeline()
+        pipeline.id = pipelineId
+        pipeline.description = "Unit test"
+        pipeline.joins = Lists.list(join)
+        pipeline.sources = Lists.list(kafkaSource, jdbcSource)
+        pipeline.sinks = Lists.list(embeddedIgniteSinkStreamingWrapper)
 
-        return aggregateService.aggregate(aggregate)
+        return pipelineService.start(pipeline)
     }
 
     data class AwsDmsMessage(
@@ -318,7 +318,7 @@ class AggregateServiceImplTest {
         @Bean
         protected fun aggregateService(
             datasetService: DatasetService, ignite: Ignite, spelExpressionParser: SpelExpressionParser
-        ): AggregateService = AggregateServiceImpl(datasetService, ignite)
+        ): PipelineService = PipelineServiceImpl(datasetService, ignite)
 
         @Bean
         protected fun coroutineScope(): CoroutineScope = CoroutineScope(Dispatchers.Default)

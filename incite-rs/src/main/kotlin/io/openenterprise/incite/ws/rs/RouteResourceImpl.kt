@@ -10,6 +10,7 @@ import io.openenterprise.ws.rs.AbstractAbstractMutableEntityResourceImpl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.stereotype.Component
 import java.io.IOException
 import java.util.*
 import javax.inject.Named
@@ -21,8 +22,8 @@ import javax.ws.rs.container.Suspended
 import javax.ws.rs.core.MediaType
 import javax.ws.rs.core.Response
 
-@Named
 @Path("/routes")
+@Component
 class RouteResourceImpl : RouteResource, AbstractAbstractMutableEntityResourceImpl<Route, String>() {
 
     @Autowired

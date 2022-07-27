@@ -73,8 +73,8 @@ class Clustering : MachineLearning<Clustering.Model>() {
 
     enum class SupportedAlgorithm(val clazz: Class<*>) {
 
-        BisectingKMeans(io.openenterprise.incite.data.domain.BisectingKMeans::class.java),
-        KMeans(io.openenterprise.incite.data.domain.KMeans::class.java)
+        BISECTING_K_MEANS(BisectingKMeans::class.java),
+        K_MEANS(KMeans::class.java)
     }
 }
 

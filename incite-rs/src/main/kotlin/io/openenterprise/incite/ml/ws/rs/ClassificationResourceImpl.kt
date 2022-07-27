@@ -1,6 +1,7 @@
 package io.openenterprise.incite.ml.ws.rs
 
 import io.openenterprise.incite.data.domain.Classification
+import org.springframework.stereotype.Component
 import javax.inject.Named
 import javax.json.JsonMergePatch
 import javax.ws.rs.*
@@ -8,8 +9,8 @@ import javax.ws.rs.container.AsyncResponse
 import javax.ws.rs.container.Suspended
 import javax.ws.rs.core.MediaType
 
-@Named
 @Path("/classifications")
+@Component
 class ClassificationResourceImpl : ClassificationResource,
     AbstractMachineLearningResourceImpl<Classification>() {
 

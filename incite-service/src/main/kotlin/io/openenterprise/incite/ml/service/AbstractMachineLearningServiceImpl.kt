@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.openenterprise.incite.data.domain.JdbcSource
 import io.openenterprise.incite.data.domain.MachineLearning
 import io.openenterprise.incite.data.domain.RdbmsDatabase
-import io.openenterprise.incite.service.AggregateService
-import io.openenterprise.incite.service.AggregateServiceImpl
+import io.openenterprise.incite.service.PipelineService
+import io.openenterprise.incite.service.PipelineServiceImpl
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import io.openenterprise.service.AbstractAbstractMutableEntityServiceImpl
 import org.apache.commons.io.FileUtils
@@ -32,7 +32,7 @@ import javax.inject.Inject
 import javax.inject.Named
 
 abstract class AbstractMachineLearningServiceImpl<T: MachineLearning<*>>(
-    private val aggregateService: AggregateService,
+    private val aggregateService: PipelineService,
     private val datasetService: DatasetService
  ) :
     MachineLearningService<T>,
@@ -113,7 +113,7 @@ abstract class AbstractMachineLearningServiceImpl<T: MachineLearning<*>>(
     protected fun getAggregatedDataset(entity: T): Dataset<Row> {
         val datasets = datasetService.load(entity.sources, Collections.emptyMap<String, Any>())
 
-        return (aggregateService as AggregateServiceImpl).joinSources(datasets, entity.joins)
+        return (aggregateService as PipelineServiceImpl).joinSources(datasets, entity.joins)
     }
 
     protected fun isJson(string: String): Boolean {

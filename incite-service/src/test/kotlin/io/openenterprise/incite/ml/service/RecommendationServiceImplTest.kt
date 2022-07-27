@@ -2,10 +2,9 @@ package io.openenterprise.incite.ml.service
 
 import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.data.repository.RecommendationRepository
-import io.openenterprise.incite.service.AggregateService
+import io.openenterprise.incite.service.PipelineService
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import org.apache.spark.ml.recommendation.ALSModel
-import org.junit.Assert
 import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
@@ -17,7 +16,6 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
 import org.springframework.test.context.junit4.SpringRunner
 import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.containers.PostgreSQLContainer
@@ -111,7 +109,7 @@ class RecommendationServiceImplTest {
 
         @Bean
         protected fun recommendationService(
-            aggregateService: AggregateService,
+            aggregateService: PipelineService,
             datasetService: DatasetService,
             transactionTemplate: TransactionTemplate
         ): RecommendationService =

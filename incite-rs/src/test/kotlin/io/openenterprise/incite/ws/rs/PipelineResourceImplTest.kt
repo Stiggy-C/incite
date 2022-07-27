@@ -5,11 +5,11 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import io.openenterprise.glassfish.jersey.spring.SpringBridgeFeature
-import io.openenterprise.incite.data.domain.Aggregate
+import io.openenterprise.incite.data.domain.Pipeline
 import io.openenterprise.incite.data.domain.JdbcSink
 import io.openenterprise.incite.data.domain.JdbcSource
 import io.openenterprise.incite.data.domain.RdbmsDatabase
-import io.openenterprise.incite.service.AggregateService
+import io.openenterprise.incite.service.PipelineService
 import io.openenterprise.ws.rs.ext.JsonMergePatchMessageBodyReader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,13 +46,13 @@ import kotlin.test.assertEquals
 
 @RunWith(SpringRunner::class)
 @SpringBootTest(
-    classes = [AggregateResourceImplTest.Application::class],
+    classes = [PipelineResourceImplTest.Application::class],
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
 )
-class AggregateResourceImplTest {
+class PipelineResourceImplTest {
 
     @MockBean
-    private lateinit var aggregateService: AggregateService
+    private lateinit var aggregateService: PipelineService
 
     @LocalServerPort
     private var localPort: Int = -1
@@ -93,22 +93,22 @@ class AggregateResourceImplTest {
         jdbcSource.rdbmsDatabase = rdbmsDatabase
 
         val jdbcSink = JdbcSink()
-        jdbcSink.id = UUID.randomUUID()
+        jdbcSink.id = UUID.randomUUID().toString()
         jdbcSink.rdbmsDatabase = rdbmsDatabase
         jdbcSink.table = "guest_aggregate_result"
 
-        val aggregate = Aggregate()
-        aggregate.id = UUID.randomUUID().toString()
-        aggregate.sinks = Collections.singletonList(jdbcSink)
-        aggregate.sources = Collections.singletonList(jdbcSource)
+        val pipeline = Pipeline()
+        pipeline.id = UUID.randomUUID().toString()
+        pipeline.sinks = Collections.singletonList(jdbcSink)
+        pipeline.sources = Collections.singletonList(jdbcSource)
 
-        Mockito.`when`(aggregateService.retrieve(aggregate.id!!)).thenReturn(aggregate)
+        Mockito.`when`(aggregateService.retrieve(pipeline.id!!)).thenReturn(pipeline)
 
         val httpHeaders = HttpHeaders()
         httpHeaders.set(HttpHeaders.CONTENT_TYPE, "application/merge-patch+json")
 
         val responseEntity = testRestTemplate.exchange(
-            "http://localhost:$localPort/rs/aggregates/${aggregate.id}",
+            "http://localhost:$localPort/rs/aggregates/${pipeline.id}",
             HttpMethod.PATCH,
             HttpEntity("{\"description\":\"test_patch\"}", httpHeaders),
             Void::class.java
@@ -132,7 +132,7 @@ class AggregateResourceImplTest {
             registerInstances(SpringBridgeFeature(applicationContext))
 
             // Resource:
-            registerClasses(AggregateResourceImpl::class.java)
+            registerClasses(PipelineResourceImpl::class.java)
         }
     }
 

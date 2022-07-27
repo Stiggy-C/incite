@@ -7,8 +7,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.google.common.collect.ImmutableMap
 import io.openenterprise.incite.data.repository.AggregateRepository
-import io.openenterprise.incite.service.AggregateService
-import io.openenterprise.incite.service.AggregateServiceImpl
+import io.openenterprise.incite.service.PipelineService
+import io.openenterprise.incite.service.PipelineServiceImpl
 import io.openenterprise.incite.spark.service.DatasetServiceImplTest
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import io.openenterprise.incite.spark.sql.service.DatasetServiceImpl
@@ -28,12 +28,9 @@ import org.apache.spark.sql.SparkSession
 import org.mockito.Mockito
 import org.postgresql.ds.PGSimpleDataSource
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
-import org.springframework.context.annotation.DependsOn
-import org.springframework.context.annotation.Primary
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.expression.spel.standard.SpelExpressionParser
@@ -68,7 +65,7 @@ abstract class AbstractMachineLearningServiceImplTest {
         @Bean
         protected fun aggregateService(
             datasetService: DatasetService, ignite: Ignite, spelExpressionParser: SpelExpressionParser
-        ): AggregateService = AggregateServiceImpl(datasetService, ignite)
+        ): PipelineService = PipelineServiceImpl(datasetService, ignite)
 
         @Bean
         protected fun coroutineScope(): CoroutineScope = CoroutineScope(Dispatchers.Default)

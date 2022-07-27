@@ -2,7 +2,7 @@ package io.openenterprise.incite.ml.service
 
 import io.openenterprise.incite.data.domain.AlternatingLeastSquares
 import io.openenterprise.incite.data.domain.Recommendation
-import io.openenterprise.incite.service.AggregateService
+import io.openenterprise.incite.service.PipelineService
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.recommendation.ALS
@@ -18,7 +18,7 @@ import javax.persistence.EntityNotFoundException
 
 @Named
 open class RecommendationServiceImpl(
-    @Inject private val aggregateService: AggregateService,
+    @Inject private val aggregateService: PipelineService,
     @Inject private val datasetService: DatasetService,
     @Inject private val transactionTemplate: TransactionTemplate
 ) : RecommendationService,

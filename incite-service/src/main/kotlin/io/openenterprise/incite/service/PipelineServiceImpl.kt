@@ -1,9 +1,8 @@
 package io.openenterprise.incite.service
 
 import com.google.common.collect.ImmutableMap
-import io.openenterprise.incite.AggregateContext
+import io.openenterprise.incite.PipelineContext
 import io.openenterprise.incite.data.domain.*
-import io.openenterprise.incite.spark.sql.DatasetWriter
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import io.openenterprise.incite.spark.sql.streaming.DatasetStreamingWriter
 import io.openenterprise.service.AbstractAbstractMutableEntityServiceImpl
@@ -14,113 +13,137 @@ import org.apache.ignite.Ignite
 import org.apache.spark.sql.Column
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
-import org.slf4j.LoggerFactory
-import org.springframework.expression.spel.standard.SpelExpressionParser
-import org.springframework.expression.spel.support.StandardEvaluationContext
 import scala.collection.JavaConversions
 import scala.collection.Seq
 // import scala.collection.JavaConversions
 import java.time.Duration
 import java.time.OffsetDateTime
-import java.util.*
 import java.util.Objects.nonNull
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.Lock
-import java.util.stream.Collectors
 import javax.inject.Inject
 import javax.inject.Named
 import javax.persistence.EntityNotFoundException
 
 @Named
-open class AggregateServiceImpl(
+open class PipelineServiceImpl(
     @Inject private val datasetService: DatasetService,
     @Inject private val ignite: Ignite
-) : AggregateService,
-    AbstractAbstractMutableEntityServiceImpl<Aggregate, String>() {
+) : PipelineService,
+    AbstractAbstractMutableEntityServiceImpl<Pipeline, String>() {
 
-    private val aggregateContexts: MutableMap<String, AggregateContext> = ConcurrentHashMap()
+    private val pipelineContexts: MutableMap<String, PipelineContext> = ConcurrentHashMap()
 
-    private val aggregateLocks: MutableMap<String, Lock> = ConcurrentHashMap()
+    private val pipelineLocks: MutableMap<String, Lock> = ConcurrentHashMap()
 
-    override fun aggregate(aggregate: Aggregate): Aggregate {
-        if (aggregate.id == null) {
+    override fun getContext(id: String): PipelineContext? =
+        if (pipelineContexts.containsKey(id)) {
+            val pipeline = pipelineContexts[id]
+
+            pipeline!!.dataset ?: throw IllegalStateException()
+            pipeline.datasetWriters ?: throw IllegalStateException()
+
+            val datasetWriters = pipeline.datasetWriters!!
+            val isStreaming = datasetWriters.stream().anyMatch { it is DatasetStreamingWriter }
+
+            if (isStreaming) {
+                val isStreamingQueryActive = datasetWriters.stream()
+                    .filter { it is DatasetStreamingWriter }
+                    .anyMatch { (it as DatasetStreamingWriter).streamingQuery.isActive }
+
+                pipeline.status = if (isStreamingQueryActive) {
+                    PipelineContext.Status.PROCESSING
+                } else {
+                    PipelineContext.Status.STOPPED
+                }
+
+                pipelineContexts[id] = pipeline
+            }
+
+            pipeline
+        } else {
+            // TODO Check other nodes for status of remote PipelineContext
+
+            null
+        }
+
+
+    override fun start(pipeline: Pipeline): Pipeline {
+        if (pipeline.id == null) {
             throw IllegalArgumentException("Aggregate.id can not be null")
         }
 
         // Step 0: Prep works
-        assert(aggregate.sources.size > 0)
-        assert(aggregate.joins.size > 0)
+        assert(pipeline.sources.size > 0)
+        assert(pipeline.joins.size > 0)
 
-        val lock = ignite.reentrantLock(getLockKey(aggregate), true, true, true)
+        val lock = ignite.reentrantLock(getLockKey(pipeline), true, true, true)
         val locked = lock.tryLock()
 
         if (isFalse(locked)) {
             throw IllegalStateException("Unable to acquire lock to aggregate")
         }
 
-        aggregateLocks[aggregate.id!!] = lock
+        pipelineLocks[pipeline.id!!] = lock
 
         val aggregateStartDateTime = OffsetDateTime.now()
-        val isStreaming = aggregate.sources.stream().anyMatch { it is StreamingSource && it.streamingRead }
+        val isStreaming = pipeline.sources.stream().anyMatch { it is StreamingSource && it.streamingRead }
 
-        if (nonNull(aggregate.lastRunDateTime)) {
-            val duration = Duration.between(aggregate.lastRunDateTime, aggregateStartDateTime)
+        if (nonNull(pipeline.lastRunDateTime)) {
+            val duration = Duration.between(pipeline.lastRunDateTime, aggregateStartDateTime)
             val durationInMillis = duration.toMillis()
 
-            if (durationInMillis < aggregate.fixedDelay) {
+            if (durationInMillis < pipeline.fixedDelay) {
                 throw IllegalStateException("Aggregate can not be re-run for another $durationInMillis milliseconds")
             }
         }
 
-        val aggregateContext = AggregateContext(AggregateContext.Status.PROCESSING)
-        aggregateContexts[aggregate.id!!] = aggregateContext
+        val pipelineContext = PipelineContext(PipelineContext.Status.PROCESSING)
+        pipelineContexts[pipeline.id!!] = pipelineContext
 
         // Step 1: Load all the org.apache.spark.sql.Dataset's from sources
         val variables: Map<String, Any> =
-            if (aggregate.lastRunDateTime == null) {
+            if (pipeline.lastRunDateTime == null) {
                 ImmutableMap.of()
             } else {
-                ImmutableMap.of("lastRunDateTime", aggregate.lastRunDateTime as Any)
+                ImmutableMap.of("lastRunDateTime", pipeline.lastRunDateTime as Any)
             }
 
-        val datasets = datasetService.load(aggregate.sources, variables)
+        val datasets = datasetService.load(pipeline.sources, variables)
 
         // Step 2: Join others in datasets to datasets[0]
-        val result = joinSources(datasets, aggregate.joins)
+        val result = joinSources(datasets, pipeline.joins)
 
-        aggregateContext.dataset = result
+        pipelineContext.dataset = result
 
         // Step 3: Write joint dataset to sinks
         var exceptionOccurred: Exception? = null
 
         val writers = try {
-            datasetService.write(result, aggregate.sinks, isStreaming)
+            datasetService.write(result, pipeline.sinks, isStreaming)
         } catch (e: Exception) {
             exceptionOccurred = e
 
             throw e
         } finally {
             if (isFalse(isStreaming) || isNotEmpty(exceptionOccurred)) {
-                aggregateContext.status = AggregateContext.Status.STOPPED
+                pipelineContext.status = PipelineContext.Status.STOPPED
 
-                aggregateLocks.remove(getLockKey(aggregate))
+                pipelineLocks.remove(getLockKey(pipeline))
                 lock.unlock()
             }
         }
 
-        aggregate.lastRunDateTime = aggregateStartDateTime
-        aggregateContext.datasetWriters = writers
+        pipeline.lastRunDateTime = aggregateStartDateTime
+        pipelineContext.datasetWriters = writers
 
-        return aggregate
-    }
-
-    override fun getContext(id: String): AggregateContext? {
-        return if (aggregateContexts.containsKey(id)) aggregateContexts[id] else null
+        return pipeline
     }
 
     override fun stopStreaming(id: String): Boolean {
-        val aggregateContext = getContext(id) ?: throw IllegalArgumentException()
-        val isStreamingAggregate = aggregateContext.datasetWriters.stream().anyMatch { it is DatasetStreamingWriter }
+        val pipelineContext = getContext(id) ?: throw IllegalArgumentException()
+        val datasetWriter = pipelineContext.datasetWriters ?: throw IllegalStateException()
+        val isStreamingAggregate = datasetWriter.stream().anyMatch { it is DatasetStreamingWriter }
 
         if (isFalse(isStreamingAggregate)) {
             throw UnsupportedOperationException()
@@ -128,9 +151,9 @@ open class AggregateServiceImpl(
 
         val aggregate = retrieve(id) ?: throw EntityNotFoundException()
         val lockKey = getLockKey(aggregate)
-        val lock = aggregateLocks[lockKey] ?: throw IllegalStateException()
+        val lock = pipelineLocks[lockKey] ?: throw IllegalStateException()
 
-        val result = aggregateContext.datasetWriters.stream()
+        val result = datasetWriter.stream()
             .filter {
                 it is DatasetStreamingWriter
             }.peek {
@@ -141,7 +164,7 @@ open class AggregateServiceImpl(
 
         lock.unlock()
 
-        aggregateLocks.remove(lockKey)
+        pipelineLocks.remove(lockKey)
 
         return result
     }
@@ -174,7 +197,7 @@ open class AggregateServiceImpl(
         return result
     }
 
-    private fun getLockKey(aggregate: Aggregate): String {
-        return "${Aggregate::class.java.name}#${aggregate.id}"
+    private fun getLockKey(pipeline: Pipeline): String {
+        return "${Pipeline::class.java.name}#${pipeline.id}"
     }
 }

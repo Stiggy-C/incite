@@ -54,7 +54,7 @@ class Classification: MachineLearning<Classification.Model>() {
 
     enum class SupportedAlgorithm(val clazz: Class<*>) {
 
-        LogisticRegression(io.openenterprise.incite.data.domain.LogisticRegression::class.java)
+        LOGISTIC_REGRESSION(LogisticRegression::class.java)
     }
 }
 

@@ -1,6 +1,7 @@
 package io.openenterprise.incite.ml.ws.rs
 
 import io.openenterprise.incite.data.domain.Recommendation
+import org.springframework.stereotype.Component
 import javax.inject.Named
 import javax.json.JsonMergePatch
 import javax.ws.rs.*
@@ -8,8 +9,8 @@ import javax.ws.rs.container.AsyncResponse
 import javax.ws.rs.container.Suspended
 import javax.ws.rs.core.MediaType
 
-@Named
 @Path("/recommendations")
+@Component
 class RecommendationResourceImpl : RecommendationResource,
     AbstractMachineLearningResourceImpl<Recommendation>() {
 

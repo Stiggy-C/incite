@@ -2,8 +2,8 @@ package io.openenterprise.incite.ml.service
 
 import io.openenterprise.incite.data.domain.Classification
 import io.openenterprise.incite.data.domain.LogisticRegression
-import io.openenterprise.incite.service.AggregateService
-import io.openenterprise.incite.service.AggregateServiceImpl
+import io.openenterprise.incite.service.PipelineService
+import io.openenterprise.incite.service.PipelineServiceImpl
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.ml.Model
@@ -26,7 +26,7 @@ import javax.persistence.EntityNotFoundException
 
 @Named
 open class ClassificationServiceImpl(
-    @Inject private val aggregateService: AggregateService,
+    @Inject private val aggregateService: PipelineService,
     @Inject private val datasetService: DatasetService,
     @Inject private val transactionTemplate: TransactionTemplate
 ) :
@@ -77,7 +77,7 @@ open class ClassificationServiceImpl(
             throw IllegalStateException("No models have been built")
         }
 
-        assert(aggregateService is AggregateServiceImpl)
+        assert(aggregateService is PipelineServiceImpl)
 
         val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val sparkModel: Model<*> = when (entity.algorithm) {

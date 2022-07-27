@@ -18,7 +18,7 @@ abstract class AbstractAbstractMutableEntityResourceImpl<T : AbstractMutableEnti
     AbstractAbstractEntityResourceImpl<T, ID>(), AbstractMutableEntityResource<T, ID> {
 
     @Autowired
-    lateinit var abstractMutableEntityService: AbstractMutableEntityService<T, ID>
+    protected open lateinit var abstractMutableEntityService: AbstractMutableEntityService<T, ID>
 
     @Autowired
     lateinit var objectMapper: ObjectMapper

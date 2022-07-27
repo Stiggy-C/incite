@@ -3,7 +3,7 @@ package io.openenterprise.incite.ml.service
 import com.google.common.collect.Sets
 import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.data.repository.ClassificationRepository
-import io.openenterprise.incite.service.AggregateService
+import io.openenterprise.incite.service.PipelineService
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import org.apache.spark.ml.classification.LogisticRegressionModel
 import org.assertj.core.util.Lists
@@ -77,7 +77,7 @@ class ClassificationServiceImplTest {
 
     @Test
     fun testSetUp() {
-        val algo = Classification.SupportedAlgorithm.LogisticRegression.name
+        val algo = Classification.SupportedAlgorithm.LOGISTIC_REGRESSION.name
         val algoSpecificParams = "{\"featureColumns\": [\"age\", \"sex\"], \"labelColumn\": \"result\", \"maxIterations\": 10}"
         val sourceSql = "select g.id, g.age, g.sex, g.result from guest g"
         val sinkTable = "test_set_up_classification"
@@ -129,7 +129,7 @@ class ClassificationServiceImplTest {
 
         @Bean
         protected fun classificationService(
-            aggregateService: AggregateService,
+            aggregateService: PipelineService,
             datasetService: DatasetService,
             transactionTemplate: TransactionTemplate
         ): ClassificationService =

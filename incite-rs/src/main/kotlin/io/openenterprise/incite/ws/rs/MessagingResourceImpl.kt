@@ -4,6 +4,7 @@ import io.openenterprise.incite.service.MessagingService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.stereotype.Component
 import javax.inject.Named
 import javax.ws.rs.*
 import javax.ws.rs.container.AsyncResponse
@@ -11,8 +12,8 @@ import javax.ws.rs.container.Suspended
 import javax.ws.rs.core.MediaType
 import javax.ws.rs.core.Response
 
-@Named
 @Path("/messaging")
+@Component
 class MessagingResourceImpl : MessagingResource {
 
     @Autowired

@@ -2,14 +2,14 @@ package io.openenterprise.incite
 
 import io.openenterprise.incite.spark.sql.DatasetWriter
 import org.apache.spark.sql.Dataset
-import org.apache.spark.sql.Row
 
-data class AggregateContext(var status: Status) {
+data class PipelineContext(
+    var status: Status,
 
-    lateinit var dataset: Dataset<*>
+    var dataset: Dataset<*>? = null,
 
-    lateinit var datasetWriters: Set<DatasetWriter<*>>
-
+    var datasetWriters: Set<DatasetWriter<*>>? = null
+) {
     enum class Status {
 
         PROCESSING, STOPPED

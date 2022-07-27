@@ -1,5 +1,8 @@
 package io.openenterprise.incite.data.domain
 
+import io.openenterprise.data.domain.AbstractJsonAttributeConverter
+import javax.persistence.Converter
+
 class Field() {
 
     constructor(name:String): this() {
@@ -15,3 +18,6 @@ class Field() {
 
     lateinit var name: String
 }
+
+@Converter
+class FieldsJsonAttributeConverter: AbstractJsonAttributeConverter<MutableList<Field>>()

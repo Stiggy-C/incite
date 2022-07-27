@@ -20,7 +20,6 @@ import org.apache.ignite.configuration.SqlConfiguration
 import org.apache.ignite.indexing.IndexingQueryEngineConfiguration
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.UUIDSerializer
-import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types.StringType
 import org.junit.Before
@@ -43,7 +42,6 @@ import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.containers.localstack.LocalStackContainer
 import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils
 import org.testcontainers.utility.DockerImageName
-import java.net.URI
 import java.nio.file.Paths
 import java.util.*
 import javax.sql.DataSource
@@ -130,7 +128,7 @@ class DatasetServiceImplTest {
     @Test
     fun testLoadFromS3() {
         val fileSource = FileSource()
-        fileSource.format = FileSource.Format.Json
+        fileSource.format = FileSource.Format.JSON
         fileSource.path = "s3a://${this::class.java.simpleName.lowercase()}/test_object.json"
         fileSource.streamingRead = false
 
@@ -155,7 +153,7 @@ class DatasetServiceImplTest {
         rdbmsDatabase.password = "ignite"
 
         val igniteSink = IgniteSink()
-        igniteSink.id = UUID.randomUUID()
+        igniteSink.id = UUID.randomUUID().toString()
         igniteSink.primaryKeyColumns = "id"
         igniteSink.rdbmsDatabase = rdbmsDatabase
         igniteSink.table = "test_streaming_write_from_json_files"
@@ -191,7 +189,7 @@ class DatasetServiceImplTest {
         val kafkaSource = KafkaSource()
         kafkaSource.fields = Sets.newHashSet(idField, field0Field)
         kafkaSource.kafkaCluster = kafkaCluster
-        kafkaSource.startingOffset = "earliest"
+        kafkaSource.startingOffset = KafkaSource.Offset.Earliest
         kafkaSource.topic = this.javaClass.simpleName
 
         val dataset = datasetService.load(kafkaSource)
@@ -203,7 +201,7 @@ class DatasetServiceImplTest {
         rdbmsDatabase.password = "ignite"
 
         val igniteSink = IgniteSink()
-        igniteSink.id = UUID.randomUUID()
+        igniteSink.id = UUID.randomUUID().toString()
         igniteSink.primaryKeyColumns = "id"
         igniteSink.rdbmsDatabase = rdbmsDatabase
         igniteSink.table = "test_streaming_write_from_kafka"

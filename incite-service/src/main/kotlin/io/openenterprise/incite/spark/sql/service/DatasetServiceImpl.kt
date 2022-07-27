@@ -1,5 +1,6 @@
 package io.openenterprise.incite.spark.sql.service
 
+import com.google.common.base.CaseFormat
 import io.openenterprise.ignite.spark.IgniteJdbcConstants
 import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.spark.sql.DatasetNonStreamingWriter
@@ -13,6 +14,7 @@ import org.apache.spark.api.java.function.VoidFunction2
 import org.apache.spark.sql.*
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
 import org.apache.spark.sql.streaming.DataStreamWriter
+import org.apache.spark.sql.streaming.OutputMode
 import org.apache.spark.sql.streaming.Trigger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -63,7 +65,6 @@ open class DatasetServiceImpl(
             Collectors.toList()
         )
 
-
     override fun write(
         dataset: Dataset<Row>,
         sink: StreamingSink
@@ -113,9 +114,16 @@ open class DatasetServiceImpl(
                 throw UnsupportedOperationException()
             }
         }
+
+        val outputMode = when(sink.outputMode) {
+            StreamingSink.OutputMode.APPEND -> OutputMode.Append()
+            StreamingSink.OutputMode.COMPLETE -> OutputMode.Complete()
+            StreamingSink.OutputMode.UPDATE -> OutputMode.Update()
+        }
+
         dataStreamWriter = dataStreamWriter
             .option("checkpointLocation", "$sparkCheckpointLocation/${sink.id}")
-            .outputMode(sink.outputMode.name.lowercase())
+            .outputMode(outputMode)
             .trigger(trigger)
 
         val datasetStreamWriter = DatasetStreamingWriter(dataStreamWriter, dataStreamWriter.start())
@@ -172,7 +180,14 @@ open class DatasetServiceImpl(
             }
         }
 
-        dataFrameWriter = dataFrameWriter.mode(sink.saveMode)
+        val saveMode = org.apache.spark.sql.SaveMode.valueOf(
+            CaseFormat.UPPER_UNDERSCORE.to(
+                CaseFormat.UPPER_CAMEL,
+                sink.saveMode.name
+            )
+        )
+
+        dataFrameWriter = dataFrameWriter.mode(saveMode)
 
         dataFrameWriter.save()
 
@@ -210,7 +225,7 @@ open class DatasetServiceImpl(
         val dataset: Dataset<Row> = if (fileSource.streamingRead) sparkSession.readStream()
             .format(fileSource.format.name.lowercase())
             .option("path", fileSource.path)
-            .option("maxFilesPerTrigger", fileSource.maxFilesPerTrigger)
+            .option("maxFilesPerTrigger", fileSource.maxFilesPerTrigger.toLong())
             .option("latestFirst", fileSource.latestFirst)
             .option("maxFileAge", fileSource.maxFileAge)
             .option("cleanSource", fileSource.cleanSource.name.lowercase())
@@ -219,7 +234,7 @@ open class DatasetServiceImpl(
         else sparkSession.read()
             .format(fileSource.format.name.lowercase())
             .option("path", fileSource.path)
-            .option("maxFilesPerTrigger", fileSource.maxFilesPerTrigger)
+            .option("maxFilesPerTrigger", fileSource.maxFilesPerTrigger.toLong())
             .option("latestFirst", fileSource.latestFirst)
             .option("maxFileAge", fileSource.maxFileAge)
             .option("cleanSource", fileSource.cleanSource.name.lowercase())
@@ -256,7 +271,7 @@ open class DatasetServiceImpl(
         var dataset: Dataset<Row> = if (kafkaSource.streamingRead) sparkSession.readStream()
             .format("kafka")
             .option("kafka.bootstrap.servers", kafkaSource.kafkaCluster.servers)
-            .option("startingOffsets", kafkaSource.startingOffset)
+            .option("startingOffsets", kafkaSource.startingOffset.name.lowercase())
             .option("subscribe", kafkaSource.topic)
             .load()
         else sparkSession.read().format("kafka")

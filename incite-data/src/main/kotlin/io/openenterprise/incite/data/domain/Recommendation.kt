@@ -50,7 +50,7 @@ class Recommendation: MachineLearning<Recommendation.Model>() {
 
     enum class SupportedAlgorithm(val clazz: Class<*>) {
 
-        AlternatingLeastSquares(io.openenterprise.incite.data.domain.AlternatingLeastSquares::class.java)
+        ALTERNATING_LEAST_SQUARES(AlternatingLeastSquares::class.java)
     }
 }
 

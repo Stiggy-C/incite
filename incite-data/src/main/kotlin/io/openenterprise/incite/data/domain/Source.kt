@@ -2,7 +2,15 @@ package io.openenterprise.incite.data.domain
 
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import io.openenterprise.data.domain.AbstractJsonAttributeConverter
+import io.openenterprise.data.domain.AbstractMutableEntity
+import java.util.*
+import javax.persistence.*
 
+@Entity
+@Inheritance(strategy = InheritanceType.JOINED)
+@DiscriminatorColumn(name = "sub_class")
+@Table(name = "source")
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
     include = JsonTypeInfo.As.PROPERTY,
@@ -15,19 +23,28 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
         JsonSubTypes.Type(value = KafkaSource::class, name = "KafkaSource")
     ]
 )
-abstract class Source: Cloneable {
+abstract class Source : Cloneable, AbstractMutableEntity<String>() {
 
+    @Convert(converter = FieldsJsonAttributeConverter::class)
     var fields: MutableSet<Field>? = null
 
+    @Convert(converter = WatermarkJsonAttributeConverter::class)
     var watermark: Watermark? = null
 
     public override fun clone(): Any {
         return super.clone()
     }
 
+    @PrePersist
+    override fun prePersist() {
+        id = UUID.randomUUID().toString()
+
+        super.prePersist()
+    }
+
     class Watermark() {
 
-        constructor(eventTimeColumn: String, delayThreshold: String): this() {
+        constructor(eventTimeColumn: String, delayThreshold: String) : this() {
             this.delayThreshold = delayThreshold
             this.eventTimeColumn = eventTimeColumn
         }
@@ -36,52 +53,75 @@ abstract class Source: Cloneable {
 
         lateinit var delayThreshold: String
     }
+
+    @Converter
+    class WatermarkJsonAttributeConverter: AbstractJsonAttributeConverter<Watermark>()
 }
 
-class FileSource: StreamingSource() {
+@MappedSuperclass
+abstract class StreamingSource : Source() {
+
+    var streamingRead: Boolean = true
+}
+
+@Entity
+@DiscriminatorValue("file_source")
+@Table(name = "file_source")
+open class FileSource : StreamingSource() {
 
     lateinit var path: String
 
-    var format: Format = Format.Json
+    @Enumerated(EnumType.STRING)
+    var format: Format = Format.JSON
 
-    var maxFilesPerTrigger: Long = 1
+    var maxFilesPerTrigger: Short = 1
 
     var latestFirst: Boolean = false
 
     var maxFileAge: String = "7d"
 
-    var cleanSource: CleanSourceOption = CleanSourceOption.Off
+    @Enumerated(EnumType.STRING)
+    var cleanSource: CleanSourceOption = CleanSourceOption.OFF
 
     var sourceArchiveDirectory: String? = null
 
     enum class CleanSourceOption {
 
-        Archive, Delete, Off
+        ARCHIVE, DELETE, OFF
     }
 
     enum class Format {
 
-        Json
+        JSON
     }
 }
 
-class JdbcSource: Source() {
+@Entity
+@DiscriminatorValue("jdbc_source")
+@Table(name = "jdbc_source")
+open class JdbcSource : Source() {
 
+    @Convert(converter = RdbmsDatabaseJsonAttributeConverter::class)
     lateinit var rdbmsDatabase: RdbmsDatabase
 
     lateinit var query: String
 }
 
-class KafkaSource: StreamingSource() {
+@Entity
+@DiscriminatorValue("kafka_source")
+@Table(name = "kafka_source")
+open class KafkaSource : StreamingSource() {
 
+    @Convert(converter = KafkaClusterJsonAttributeConverter::class)
     lateinit var kafkaCluster: KafkaCluster
 
-    var startingOffset: String = if (streamingRead) "latest" else "earliest"
+    @Enumerated(EnumType.STRING)
+    var startingOffset: Offset = if (streamingRead) Offset.Latest else Offset.Earliest
 
     lateinit var topic: String
-}
 
-abstract class StreamingSource: Source() {
+    enum class Offset {
 
-    var streamingRead: Boolean = true
+        Earliest, Latest
+    }
 }

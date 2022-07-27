@@ -2,7 +2,6 @@ package io.openenterprise.incite.data.domain
 
 import io.openenterprise.data.domain.AbstractJsonAttributeConverter
 import io.openenterprise.data.domain.AbstractMutableEntity
-import org.apache.spark.sql.SaveMode
 import java.time.OffsetDateTime
 import java.util.*
 import javax.persistence.*
@@ -10,7 +9,7 @@ import kotlin.collections.ArrayList
 
 @Entity
 @Inheritance(strategy=InheritanceType.TABLE_PER_CLASS)
-open class Aggregate : AbstractMutableEntity<String>() {
+open class Pipeline : AbstractMutableEntity<String>() {
 
     open var description: String? = null
 
@@ -21,10 +20,22 @@ open class Aggregate : AbstractMutableEntity<String>() {
 
     open var lastRunDateTime: OffsetDateTime? = null
 
-    @Convert(converter = SinksJsonAttributeConverter::class)
+    // @Convert(converter = SinksJsonAttributeConverter::class)
+    @ManyToMany
+    @JoinTable(
+        name = "pipelines_sinks",
+        joinColumns = [JoinColumn(name = "pipeline_id")],
+        inverseJoinColumns = [JoinColumn(name = "sink_id")]
+    )
     open var sinks: MutableList<Sink>  = ArrayList()
 
-    @Convert(converter = SourcesJsonAttributeConverter::class)
+    // @Convert(converter = SourcesJsonAttributeConverter::class)
+    @ManyToMany
+    @JoinTable(
+        name = "pipelines_sources",
+        joinColumns = [JoinColumn(name = "pipeline_id")],
+        inverseJoinColumns = [JoinColumn(name = "source_id")]
+    )
     open var sources: MutableList<Source> = ArrayList()
 
     @PrePersist
@@ -36,7 +47,7 @@ open class Aggregate : AbstractMutableEntity<String>() {
 }
 
 @MappedSuperclass
-abstract class MachineLearning<M>: Aggregate() {
+abstract class MachineLearning<M>: Pipeline() {
 
     abstract var models: SortedSet<M>
 }

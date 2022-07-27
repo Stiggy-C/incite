@@ -1,15 +1,25 @@
-create table if not exists aggregate(
+create table if not exists pipeline(
     id UUID primary key,
     description varchar,
     joins varchar,
     fixedDelay bigint,
     lastRunDateTime timestamp,
-    sinks varchar,
-    sources varchar,
+    -- sinks varchar,
+    -- sources varchar,
     created_by varchar(320) not null,
     created_date_time timestamp not null,
     updated_by varchar(320),
     updated_date_time timestamp
+) with "template=default";
+
+create table if not exists pipelines_sinks(
+    pipeline_id uuid primary key,
+    sink_id uuid,
+) with "template=default";
+
+create table if not exists pipelines_sources(
+    pipeline_id uuid primary key,
+    source_id uuid,
 ) with "template=default";
 
 create table if not exists classification(
@@ -19,8 +29,8 @@ create table if not exists classification(
     fixedDelay bigint,
     joins varchar,
     lastRunDateTime timestamp,
-    sinks varchar,
-    sources varchar,
+    -- sinks varchar,
+    -- sources varchar,
     created_by varchar(320) not null,
     created_date_time timestamp not null,
     updated_by varchar(320),
@@ -43,8 +53,8 @@ create table if not exists clustering(
     fixedDelay bigint,
     joins varchar,
     lastRunDateTime timestamp,
-    sinks varchar,
-    sources varchar,
+    -- sinks varchar,
+    -- sources varchar,
     created_by varchar(320) not null,
     created_date_time timestamp not null,
     updated_by varchar(320),
@@ -67,8 +77,8 @@ create table if not exists recommendation(
     fixedDelay bigint,
     joins varchar,
     lastRunDateTime timestamp,
-    sinks varchar,
-    sources varchar,
+    -- sinks varchar,
+    -- sources varchar,
     created_by varchar(320) not null,
     created_date_time timestamp not null,
     updated_by varchar(320),
@@ -95,3 +105,95 @@ create table if not exists route(
     updated_by varchar(320),
     updated_date_time timestamp
 ) with "template=default";
+
+create table if not exists source(
+    id UUID primary key,
+    fields varchar,
+    watermark varchar,
+    sub_class varchar not null,
+    created_by varchar(320) not null,
+    created_date_time timestamp not null,
+    updated_by varchar(320),
+    updated_date_time timestamp
+) with "template=default";
+
+create table if not exists file_source(
+    id UUID primary key,
+    streaming_read boolean,
+    path varchar,
+    format varchar,
+    max_files_per_trigger smallint,
+    latest_first boolean,
+    max_file_age varchar,
+    clean_source varchar,
+    source_archive_directory varchar
+) with "template=default";
+
+create table if not exists jdbc_source(
+    id UUID primary key,
+    rdbms_database varchar,
+    query varchar
+) with "template=default";
+
+create table if not exists kafka_source(
+    id UUID primary key,
+    streaming_read boolean,
+    kafka_cluster varchar,
+    starting_offset varchar,
+    topic varchar
+) with "template=default";
+
+create table if not exists sink(
+    id UUID primary key,
+    sub_class varchar not null,
+    created_by varchar(320) not null,
+    created_date_time timestamp not null,
+    updated_by varchar(320),
+    updated_date_time timestamp
+)  with "template=default";
+
+create table if not exists file_sink(
+    id UUID primary key,
+    output_mode varchar,
+    streaming_write boolean,
+    trigger_type varchar,
+    trigger_interval bigint,
+    format varchar,
+    path varchar
+)  with "template=default";
+
+create table if not exists jdbc_sink(
+    id UUID primary key,
+    createTableColumnTypes varchar,
+    createTableOptions varchar,
+    rdbms_database varchar,
+    table_name varchar
+)   with "template=default";
+
+create table if not exists ignite_sink(
+    id UUID primary key,
+    createTableColumnTypes varchar,
+    createTableOptions varchar,
+    rdbms_database varchar,
+    table_name varchar,
+    primary_key_columns varchar
+)   with "template=default";
+
+create table if not exists kafka_sink(
+    id UUID primary key,
+    output_mode varchar,
+    streaming_write boolean,
+    trigger_type varchar,
+    trigger_interval bigint,
+    kafka_cluster varchar,
+    topic varchar
+)   with "template=default";
+
+create table if not exists streaming_wrapper_sink(
+    id UUID primary key,
+    output_mode varchar,
+    streaming_write boolean,
+    trigger_type varchar,
+    trigger_interval bigint,
+    non_streaming_sink_id UUID not null
+)   with "template=default";
