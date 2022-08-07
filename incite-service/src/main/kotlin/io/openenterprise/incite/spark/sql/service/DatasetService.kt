@@ -4,9 +4,9 @@ import io.openenterprise.incite.data.domain.NonStreamingSink
 import io.openenterprise.incite.data.domain.Sink
 import io.openenterprise.incite.data.domain.Source
 import io.openenterprise.incite.data.domain.StreamingSink
-import io.openenterprise.incite.spark.sql.DatasetNonStreamingWriter
-import io.openenterprise.incite.spark.sql.DatasetWriter
-import io.openenterprise.incite.spark.sql.streaming.DatasetStreamingWriter
+import io.openenterprise.incite.spark.sql.DataFrameWriterHolder
+import io.openenterprise.incite.spark.sql.WriterHolder
+import io.openenterprise.incite.spark.sql.streaming.DataStreamWriterHolder
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
 
@@ -20,9 +20,9 @@ interface DatasetService {
 
     fun load(sources: List<Source>, variables: Map<String, *>): List<Dataset<Row>>
 
-    fun write(dataset: Dataset<Row>, sink: StreamingSink): DatasetStreamingWriter
+    fun write(dataset: Dataset<Row>, sink: StreamingSink): DataStreamWriterHolder
 
-    fun write(dataset: Dataset<Row>, sink: NonStreamingSink): DatasetNonStreamingWriter
+    fun write(dataset: Dataset<Row>, sink: NonStreamingSink): DataFrameWriterHolder
 
-    fun write(dataset: Dataset<Row>, sinks: List<Sink>, forceStreaming: Boolean): Set<DatasetWriter<*>>
+    fun write(dataset: Dataset<Row>, sinks: List<Sink>, forceStreaming: Boolean): Set<WriterHolder<*>>
 }

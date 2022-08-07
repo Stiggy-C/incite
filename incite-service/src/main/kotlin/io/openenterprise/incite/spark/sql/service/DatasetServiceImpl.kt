@@ -3,9 +3,9 @@ package io.openenterprise.incite.spark.sql.service
 import com.google.common.base.CaseFormat
 import io.openenterprise.ignite.spark.IgniteJdbcConstants
 import io.openenterprise.incite.data.domain.*
-import io.openenterprise.incite.spark.sql.DatasetNonStreamingWriter
-import io.openenterprise.incite.spark.sql.DatasetWriter
-import io.openenterprise.incite.spark.sql.streaming.DatasetStreamingWriter
+import io.openenterprise.incite.spark.sql.DataFrameWriterHolder
+import io.openenterprise.incite.spark.sql.WriterHolder
+import io.openenterprise.incite.spark.sql.streaming.DataStreamWriterHolder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.apache.commons.collections.CollectionUtils
@@ -68,7 +68,7 @@ open class DatasetServiceImpl(
     override fun write(
         dataset: Dataset<Row>,
         sink: StreamingSink
-    ): DatasetStreamingWriter {
+    ): DataStreamWriterHolder {
         val trigger = when (sink.triggerType) {
             StreamingSink.TriggerType.Continuous -> {
                 Trigger.Continuous(sink.triggerInterval)
@@ -126,7 +126,7 @@ open class DatasetServiceImpl(
             .outputMode(outputMode)
             .trigger(trigger)
 
-        val datasetStreamWriter = DatasetStreamingWriter(dataStreamWriter, dataStreamWriter.start())
+        val datasetStreamWriter = DataStreamWriterHolder(dataStreamWriter, dataStreamWriter.start())
 
         coroutineScope.launch {
             datasetStreamWriter.streamingQuery.awaitTermination()
@@ -138,7 +138,7 @@ open class DatasetServiceImpl(
     /**
      * TODO Handle options for each type of sinks
      */
-    override fun write(dataset: Dataset<Row>, sink: NonStreamingSink): DatasetNonStreamingWriter {
+    override fun write(dataset: Dataset<Row>, sink: NonStreamingSink): DataFrameWriterHolder {
         var dataFrameWriter = when (sink) {
             is IgniteSink -> {
                 dataset.write()
@@ -191,10 +191,10 @@ open class DatasetServiceImpl(
 
         dataFrameWriter.save()
 
-        return DatasetNonStreamingWriter(dataFrameWriter)
+        return DataFrameWriterHolder(dataFrameWriter)
     }
 
-    override fun write(dataset: Dataset<Row>, sinks: List<Sink>, forceStreaming: Boolean): Set<DatasetWriter<*>> {
+    override fun write(dataset: Dataset<Row>, sinks: List<Sink>, forceStreaming: Boolean): Set<WriterHolder<*>> {
         @Suppress("NAME_SHADOWING")
         val sinks = if (forceStreaming) {
             sinks.stream()

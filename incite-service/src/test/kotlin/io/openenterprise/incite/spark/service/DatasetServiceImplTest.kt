@@ -9,6 +9,7 @@ import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import org.apache.commons.lang3.RandomStringUtils
 import org.apache.ignite.Ignite
 import org.apache.ignite.IgniteCluster
 import org.apache.ignite.IgniteJdbcThinDriver
@@ -40,7 +41,6 @@ import org.springframework.test.context.junit4.SpringRunner
 import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.containers.localstack.LocalStackContainer
-import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils
 import org.testcontainers.utility.DockerImageName
 import java.nio.file.Paths
 import java.util.*

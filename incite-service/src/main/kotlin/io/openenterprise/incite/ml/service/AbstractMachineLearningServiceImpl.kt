@@ -32,9 +32,10 @@ import javax.inject.Inject
 import javax.inject.Named
 
 abstract class AbstractMachineLearningServiceImpl<T: MachineLearning<*>>(
-    private val aggregateService: PipelineService,
-    private val datasetService: DatasetService
- ) :
+    private val datasetService: DatasetService,
+    private val pipelineService: PipelineService
+
+    ) :
     MachineLearningService<T>,
     AbstractAbstractMutableEntityServiceImpl<T, String>() {
 
@@ -113,7 +114,7 @@ abstract class AbstractMachineLearningServiceImpl<T: MachineLearning<*>>(
     protected fun getAggregatedDataset(entity: T): Dataset<Row> {
         val datasets = datasetService.load(entity.sources, Collections.emptyMap<String, Any>())
 
-        return (aggregateService as PipelineServiceImpl).joinSources(datasets, entity.joins)
+        return (pipelineService as PipelineServiceImpl).aggregate(datasets, entity.joins)
     }
 
     protected fun isJson(string: String): Boolean {

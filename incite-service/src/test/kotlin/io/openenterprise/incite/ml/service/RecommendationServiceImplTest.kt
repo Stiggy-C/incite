@@ -56,8 +56,10 @@ class RecommendationServiceImplTest {
         recommendation.algorithm = algorithm
         recommendation.sources = arrayListOf(jdbcSource)
 
-        jdbcTemplate.execute("create table if not exists rating (id bigint primary key, \"user\" bigint not null, " +
-                "item bigint not null, rating float not null)")
+        jdbcTemplate.execute(
+            "create table if not exists rating (id bigint primary key, \"user\" bigint not null, " +
+                    "item bigint not null, rating float not null)"
+        )
 
         jdbcTemplate.update("insert into rating values (1, 1021324, 13243, 7.7) on conflict do nothing")
         jdbcTemplate.update("insert into rating values (2, 2132435, 113355, 6.8) on conflict do nothing")
@@ -71,7 +73,7 @@ class RecommendationServiceImplTest {
 
     @Test
     fun testSetUp() {
-        val algo = "AlternatingLeastSquares"
+        val algo = "ALTERNATING_LEAST_SQUARES"
         val algoSpecificParams = "{\"itemColumn\": \"item\", \"maxIterations\": 10, \"userColumn\": \"user\"}"
         val sourceSql = "select r.\"user\", r.item, r.rating from rating r"
         val sinkTable = "test_set_up_recommendation"
@@ -109,10 +111,10 @@ class RecommendationServiceImplTest {
 
         @Bean
         protected fun recommendationService(
-            aggregateService: PipelineService,
             datasetService: DatasetService,
+            pipelineService: PipelineService,
             transactionTemplate: TransactionTemplate
         ): RecommendationService =
-            RecommendationServiceImpl(aggregateService, datasetService, transactionTemplate)
+            RecommendationServiceImpl(datasetService, pipelineService, transactionTemplate)
     }
 }

@@ -5,6 +5,7 @@ import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.data.repository.ClassificationRepository
 import io.openenterprise.incite.service.PipelineService
 import io.openenterprise.incite.spark.sql.service.DatasetService
+import org.apache.commons.lang3.RandomStringUtils
 import org.apache.spark.ml.classification.LogisticRegressionModel
 import org.assertj.core.util.Lists
 import org.junit.Assert.assertNotNull
@@ -22,7 +23,6 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.junit4.SpringRunner
 import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.containers.PostgreSQLContainer
-import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils
 import java.util.*
 
 @RunWith(SpringRunner::class)
@@ -129,10 +129,10 @@ class ClassificationServiceImplTest {
 
         @Bean
         protected fun classificationService(
-            aggregateService: PipelineService,
             datasetService: DatasetService,
+            pipelineService: PipelineService,
             transactionTemplate: TransactionTemplate
         ): ClassificationService =
-            ClassificationServiceImpl(aggregateService, datasetService, transactionTemplate)
+            ClassificationServiceImpl(datasetService, pipelineService, transactionTemplate)
     }
 }

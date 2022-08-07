@@ -18,14 +18,11 @@ import javax.persistence.EntityNotFoundException
 
 @Named
 open class RecommendationServiceImpl(
-    @Inject private val aggregateService: PipelineService,
     @Inject private val datasetService: DatasetService,
+    @Inject private val pipelineService: PipelineService,
     @Inject private val transactionTemplate: TransactionTemplate
 ) : RecommendationService,
-    AbstractMachineLearningServiceImpl<Recommendation>(
-        aggregateService,
-        datasetService
-    ) {
+    AbstractMachineLearningServiceImpl<Recommendation>(datasetService, pipelineService) {
 
     override fun recommendForAllUsers(
         recommendation: Recommendation,

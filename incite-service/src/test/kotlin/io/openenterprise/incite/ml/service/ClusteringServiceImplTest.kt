@@ -6,6 +6,7 @@ import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.data.repository.ClusteringRepository
 import io.openenterprise.incite.service.PipelineService
 import io.openenterprise.incite.spark.sql.service.DatasetService
+import org.apache.commons.lang3.RandomStringUtils
 import org.apache.spark.ml.clustering.BisectingKMeansModel
 import org.apache.spark.ml.clustering.KMeansModel
 import org.assertj.core.util.Lists
@@ -25,7 +26,6 @@ import org.springframework.test.context.junit4.SpringRunner
 import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.containers.PostgreSQLContainer
-import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils
 import java.util.*
 import javax.inject.Inject
 
@@ -229,11 +229,11 @@ class ClusteringServiceImplTest {
 
         @Bean
         protected fun clusteringService(
-            aggregateService: PipelineService,
             datasetService: DatasetService,
+            pipelineService: PipelineService,
             transactionTemplate: TransactionTemplate
         ): ClusteringService {
-            return ClusteringServiceImpl(aggregateService, datasetService, transactionTemplate)
+            return ClusteringServiceImpl(datasetService, pipelineService, transactionTemplate)
         }
     }
 }

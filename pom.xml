@@ -29,24 +29,24 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<javax.el.version>3.0.0</javax.el.version>
 		<javax.json-api.version>1.1.4</javax.json-api.version>
-		<camel.version>3.11.6</camel.version>
+		<camel.version><!--3.11.6--><!--3.14.4-->3.18.0</camel.version>
 		<commons-collections4.version>4.4</commons-collections4.version>
 		<commons-lagn3.version>3.12.0</commons-lagn3.version>
-		<flyway.version>7.11.4</flyway.version>
-		<hadoop.version>3.3.1</hadoop.version>
+		<flyway.version><!--7.11.4-->8.5.13</flyway.version>
+		<hadoop.version>3.3.2</hadoop.version>
 		<ignite.version>2.13.0</ignite.version>
-		<jackson.version>2.12.6</jackson.version>
+		<jackson.version><!--2.12.6-->2.13.3</jackson.version>
 		<junit.version>4.13.2</junit.version>
 		<kotlin.code.style>official</kotlin.code.style>
 		<kotlin.version><!--1.5.32-->1.6.21</kotlin.version>
 		<kotlin-coroutines.version><!--1.5.2-native-mt-->1.6.1-native-mt</kotlin-coroutines.version>
-		<mockito.version>4.3.1</mockito.version>
+		<mockito.version><!--4.3.1-->4.6.1</mockito.version>
 		<postgresql-jdbc.version>42.3.5</postgresql-jdbc.version>
 		<reflections.version>0.10.2</reflections.version>
 		<snakeyaml.version>1.30</snakeyaml.version>
-		<spark.version><!--2.4.8-->3.2.1</spark.version>
-		<spring-boot.version>2.5.14</spring-boot.version>
-		<testcontainers.version>1.16.3</testcontainers.version>
+		<spark.version><!--2.4.8-->3.3.0</spark.version>
+		<spring-boot.version><!--2.5.14-->2.7.2</spring-boot.version>
+		<testcontainers.version>1.17.3</testcontainers.version>
 		<zeroturnaround.version>1.15</zeroturnaround.version>
 	</properties>
 

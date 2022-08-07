@@ -23,23 +23,20 @@ class PipelineResourceImpl : PipelineResource, AbstractAbstractMutableEntityReso
     @Path("/{id}/start")
     override fun start(@PathParam("id") id: String, @Suspended asyncResponse: AsyncResponse) {
         coroutineScope.launch {
-            val aggregateService = abstractMutableEntityService as PipelineService
+            val pipelineService = abstractMutableEntityService as PipelineService
 
             try {
-                val aggregate = aggregateService.retrieve(id) ?: throw EntityNotFoundException()
+                val aggregate = pipelineService.retrieve(id) ?: throw EntityNotFoundException()
 
-                aggregateService.start(aggregate)
+                pipelineService.start(aggregate)
             } catch (e: Exception) {
                 asyncResponse.resume(e)
 
                 return@launch
             }
 
-            val pipelineContext: PipelineContext = aggregateService.getContext(id)!!
-            val response = when (pipelineContext.status) {
-                PipelineContext.Status.PROCESSING -> Response.status(Status.PROCESSING).build()
-                PipelineContext.Status.STOPPED -> Response.status(Response.Status.OK).build()
-            }
+            val pipelineContext: PipelineContext = pipelineService.getContext(id)!!
+            val response = buildResponse(pipelineContext)
 
             asyncResponse.resume(response)
         }
@@ -59,10 +56,7 @@ class PipelineResourceImpl : PipelineResource, AbstractAbstractMutableEntityReso
                 return@launch
             }
 
-            val response = when (pipelineContext.status) {
-                PipelineContext.Status.PROCESSING -> Response.status(Status.PROCESSING).build()
-                PipelineContext.Status.STOPPED -> Response.status(Response.Status.OK).build()
-            }
+            val response = buildResponse(pipelineContext)
 
             asyncResponse.resume(response)
         }
@@ -97,5 +91,12 @@ class PipelineResourceImpl : PipelineResource, AbstractAbstractMutableEntityReso
         @Suspended asyncResponse: AsyncResponse
     ) {
         super.update(id, jsonMergePatch, asyncResponse)
+    }
+
+    private fun buildResponse(pipelineContext: PipelineContext) = when (pipelineContext.status) {
+        PipelineContext.Status.FAILED -> Response.status(Response.Status.INTERNAL_SERVER_ERROR).build()
+        PipelineContext.Status.PROCESSING -> Response.status(Status.PROCESSING).build()
+        PipelineContext.Status.STOPPED -> Response.status(Response.Status.OK).build()
+        else -> throw IllegalStateException()
     }
 }

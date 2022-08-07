@@ -6,12 +6,15 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.google.common.collect.ImmutableMap
+import com.google.common.collect.Maps
+import io.openenterprise.incite.PipelineContext
 import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.data.repository.AggregateRepository
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import io.openenterprise.incite.spark.service.DatasetServiceImplTest
 import io.openenterprise.incite.spark.sql.service.DatasetServiceImpl
-import io.openenterprise.incite.spark.sql.streaming.DatasetStreamingWriter
+import io.openenterprise.incite.spark.sql.streaming.DataStreamWriterHolder
+import io.openenterprise.incite.spark.sql.streaming.StreamingQueryListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -34,6 +37,7 @@ import org.junit.runner.RunWith
 import org.mockito.Mockito
 import org.mockito.internal.util.collections.Sets
 import org.postgresql.ds.PGSimpleDataSource
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.ApplicationContext
@@ -53,6 +57,7 @@ import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.sql.DataSource
 import kotlin.collections.HashMap
@@ -149,10 +154,9 @@ class PipelineServiceImplTest {
         val pipelineContext = pipelineService.getContext(aggregate.id!!)
 
         assertNotNull(pipelineContext)
-        assertTrue(pipelineContext!!.datasetWriters!!.stream().allMatch { it is DatasetStreamingWriter })
-        assertTrue(
-            pipelineContext.datasetWriters!!.stream()
-                .allMatch { (it as DatasetStreamingWriter).streamingQuery.isActive })
+        assertTrue(pipelineContext!!.writerHolders!!.stream().allMatch { it is DataStreamWriterHolder })
+        assertTrue(pipelineContext.writerHolders!!.stream()
+            .allMatch { (it as DataStreamWriterHolder).streamingQuery.isActive })
 
         val igniteCacheName = "SQL_PUBLIC_${igniteTable.uppercase()}"
 
@@ -190,11 +194,8 @@ class PipelineServiceImplTest {
 
         var pipelineContext = pipelineService.getContext(aggregate.id!!)
 
-        pipelineContext!!.datasetWriters!!.stream()
-            .filter { it is DatasetStreamingWriter }
-            .map { it as DatasetStreamingWriter }
-            .map { it.streamingQuery }
-            .peek { it.processAllAvailable() }
+        pipelineContext!!.writerHolders!!.stream().filter { it is DataStreamWriterHolder }
+            .map { it as DataStreamWriterHolder }.map { it.streamingQuery }.peek { it.processAllAvailable() }
             .forEach { it.stop() }
 
         aggregate = runPipeline(aggregateId, embeddedIgniteSinkId, igniteTable, kafkaTopic)
@@ -220,10 +221,9 @@ class PipelineServiceImplTest {
         pipelineContext = pipelineService.getContext(aggregate.id!!)
 
         assertNotNull(pipelineContext)
-        assertTrue(pipelineContext!!.datasetWriters!!.stream().allMatch { it is DatasetStreamingWriter })
-        assertTrue(
-            pipelineContext.datasetWriters!!.stream()
-                .allMatch { (it as DatasetStreamingWriter).streamingQuery.isActive })
+        assertTrue(pipelineContext!!.writerHolders!!.stream().allMatch { it is DataStreamWriterHolder })
+        assertTrue(pipelineContext.writerHolders!!.stream()
+            .allMatch { (it as DataStreamWriterHolder).streamingQuery.isActive })
 
         val igniteCacheName = "SQL_PUBLIC_${igniteTable.uppercase()}"
 
@@ -233,10 +233,7 @@ class PipelineServiceImplTest {
     }
 
     private fun runPipeline(
-        pipelineId: String,
-        embeddedIgniteSinkId: UUID,
-        igniteTable: String,
-        kafkaTopic: String
+        pipelineId: String, embeddedIgniteSinkId: UUID, igniteTable: String, kafkaTopic: String
     ): Pipeline {
         val rdbmsDatabase0 = RdbmsDatabase()
         rdbmsDatabase0.url = postgreSQLContainer.jdbcUrl
@@ -259,8 +256,7 @@ class PipelineServiceImplTest {
             Field("data.sku", "#field as sku"),
             Field("data.price", "#field as price"),
             Field(
-                "data.created_date_time",
-                "to_timestamp(#field, 'yyyy-MM-dd HH:mm:ss.SSS') as purchase_date_time"
+                "data.created_date_time", "to_timestamp(#field, 'yyyy-MM-dd HH:mm:ss.SSS') as purchase_date_time"
             )
         )
         kafkaSource.kafkaCluster = kafkaCluster
@@ -300,15 +296,12 @@ class PipelineServiceImplTest {
     }
 
     data class AwsDmsMessage(
-        var data: MutableMap<String, Any> = HashMap(),
-        var metadata: MutableMap<String, Any> = HashMap()
+        var data: MutableMap<String, Any> = HashMap(), var metadata: MutableMap<String, Any> = HashMap()
     )
 
     @TestConfiguration
     @ComponentScan(
-        value = [
-            "io.openenterprise.incite.spark.sql.service", "io.openenterprise.springframework.context"
-        ]
+        value = ["io.openenterprise.incite.spark.sql.service", "io.openenterprise.incite.spark.sql.streaming", "io.openenterprise.springframework.context"]
     )
     class Configuration {
 
@@ -316,18 +309,12 @@ class PipelineServiceImplTest {
         protected fun aggregateRepository(): AggregateRepository = Mockito.mock(AggregateRepository::class.java)
 
         @Bean
-        protected fun aggregateService(
-            datasetService: DatasetService, ignite: Ignite, spelExpressionParser: SpelExpressionParser
-        ): PipelineService = PipelineServiceImpl(datasetService, ignite)
-
-        @Bean
         protected fun coroutineScope(): CoroutineScope = CoroutineScope(Dispatchers.Default)
 
         @Bean
         protected fun datasetService(
             coroutineScope: CoroutineScope,
-            @Value("\${io.openenterprise.incite.spark.checkpoint-location-root:./spark-checkpoints}")
-            sparkCheckpointLocation: String,
+            @Value("\${io.openenterprise.incite.spark.checkpoint-location-root:./spark-checkpoints}") sparkCheckpointLocation: String,
             sparkSession: SparkSession,
             spelExpressionParser: SpelExpressionParser
         ): DatasetService =
@@ -386,11 +373,13 @@ class PipelineServiceImplTest {
             KafkaTemplate(producerFactory)
 
         @Bean
-        fun objectMapper(): ObjectMapper = ObjectMapper()
-            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-            .findAndRegisterModules()
+        fun objectMapper(): ObjectMapper = ObjectMapper().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).findAndRegisterModules()
             .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
+
+        @Bean
+        protected fun pipelineService(datasetService: DatasetService, ignite: Ignite): PipelineService =
+            PipelineServiceImpl(datasetService, ignite)
 
         @Bean
         protected fun postgreSQLContainer(): PostgreSQLContainer<*> {
@@ -406,12 +395,10 @@ class PipelineServiceImplTest {
 
         @Bean
         protected fun producerFactory(
-            kafkaContainer: KafkaContainer,
-            objectMapper: ObjectMapper
+            kafkaContainer: KafkaContainer, objectMapper: ObjectMapper
         ): ProducerFactory<UUID, AwsDmsMessage> {
             val configurations = ImmutableMap.builder<String, Any>()
-                .put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.bootstrapServers)
-                .build()
+                .put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.bootstrapServers).build()
 
             return DefaultKafkaProducerFactory(
                 configurations,
@@ -422,8 +409,8 @@ class PipelineServiceImplTest {
 
         @Bean
         @Order(Ordered.HIGHEST_PRECEDENCE)
-        protected fun sparkSession(): SparkSession {
-            return SparkSession.builder()
+        protected fun sparkSession(streamingQueryListener: StreamingQueryListener): SparkSession {
+            val sparkSession = SparkSession.builder()
                 .appName(DatasetServiceImplTest::class.java.simpleName)
                 .master("local[*]")
                 .config("spark.executor.memory", "512m")
@@ -432,6 +419,10 @@ class PipelineServiceImplTest {
                 .config("spark.memory.offHeap.size", "512m")
                 .config("spark.sql.streaming.schemaInference", true)
                 .orCreate
+
+            sparkSession.streams().addListener(streamingQueryListener)
+
+            return sparkSession
         }
 
         @Bean

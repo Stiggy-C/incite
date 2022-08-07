@@ -25,12 +25,12 @@ import javax.persistence.EntityNotFoundException
 
 @Named
 open class ClusteringServiceImpl(
-    @Inject private val aggregateService: PipelineService,
     @Inject private val datasetService: DatasetService,
+    @Inject private val pipelineService: PipelineService,
     @Inject private val transactionTemplate: TransactionTemplate
 ) :
     ClusteringService,
-    AbstractMachineLearningServiceImpl<Clustering>(aggregateService, datasetService) {
+    AbstractMachineLearningServiceImpl<Clustering>(datasetService, pipelineService) {
 
     override fun persistModel(entity: Clustering, sparkModel: MLWritable): UUID {
         val modelId = putToCache(sparkModel)
@@ -51,7 +51,7 @@ open class ClusteringServiceImpl(
             throw IllegalStateException("No models have been built")
         }
 
-        assert(aggregateService is PipelineServiceImpl)
+        assert(pipelineService is PipelineServiceImpl)
 
         val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val sparkModel: Model<*> =

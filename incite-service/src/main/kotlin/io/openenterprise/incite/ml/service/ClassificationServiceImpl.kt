@@ -26,14 +26,14 @@ import javax.persistence.EntityNotFoundException
 
 @Named
 open class ClassificationServiceImpl(
-    @Inject private val aggregateService: PipelineService,
     @Inject private val datasetService: DatasetService,
+    @Inject private val pipelineService: PipelineService,
     @Inject private val transactionTemplate: TransactionTemplate
 ) :
     ClassificationService,
     AbstractMachineLearningServiceImpl<Classification>(
-        aggregateService,
-        datasetService
+        datasetService,
+        pipelineService
     ) {
 
     override fun <M : Model<M>> train(entity: Classification): M {
@@ -77,7 +77,7 @@ open class ClassificationServiceImpl(
             throw IllegalStateException("No models have been built")
         }
 
-        assert(aggregateService is PipelineServiceImpl)
+        assert(pipelineService is PipelineServiceImpl)
 
         val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val sparkModel: Model<*> = when (entity.algorithm) {

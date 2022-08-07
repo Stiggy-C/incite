@@ -24,7 +24,7 @@ class SparkAutoConfiguration {
     @kotlin.jvm.Throws(IllegalArgumentException::class)
     @Bean
     @ConditionalOnMissingBean(SparkConf::class)
-    fun sparkConf(): SparkConf {
+    protected fun sparkConf(): SparkConf {
         Optional.ofNullable(sparkProperties.appName).orElseThrow{ IllegalArgumentException() }
         Optional.ofNullable(sparkProperties.master).orElseThrow{ IllegalArgumentException() }
 
@@ -49,7 +49,7 @@ class SparkAutoConfiguration {
 
     @Bean
     @ConditionalOnBean(SparkConf::class)
-    fun sparkSession(sparkConf: SparkConf): SparkSession {
+    protected fun sparkSession(sparkConf: SparkConf): SparkSession {
         return SparkSession.builder().config(sparkConf).orCreate
     }
 }

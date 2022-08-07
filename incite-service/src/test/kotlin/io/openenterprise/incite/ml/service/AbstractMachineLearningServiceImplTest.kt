@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.google.common.collect.ImmutableMap
+import com.google.common.collect.Maps
+import io.openenterprise.incite.PipelineContext
 import io.openenterprise.incite.data.repository.AggregateRepository
 import io.openenterprise.incite.service.PipelineService
 import io.openenterprise.incite.service.PipelineServiceImpl
@@ -27,6 +29,7 @@ import org.apache.kafka.common.serialization.UUIDSerializer
 import org.apache.spark.sql.SparkSession
 import org.mockito.Mockito
 import org.postgresql.ds.PGSimpleDataSource
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
@@ -45,6 +48,7 @@ import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 import java.io.File
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import javax.cache.Cache
 import javax.cache.configuration.MutableConfiguration
 import javax.sql.DataSource
@@ -61,11 +65,6 @@ abstract class AbstractMachineLearningServiceImplTest {
 
         @Bean
         protected fun aggregateRepository(): AggregateRepository = Mockito.mock(AggregateRepository::class.java)
-
-        @Bean
-        protected fun aggregateService(
-            datasetService: DatasetService, ignite: Ignite, spelExpressionParser: SpelExpressionParser
-        ): PipelineService = PipelineServiceImpl(datasetService, ignite)
 
         @Bean
         protected fun coroutineScope(): CoroutineScope = CoroutineScope(Dispatchers.Default)
@@ -147,6 +146,10 @@ abstract class AbstractMachineLearningServiceImplTest {
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
             .findAndRegisterModules()
             .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
+
+        @Bean
+        protected fun pipelineService(datasetService: DatasetService, ignite: Ignite): PipelineService =
+            PipelineServiceImpl(datasetService, ignite)
 
         @Bean
         protected fun postgreSQLContainer(): PostgreSQLContainer<*> {

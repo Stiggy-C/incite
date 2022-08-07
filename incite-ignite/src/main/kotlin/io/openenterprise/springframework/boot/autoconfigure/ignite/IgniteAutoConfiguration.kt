@@ -8,30 +8,25 @@ import org.apache.ignite.configuration.ClientConnectorConfiguration
 import org.apache.ignite.configuration.IgniteConfiguration
 import org.apache.ignite.springframework.boot.autoconfigure.IgniteConfigurer
 import org.springframework.beans.factory.config.BeanDefinition
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.*
 import java.util.*
 import java.util.Objects.isNull
-import javax.annotation.PostConstruct
 import javax.sql.DataSource
 
 @Configuration
 @ComponentScan("io.openenterprise.ignite.cache.query.ml")
 @ConditionalOnClass(Ignite::class)
 @EnableConfigurationProperties
-class IgniteAutoConfiguration {
+class IgniteAutoConfiguration : org.apache.ignite.springframework.boot.autoconfigure.IgniteAutoConfiguration() {
 
     @Bean
     @ConditionalOnMissingBean
+    @Primary
     @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
-    protected fun ignite(
-        igniteConfiguration: IgniteConfiguration,
-        igniteConfigurer: IgniteConfigurer
-    ): Ignite {
+    protected fun ignite(igniteConfiguration: IgniteConfiguration, igniteConfigurer: IgniteConfigurer): Ignite {
         igniteConfigurer.accept(igniteConfiguration)
 
         return Ignition.start(igniteConfiguration)
@@ -54,18 +49,20 @@ class IgniteAutoConfiguration {
         return igniteCluster
     }
 
-    @Bean
+    /*@Bean
     @ConditionalOnMissingBean
     @ConfigurationProperties(prefix = "ignite")
-    protected fun igniteConfiguration(): IgniteConfiguration = IgniteConfiguration()
+    protected fun igniteConfiguration(): IgniteConfiguration = IgniteConfiguration()*/
 
     @Bean
     @ConditionalOnMissingBean
+    @Primary
     protected fun igniteConfigurer(): IgniteConfigurer =
         IgniteConfigurer { igniteConfig ->
             igniteConfig.sqlConfiguration?.let { sqlConfig ->
                 // If none of the query engine is being set as default, set the first one as default
-                if (ArrayUtils.isNotEmpty(sqlConfig.queryEnginesConfiguration) &&
+                if (
+                    ArrayUtils.isNotEmpty(sqlConfig.queryEnginesConfiguration) &&
                     Arrays.stream(sqlConfig.queryEnginesConfiguration).allMatch { !it.isDefault }
                 ) sqlConfig.queryEnginesConfiguration[0].isDefault = true
             }
@@ -90,5 +87,12 @@ class IgniteAutoConfiguration {
         )
 
         return igniteJdbcThinDataSource
+    }
+
+    @Bean
+    fun igniteMessaging(ignite: Ignite, igniteCluster: IgniteCluster): IgniteMessaging {
+        val clusterGroup = igniteCluster.forPredicate { node -> !node.isClient }.forPredicate { node -> !node.isDaemon }
+
+        return ignite.message(clusterGroup)
     }
 }

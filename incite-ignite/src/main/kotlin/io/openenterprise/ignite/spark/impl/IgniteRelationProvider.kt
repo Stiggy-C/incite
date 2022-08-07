@@ -21,7 +21,6 @@ import org.apache.spark.sql.types.*
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.datasource.SingleConnectionDataSource
-import scala.Function0
 import scala.collection.immutable.Map
 import java.io.Serializable
 import java.sql.Connection
@@ -54,17 +53,13 @@ class IgniteRelationProvider : JdbcRelationProvider(), Serializable {
             parameters.updated(JDBCOptions.JDBC_DRIVER_CLASS(), IgniteJdbcThinDriver::class.java.name)
         }
 
-        val jdbcOptionsInWrite = JdbcOptionsInWrite(parameters)
-        val connection: Connection = JdbcUtils.createConnectionFactory(jdbcOptionsInWrite).apply()
-        val singleConnectionDataSource = SingleConnectionDataSource(connection, false)
-        val jdbcTemplate = JdbcTemplate(singleConnectionDataSource)
-
-        val tableExists = tableExists(jdbcTemplate, parameters)
+        val context = Context(parameters)
+        val tableExists = tableExists(context)
 
         if (tableExists) {
             when (saveMode) {
                 SaveMode.ErrorIfExists -> {
-                    throw SparkException("Table or view, ${jdbcOptionsInWrite.table()}, already exists. SaveMode: ErrorIfExists")
+                    throw SparkException("Table or view, ${context.jdbcOptions.tableOrQuery()}, already exists. SaveMode: ErrorIfExists")
                 }
                 SaveMode.Ignore -> {
                     // Do nothing.
@@ -75,32 +70,35 @@ class IgniteRelationProvider : JdbcRelationProvider(), Serializable {
                             // Do nothing.
                         }
                         SaveMode.Overwrite -> {
-                            if (jdbcOptionsInWrite.isTruncate) {
-                                truncateTable(jdbcTemplate, parameters)
+                            if (context.jdbcOptions.isTruncate) {
+                                truncateTable(context)
                             } else {
-                                dropTable(jdbcTemplate, parameters)
-                                createTable(jdbcTemplate, dataset, parameters)
+                                dropTable(context)
+                                createTable(context, dataset)
                             }
                         }
                         else ->
                             throw SparkException("Should not happen", IllegalStateException())
                     }
 
-                    saveTable(dataset, parameters)
+                    saveTable(context, dataset)
                 }
             }
         } else {
-            createTable(jdbcTemplate, dataset, parameters)
-            saveTable(dataset, parameters)
+            createTable(context, dataset)
+            saveTable(context, dataset)
         }
-
-        connection.close()
 
         return this.createRelation(sqlContext, parameters)
     }
 
+    private class Context(val parameters: Map<String, String>): Serializable {
+
+        val jdbcOptions: JDBCOptions = JdbcOptionsInWrite(parameters)
+    }
+
     private class ForEachPartitionSaveTableFunction(
-        private val connectionFactory: Function0<Connection>,
+        private val context: Context,
         private val insertStatement: String,
         private val schema: StructType
     ) : ForeachPartitionFunction<Row>, Serializable {
@@ -119,21 +117,19 @@ class IgniteRelationProvider : JdbcRelationProvider(), Serializable {
                 valuesList.add(values)
             }
 
-            val connection: Connection = connectionFactory.apply()
-            val singleConnectionDataSource = SingleConnectionDataSource(connection, false)
-            val jdbcTemplate = JdbcTemplate(singleConnectionDataSource)
+            val jdbcOptions = context.jdbcOptions
 
-            LoggerFactory.getLogger(this::class.java)
-                .info("About to save partition with statement, $insertStatement")
+            LOG.info("About to save partition with statement, $insertStatement")
 
-            jdbcTemplate.batchUpdate(insertStatement, valuesList)
-
-            connection.close()
+            JdbcUtils.withConnection(jdbcOptions) {
+                createSingleUseJdbcTemplate(it).batchUpdate(insertStatement, valuesList)
+            }
         }
     }
 
-    private fun createTable(jdbcTemplate: JdbcTemplate, dataset: Dataset<Row>, parameters: Map<String, String>) {
-        val jdbcOptionsInWrite = JdbcOptionsInWrite(parameters)
+    private fun createTable(context: Context, dataset: Dataset<Row>) {
+        val jdbcOptionsInWrite = context.jdbcOptions as JdbcOptionsInWrite
+        val parameters: Map<String, String> = context.parameters
 
         val caseSensitive = parameters.contains(IgniteJdbcConstants.CASE_SENSITIVE) &&
                 BooleanUtils.toBoolean(parameters.get(IgniteJdbcConstants.CASE_SENSITIVE).get())
@@ -177,21 +173,28 @@ class IgniteRelationProvider : JdbcRelationProvider(), Serializable {
 
         LOG.info("About to create table, $tableName, with statement, $createTableStatement")
 
-        jdbcTemplate.update(createTableStatement)
+        val jdbcOptions = context.jdbcOptions
+
+        JdbcUtils.withConnection(jdbcOptions) {
+            createSingleUseJdbcTemplate(it).update(createTableStatement)
+        }
     }
 
-    private fun dropTable(jdbcTemplate: JdbcTemplate, parameters: Map<String, String>) {
+    private fun dropTable(context: Context) {
+        val parameters = context.parameters
         val tableName = getTableName(parameters)
-
         val dropTableStatement = "DROP TABLE IF EXISTS $tableName"
+        val jdbcOptions = context.jdbcOptions
 
         LOG.info("About to drop table, $tableName")
 
-        jdbcTemplate.update(dropTableStatement)
+        JdbcUtils.withConnection(jdbcOptions) {
+            createSingleUseJdbcTemplate(it).update(dropTableStatement)
+        }
     }
 
-    private fun getColumnsOverrides(jdbcOptionsInWrite: JdbcOptionsInWrite): MutableMap<String, String> {
-        val columnOverrides: MutableMap<String, String> = if (jdbcOptionsInWrite.createTableColumnTypes().isEmpty) {
+    private fun getColumnsOverrides(jdbcOptionsInWrite: JdbcOptionsInWrite): MutableMap<String, String> =
+        if (jdbcOptionsInWrite.createTableColumnTypes().isEmpty) {
             Collections.emptyMap()
         } else {
             val createTableColumnTypes = jdbcOptionsInWrite.createTableColumnTypes().get()
@@ -205,8 +208,6 @@ class IgniteRelationProvider : JdbcRelationProvider(), Serializable {
                 }
                 .collect(Collectors.toMap(Pair<String, String>::first, Pair<String, String>::second))
         }
-        return columnOverrides
-    }
 
     private fun getIgniteDataType(dataType: DataType): JdbcType {
         return when (dataType) {
@@ -219,13 +220,13 @@ class IgniteRelationProvider : JdbcRelationProvider(), Serializable {
             is DateType ->
                 JdbcType("DATE", 91)
             is DecimalType ->
-                JdbcType("DECIMAL",  3)
+                JdbcType("DECIMAL", 3)
             is DoubleType ->
                 JdbcType("DOUBLE", 8)
             is FloatType ->
                 JdbcType("REAL", 6)
             is IntegerType ->
-                JdbcType("INTEGER",4)
+                JdbcType("INTEGER", 4)
             is LongType ->
                 JdbcType("BIGINT", -5)
             is ShortType ->
@@ -253,7 +254,8 @@ class IgniteRelationProvider : JdbcRelationProvider(), Serializable {
         return tableName
     }
 
-    private fun saveTable(dataset: Dataset<Row>, parameters: Map<String, String>) {
+    private fun saveTable(context: Context, dataset: Dataset<Row>) {
+        val parameters = context.parameters
         val caseSensitive = parameters.contains(IgniteJdbcConstants.CASE_SENSITIVE) &&
                 BooleanUtils.toBoolean(parameters.get(IgniteJdbcConstants.CASE_SENSITIVE).get())
         val schema = dataset.schema()
@@ -278,28 +280,35 @@ class IgniteRelationProvider : JdbcRelationProvider(), Serializable {
             append(")")
         }
 
-        val jdbcOptionsInWrite = JdbcOptionsInWrite(parameters)
-        val createConnectionFactoryFunction = JdbcUtils.createConnectionFactory(jdbcOptionsInWrite)
-
         dataset.foreachPartition(
-            ForEachPartitionSaveTableFunction(createConnectionFactoryFunction, mergeStatement, schema)
+            ForEachPartitionSaveTableFunction(context, mergeStatement, schema)
         )
     }
 
-    private fun tableExists(jdbcTemplate: JdbcTemplate, parameters: Map<String, String>): Boolean {
-        val tableName = getTableName(parameters)
+    private fun tableExists(context: Context): Boolean {
+        val tableName = getTableName(context.parameters)
         val selectStatement = "SELECT 1 FROM $tableName WHERE 1=0"
+        val jdbcOptions = context.jdbcOptions
 
-        try {
-            jdbcTemplate.execute(selectStatement)
-        } catch (e: Exception) {
-            return false
+        return JdbcUtils.withConnection(jdbcOptions) {
+            val jdbcTemplate = createSingleUseJdbcTemplate(it)
+            try {
+                jdbcTemplate.execute(selectStatement)
+
+                true
+            } catch (e: Exception) {
+                false
+            }
         }
-
-        return true
     }
 
-    private fun truncateTable(jdbcTemplate: JdbcTemplate, parameters: Map<String, String>) {
+    private fun truncateTable(context: Context) {
         throw NotImplementedException()
     }
+}
+
+private fun createSingleUseJdbcTemplate(connection: Connection): JdbcTemplate {
+    val singleConnectionDataSource = SingleConnectionDataSource(connection, false)
+
+    return JdbcTemplate(singleConnectionDataSource)
 }
