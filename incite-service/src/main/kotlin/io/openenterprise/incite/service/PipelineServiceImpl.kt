@@ -1,9 +1,7 @@
 package io.openenterprise.incite.service
 
 import com.google.common.collect.ImmutableMap
-import com.google.common.collect.Maps
 import io.openenterprise.incite.PipelineContext
-import io.openenterprise.incite.PipelineContextUtils
 import io.openenterprise.incite.PipelineContextUtils.Companion.getPipelineContexts
 import io.openenterprise.incite.PipelineContextUtils.Companion.getPipelineContextsLookup
 import io.openenterprise.incite.data.domain.Join
@@ -25,7 +23,6 @@ import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.*
 import java.util.Objects.nonNull
-import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Named
 import javax.persistence.EntityNotFoundException
@@ -137,8 +134,8 @@ open class PipelineServiceImpl(
         return result
     }
 
-    private fun aggregate(pipeline: Pipeline, pipelineContext: PipelineContext): Dataset<Row> =
-        aggregate(load(pipeline, pipelineContext), pipeline.joins)
+    private fun aggregate(pipeline: Pipeline, pipelineContext: PipelineContext) =
+        aggregate(load(pipeline, pipelineContext), pipeline.joins).apply { pipelineContext.dataset = this }
 
     private fun getLockKey(pipeline: Pipeline): String = "${Pipeline::class.java.name}#${pipeline.id}"
 
@@ -168,37 +165,36 @@ open class PipelineServiceImpl(
             variables["lastRunDateTime"] = pipeline.lastRunDateTime!!
         }
 
-        val pipelineContext = PipelineContext(
-            startDateTime = startDateTime,
+        return PipelineContext(
+            id = pipeline.id!!,
+            startDateTime = OffsetDateTime.now(),
             variables = ImmutableMap.copyOf(variables)
-        )
-
-        getPipelineContexts(ignite)[pipeline.id!!] = pipelineContext
-
-        return pipelineContext
+        ).apply { getPipelineContexts(ignite)[pipeline.id!!] = this }
     }
 
     private fun stream(pipeline: Pipeline) {
         val pipelineContext = setup(pipeline)
-        pipelineContext.dataset = aggregate(pipeline, pipelineContext)
-        pipelineContext.writerHolders = streamingWrite(pipeline, pipelineContext)
-
-        getPipelineContexts(ignite)[pipeline.id as String] = pipelineContext
-
-        pipelineContext.writerHolders?.stream()!!
-            .filter { it is DataStreamWriterHolder }
-            .forEach {
-                getPipelineContextsLookup(ignite)[(it as DataStreamWriterHolder).streamingQuery.id()] = pipelineContext
-            }
-
+        aggregate(pipeline, pipelineContext)
+        streamingWrite(pipeline, pipelineContext)
         tearDown(pipeline, pipelineContext)
     }
 
-    private fun streamingWrite(pipeline: Pipeline, pipelineContext: PipelineContext): Set<WriterHolder<*>> =
+    private fun streamingWrite(pipeline: Pipeline, pipelineContext: PipelineContext) =
         try {
             datasetService.write(pipelineContext.dataset!!, pipeline.sinks, true)
         } catch (e: Exception) {
             throw e
+        }.apply {
+            pipelineContext.writerHolders = this
+
+            getPipelineContexts(ignite)[pipeline.id!!] = pipelineContext
+
+            this.stream()
+                .filter { it is DataStreamWriterHolder }
+                .forEach {
+                    getPipelineContextsLookup(ignite)[(it as DataStreamWriterHolder).streamingQuery.id()] =
+                        pipelineContext
+                }
         }
 
     private fun tearDown(pipeline: Pipeline, pipelineContext: PipelineContext) {
