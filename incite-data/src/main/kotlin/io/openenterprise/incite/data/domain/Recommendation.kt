@@ -9,10 +9,10 @@ import java.util.*
 import javax.persistence.*
 
 @Entity
-class Recommendation: MachineLearning<Recommendation.Model>() {
+class Recommendation: MachineLearning<Recommendation.Algorithm, Recommendation.Model>() {
 
     @Convert(converter = AlgorithmJsonAttributeConverter::class)
-    lateinit var algorithm: Algorithm
+    override lateinit var algorithm: Algorithm
 
     @OneToMany
     @OrderBy("createdDateTime DESC")
@@ -28,9 +28,7 @@ class Recommendation: MachineLearning<Recommendation.Model>() {
             JsonSubTypes.Type(value = AlternatingLeastSquares::class, name = "ALS")
         ]
     )
-    abstract class Algorithm {
-
-    }
+    abstract class Algorithm: MachineLearning.Algorithm()
 
     @Converter
     class AlgorithmJsonAttributeConverter : AbstractJsonAttributeConverter<Classification.Algorithm>()

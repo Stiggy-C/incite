@@ -1,6 +1,7 @@
 package io.openenterprise.incite.ml.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.openenterprise.incite.data.domain.FrequentPatternMining
 import io.openenterprise.incite.data.domain.JdbcSource
 import io.openenterprise.incite.data.domain.MachineLearning
 import io.openenterprise.incite.data.domain.RdbmsDatabase
@@ -31,11 +32,11 @@ import javax.cache.Cache
 import javax.inject.Inject
 import javax.inject.Named
 
-abstract class AbstractMachineLearningServiceImpl<T: MachineLearning<*>>(
+abstract class AbstractMachineLearningServiceImpl<T : MachineLearning<*, *>>(
     private val datasetService: DatasetService,
     private val pipelineService: PipelineService
 
-    ) :
+) :
     MachineLearningService<T>,
     AbstractAbstractMutableEntityServiceImpl<T, String>() {
 
@@ -86,7 +87,8 @@ abstract class AbstractMachineLearningServiceImpl<T: MachineLearning<*>>(
             else
                 clientConnectorConfiguration!!.port
         val sqlConfiguration = igniteConfiguration.sqlConfiguration
-        val sqlSchema = if (ArrayUtils.isEmpty(sqlConfiguration.sqlSchemas)) "incite" else sqlConfiguration.sqlSchemas[0]
+        val sqlSchema =
+            if (ArrayUtils.isEmpty(sqlConfiguration.sqlSchemas)) "incite" else sqlConfiguration.sqlSchemas[0]
         val defaultQueryEngine = if (ArrayUtils.isEmpty(sqlConfiguration.queryEnginesConfiguration))
             "h2"
         else {
@@ -106,7 +108,8 @@ abstract class AbstractMachineLearningServiceImpl<T: MachineLearning<*>>(
         val rdbmsDatabase = RdbmsDatabase()
         rdbmsDatabase.driverClass = IgniteJdbcThinDriver::class.java.name
         rdbmsDatabase.password = "ignite"
-        rdbmsDatabase.url = "jdbc:ignite:thin://localhost:${clientConnectorPort}/${sqlSchema}?lazy=true&queryEngine=${defaultQueryEngine}"
+        rdbmsDatabase.url =
+            "jdbc:ignite:thin://localhost:${clientConnectorPort}/${sqlSchema}?lazy=true&queryEngine=${defaultQueryEngine}"
         rdbmsDatabase.username = "ignite"
         return rdbmsDatabase
     }
@@ -152,6 +155,15 @@ abstract class AbstractMachineLearningServiceImpl<T: MachineLearning<*>>(
         return datasetService.load(jdbcSource)
     }
 
+    protected open fun postProcessLoadedDataset(
+        algorithm: FrequentPatternMining.Algorithm,
+        dataset: Dataset<Row>
+    ): Dataset<Row> =
+        dataset
+
+    protected open fun <M : Model<M>> postProcessLoadedDataset(model: Model<M>, dataset: Dataset<Row>): Dataset<Row> =
+        dataset
+
     protected fun <M : Model<M>> predict(model: Model<M>, jsonOrSql: String): Dataset<Row> {
         val dataset = if (isJson(jsonOrSql)) {
             loadDatasetFromJson(jsonOrSql)
@@ -159,6 +171,6 @@ abstract class AbstractMachineLearningServiceImpl<T: MachineLearning<*>>(
             loadDatasetFromSql(jsonOrSql)
         }
 
-        return model.transform(dataset)
+        return model.transform(postProcessLoadedDataset(model, dataset))
     }
 }

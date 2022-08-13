@@ -15,9 +15,9 @@ organization. As of now, Incite is in proof of concept stage and is not recommen
 ### What frameworks/libraries are being utilised by Incite?
 As of now, the following frameworks are utilised by Incite,
 
-* Apache Camel 3.11.6 (Enterprise integration)
+* Apache Camel 3.18.1 (Enterprise integration)
 * Apache Ignite 2.13.0 (Compute grid/In memory database/Message grid)
-* Apache Spark 3.2.1 (Data analytic & machine learning)
+* Apache Spark 3.3.0 (Data analytic & machine learning)
 
 ![Component diagram](./component_diagram.png)
 
@@ -127,6 +127,13 @@ Currently, Incite only supports the following ML algorithms.
 ###### Supported algorithm:
 * Bisecting k-means
 * K-means
+
+
+#### Frequent Pattern Mining
+* FP-Growth
+
+For FP-Growth, user may change the following configuration,
+* itemsColumn [Array] (Default: items)
 
 #### Recommendation
 ###### Supported algorithm:

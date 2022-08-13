@@ -30,7 +30,7 @@ import java.util.*
 import javax.inject.Inject
 
 @RunWith(SpringRunner::class)
-class ClusteringServiceImplTest {
+class ClusteringServiceImplTest : AbstractMachineLearningServiceImplTest() {
 
     @Autowired
     private lateinit var clusteringRepository: ClusteringRepository
@@ -41,14 +41,8 @@ class ClusteringServiceImplTest {
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
 
-    @Autowired
-    private lateinit var kafkaContainer: KafkaContainer
-
     @Inject
     private lateinit var kafkaTemplate: KafkaTemplate<UUID, Map<String, Any>>
-
-    @Autowired
-    private lateinit var postgreSQLContainer: PostgreSQLContainer<*>
 
     @Before
     fun before() {
@@ -82,15 +76,14 @@ class ClusteringServiceImplTest {
             it.arguments[0]
         }
 
-        val clusteringId: UUID =
-            ClusteringService.setUp(algo, algoSpecificParams, sqlString, sinkTable, primaryKeyColumn)
+        val id = ClusteringService.setUp(algo, algoSpecificParams, sqlString, sinkTable, primaryKeyColumn)
 
-        Assert.assertNotNull(clusteringId)
+        Assert.assertNotNull(id)
     }
 
     @Test
     fun testTrainBisectingKMeansModel() {
-        val jdbcSource = jdbcSource()
+        val jdbcSource = jdbcSource("select g.id, g.age, g.sex from guest g")
 
         val algorithm = BisectingKMeans()
         algorithm.featureColumns = Sets.newHashSet("age", "sex")
@@ -112,7 +105,7 @@ class ClusteringServiceImplTest {
 
     @Test
     fun testTrainKMeansModel() {
-        val jdbcSource = jdbcSource()
+        val jdbcSource = jdbcSource("select g.id, g.age, g.sex from guest g")
 
         val algorithm = KMeans()
         algorithm.featureColumns = Sets.newHashSet("age", "sex")
@@ -136,7 +129,7 @@ class ClusteringServiceImplTest {
     fun testTrainKMeansModelFromJointDatasets() {
         val topic = "testBuildKMeansModelFromJointDatasets"
 
-        val jdbcSource = jdbcSource()
+        val jdbcSource = jdbcSource("select g.id, g.age, g.sex from guest g")
         val kafkaSource =
             kafkaSource(
                 topic,
@@ -176,7 +169,7 @@ class ClusteringServiceImplTest {
 
         givenClusteringIdReturnClusteringEntity(clustering)
 
-        val bisectingKMeansModel: KMeansModel = clusteringService.train(clustering)
+        val bisectingKMeansModel: BisectingKMeansModel = clusteringService.train(clustering)
 
         Assert.assertNotNull(bisectingKMeansModel)
         Assert.assertTrue(bisectingKMeansModel.clusterCenters().isNotEmpty())
@@ -185,33 +178,6 @@ class ClusteringServiceImplTest {
 
     private fun givenClusteringIdReturnClusteringEntity(clustering: Clustering) {
         Mockito.`when`(clusteringService.retrieve(clustering.id.toString())).thenReturn(clustering)
-    }
-
-    private fun jdbcSource(): JdbcSource {
-        val rdbmsDatabase = RdbmsDatabase()
-        rdbmsDatabase.driverClass = postgreSQLContainer.driverClassName
-        rdbmsDatabase.url = postgreSQLContainer.jdbcUrl
-        rdbmsDatabase.username = postgreSQLContainer.username
-        rdbmsDatabase.password = postgreSQLContainer.password
-
-        val jdbcSource = JdbcSource()
-        jdbcSource.query = "select g.id, g.age, g.sex from guest g"
-        jdbcSource.rdbmsDatabase = rdbmsDatabase
-        return jdbcSource
-    }
-
-    private fun kafkaSource(topic: String, vararg fields: Field): KafkaSource {
-        val kafkaCluster = KafkaCluster()
-        kafkaCluster.servers = kafkaContainer.bootstrapServers
-
-        val kafkaSource = KafkaSource()
-        kafkaSource.fields = Sets.newHashSet(*fields)
-        kafkaSource.kafkaCluster = kafkaCluster
-        kafkaSource.startingOffset = KafkaSource.Offset.Earliest
-        kafkaSource.streamingRead = false
-        kafkaSource.topic = topic
-
-        return kafkaSource
     }
 
     @TestConfiguration

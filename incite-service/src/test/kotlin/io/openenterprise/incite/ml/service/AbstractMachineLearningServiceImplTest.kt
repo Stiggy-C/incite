@@ -6,8 +6,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.google.common.collect.ImmutableMap
-import com.google.common.collect.Maps
-import io.openenterprise.incite.PipelineContext
+import com.google.common.collect.Sets
+import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.data.repository.AggregateRepository
 import io.openenterprise.incite.service.PipelineService
 import io.openenterprise.incite.service.PipelineServiceImpl
@@ -29,8 +29,9 @@ import org.apache.kafka.common.serialization.UUIDSerializer
 import org.apache.spark.sql.SparkSession
 import org.mockito.Mockito
 import org.postgresql.ds.PGSimpleDataSource
-import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
@@ -48,14 +49,59 @@ import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 import java.io.File
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 import javax.cache.Cache
 import javax.cache.configuration.MutableConfiguration
 import javax.sql.DataSource
 
 abstract class AbstractMachineLearningServiceImplTest {
 
-    @org.springframework.context.annotation.Configuration
+    @Autowired
+    protected lateinit var kafkaContainer: KafkaContainer
+
+    @Autowired
+    protected lateinit var postgreSQLContainer: PostgreSQLContainer<*>
+
+    protected fun jdbcSource(query: String): JdbcSource {
+        val rdbmsDatabase = rdbmsDatabase()
+
+        val jdbcSource = JdbcSource()
+        jdbcSource.query = query
+        jdbcSource.rdbmsDatabase = rdbmsDatabase
+
+        return jdbcSource
+    }
+
+    protected fun kafkaSource(topic: String, vararg fields: Field): KafkaSource {
+        val kafkaCluster = kafkaCluster()
+
+        val kafkaSource = KafkaSource()
+        kafkaSource.fields = Sets.newHashSet(*fields)
+        kafkaSource.kafkaCluster = kafkaCluster
+        kafkaSource.startingOffset = KafkaSource.Offset.Earliest
+        kafkaSource.streamingRead = false
+        kafkaSource.topic = topic
+
+        return kafkaSource
+    }
+
+    private fun kafkaCluster(): KafkaCluster {
+        val kafkaCluster = KafkaCluster()
+        kafkaCluster.servers = kafkaContainer.bootstrapServers
+
+        return kafkaCluster
+    }
+
+    private fun rdbmsDatabase(): RdbmsDatabase {
+        val rdbmsDatabase = RdbmsDatabase()
+        rdbmsDatabase.driverClass = postgreSQLContainer.driverClassName
+        rdbmsDatabase.url = postgreSQLContainer.jdbcUrl
+        rdbmsDatabase.username = postgreSQLContainer.username
+        rdbmsDatabase.password = postgreSQLContainer.password
+
+        return rdbmsDatabase
+    }
+
+    @TestConfiguration
     @ComponentScan(
         value = [
             "io.openenterprise.incite.spark.sql.service", "io.openenterprise.springframework.context"

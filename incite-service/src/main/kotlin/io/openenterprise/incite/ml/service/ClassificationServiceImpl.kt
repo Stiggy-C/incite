@@ -36,28 +36,6 @@ open class ClassificationServiceImpl(
         pipelineService
     ) {
 
-    override fun <M : Model<M>> train(entity: Classification): M {
-        val dataset = getAggregatedDataset(entity)
-
-        @Suppress("UNCHECKED_CAST")
-        return when (entity.algorithm) {
-            is LogisticRegression -> {
-                val logisticRegression = entity.algorithm as LogisticRegression
-
-                buildLogisticRegressionModel(
-                    dataset,
-                    logisticRegression.featureColumns.stream().collect(Collectors.joining(",")),
-                    logisticRegression.labelColumn,
-                    logisticRegression.elasticNetMixing,
-                    logisticRegression.maxIterations,
-                    logisticRegression.regularization
-                )
-            }
-            else ->
-                throw UnsupportedOperationException()
-        } as M
-    }
-
     override fun persistModel(entity: Classification, sparkModel: MLWritable): UUID {
         val modelId = putToCache(sparkModel)
         val model = Classification.Model()
@@ -81,11 +59,8 @@ open class ClassificationServiceImpl(
 
         val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val sparkModel: Model<*> = when (entity.algorithm) {
-            is LogisticRegression -> {
-                getFromCache<LogisticRegressionModel>(UUID.fromString(model.id))
-            }
-            else ->
-                throw UnsupportedOperationException()
+            is LogisticRegression -> getFromCache<LogisticRegressionModel>(UUID.fromString(model.id))
+            else -> throw UnsupportedOperationException()
         }
 
         val dataset = predict(sparkModel, jsonOrSql)
@@ -93,6 +68,28 @@ open class ClassificationServiceImpl(
         datasetService.write(dataset, entity.sinks, false)
 
         return dataset
+    }
+
+    override fun <M : Model<M>> train(entity: Classification): M {
+        val dataset = getAggregatedDataset(entity)
+
+        @Suppress("UNCHECKED_CAST")
+        return when (entity.algorithm) {
+            is LogisticRegression -> {
+                val logisticRegression = entity.algorithm as LogisticRegression
+
+                buildLogisticRegressionModel(
+                    dataset,
+                    logisticRegression.featureColumns.stream().collect(Collectors.joining(",")),
+                    logisticRegression.labelColumn,
+                    logisticRegression.elasticNetMixing,
+                    logisticRegression.maxIterations,
+                    logisticRegression.regularization
+                )
+            }
+            else ->
+                throw UnsupportedOperationException()
+        } as M
     }
 
     private fun buildLogisticRegressionModel(
