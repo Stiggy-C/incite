@@ -54,9 +54,16 @@ class Recommendation: MachineLearning<Recommendation.Algorithm, Recommendation.M
 
 class AlternatingLeastSquares: Recommendation.Algorithm() {
 
+    companion object {
+
+        @JvmStatic
+        val ITEM_COLUMN_DEFAULT: String = "item"
+
+    }
+
     var implicitPreference: Boolean = false
 
-    var itemColumn: String = "item"
+    var itemColumn: String = ITEM_COLUMN_DEFAULT
 
     var maxIteration: Int = 10
 

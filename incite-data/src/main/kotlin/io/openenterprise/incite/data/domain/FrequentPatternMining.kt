@@ -54,7 +54,14 @@ class FrequentPatternMining: MachineLearning<FrequentPatternMining.Algorithm, Fr
 
 class FPGrowth : FrequentPatternMining.Algorithm() {
 
-    val itemsColumn = "items"
+    companion object {
+
+        @JvmStatic
+        val ITEMS_COLUMN_DEFAULT : String = "items"
+
+    }
+
+    val itemsColumn = ITEMS_COLUMN_DEFAULT
 
     val minConfidence: Double = 0.8
 

@@ -66,14 +66,20 @@ class FrequentPatternMiningServiceImpl(
             is FPGrowth -> {
                 val fpGrowth = entity.algorithm as FPGrowth
 
-                buildFpGrowthModel(dataset, fpGrowth.minConfidence, fpGrowth.minSupport)
+                buildFpGrowthModel(dataset, fpGrowth.itemsColumn, fpGrowth.minConfidence, fpGrowth.minSupport)
             }
             else -> throw UnsupportedOperationException()
         } as M
     }
 
-    private fun buildFpGrowthModel(dataset: Dataset<Row>, minConfidence: Double, minSupport: Double): FPGrowthModel {
+    private fun buildFpGrowthModel(
+        dataset: Dataset<Row>,
+        itemsColumn: String,
+        minConfidence: Double,
+        minSupport: Double
+    ): FPGrowthModel {
         val fpGrowth = org.apache.spark.ml.fpm.FPGrowth()
+        fpGrowth.itemsCol = itemsColumn
         fpGrowth.minConfidence = minConfidence
         fpGrowth.minSupport = minSupport
 
@@ -86,14 +92,14 @@ class FrequentPatternMiningServiceImpl(
     ): Dataset<Row> {
         return when (algorithm) {
             is FPGrowth -> {
-                val itemsColField = dataset.schema().fields()[dataset.schema().fieldIndex("items")]
+                val itemsColField = dataset.schema().fields()[dataset.schema().fieldIndex(algorithm.itemsColumn)]
 
                 if (itemsColField.dataType() is ArrayType)
                     dataset
                 else {
                     // Need to convert itemsCol to arrayType:
                     val selects = dataset.schema().fields().asList().stream().map {
-                        if (it.name() == "items") {
+                        if (it.name() == algorithm.itemsColumn) {
                             "array(split(`${it.name()}`, ' ')) as `${it.name()}`"
                         } else {
                             it.name()
@@ -103,6 +109,7 @@ class FrequentPatternMiningServiceImpl(
                     dataset.selectExpr(*selects)
                 }
             }
+
             else -> throw UnsupportedOperationException()
         }
     }
@@ -127,6 +134,7 @@ class FrequentPatternMiningServiceImpl(
                     dataset.selectExpr(*selects)
                 }
             }
+
             else -> throw UnsupportedOperationException()
         }
     }
