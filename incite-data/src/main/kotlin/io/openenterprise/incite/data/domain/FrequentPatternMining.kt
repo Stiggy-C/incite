@@ -9,7 +9,7 @@ import java.util.*
 import javax.persistence.*
 
 @Entity
-class Classification: MachineLearning<Classification.Algorithm, Classification.Model>() {
+class FrequentPatternMining: MachineLearning<FrequentPatternMining.Algorithm, FrequentPatternMining.Model>() {
 
     @Convert(converter = AlgorithmJsonAttributeConverter::class)
     override lateinit var algorithm: Algorithm
@@ -25,25 +25,17 @@ class Classification: MachineLearning<Classification.Algorithm, Classification.M
     )
     @JsonSubTypes(
         value = [
-            JsonSubTypes.Type(value = LogisticRegression::class, name = "LogisticRegression")
+            JsonSubTypes.Type(value = FPGrowth::class, name = "FPGrowth")
         ]
     )
-    abstract class Algorithm: MachineLearning.Algorithm() {
-
-        var featureColumns: Set<String> = mutableSetOf()
-
-        var labelColumn: String = "label"
-
-    }
+    abstract class Algorithm: MachineLearning.Algorithm()
 
     @Converter
     class AlgorithmJsonAttributeConverter : AbstractJsonAttributeConverter<Algorithm>()
 
     @Entity
-    @Table(name = "classification_model")
-    class Model : AbstractEntity<String>(), Comparable<Model> {
-
-        var accuracy: Double? = 0.0
+    @Table(name = "frequent_pattern_mining_model")
+    class Model: AbstractEntity<String>(), Comparable<Model> {
 
         override fun compareTo(other: Model): Int {
             return Comparator.comparing<Model?, OffsetDateTime?> {
@@ -55,15 +47,23 @@ class Classification: MachineLearning<Classification.Algorithm, Classification.M
 
     enum class SupportedAlgorithm(val clazz: Class<*>) {
 
-        LOGISTIC_REGRESSION(LogisticRegression::class.java)
+        FP_GROWTH(FPGrowth::class.java)
+
     }
 }
 
-class LogisticRegression: Classification.Algorithm() {
+class FPGrowth : FrequentPatternMining.Algorithm() {
 
-    var elasticNetMixing: Double = 0.8
+    companion object {
 
-    var maxIterations: Int = 1
+        @JvmStatic
+        val ITEMS_COLUMN_DEFAULT : String = "items"
 
-    var regularization: Double = 0.3
+    }
+
+    val itemsColumn = ITEMS_COLUMN_DEFAULT
+
+    val minConfidence: Double = 0.8
+
+    val minSupport: Double = 0.3
 }

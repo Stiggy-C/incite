@@ -10,10 +10,10 @@ import javax.persistence.*
 import kotlin.Comparator
 
 @Entity
-class Clustering : MachineLearning<Clustering.Model>() {
+class Clustering : MachineLearning<Clustering.Algorithm, Clustering.Model>() {
 
     @Convert(converter = AlgorithmJsonAttributeConverter::class)
-    lateinit var algorithm: Algorithm
+    override lateinit var algorithm: Algorithm
 
     @OneToMany
     @OrderBy("createdDateTime DESC")
@@ -40,7 +40,7 @@ class Clustering : MachineLearning<Clustering.Model>() {
             JsonSubTypes.Type(value = KMeans::class, name = "KMeans")
         ]
     )
-    abstract class Algorithm {
+    abstract class Algorithm: MachineLearning.Algorithm() {
 
         var k: Int = 0
 

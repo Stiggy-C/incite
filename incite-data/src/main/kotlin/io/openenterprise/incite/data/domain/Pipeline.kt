@@ -47,9 +47,13 @@ open class Pipeline : AbstractMutableEntity<String>() {
 }
 
 @MappedSuperclass
-abstract class MachineLearning<M>: Pipeline() {
+abstract class MachineLearning<A: MachineLearning.Algorithm, M>: Pipeline() {
+
+    abstract var algorithm: A
 
     abstract var models: SortedSet<M>
+
+    abstract class Algorithm
 }
 
 @Converter

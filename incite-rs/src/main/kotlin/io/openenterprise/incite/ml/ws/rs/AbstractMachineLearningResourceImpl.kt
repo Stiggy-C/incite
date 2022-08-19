@@ -11,7 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import javax.persistence.EntityNotFoundException
 import javax.ws.rs.container.AsyncResponse
 
-abstract class AbstractMachineLearningResourceImpl<T : MachineLearning<*>> : MachineLearningResource<T>,
+abstract class AbstractMachineLearningResourceImpl<T : MachineLearning<*, *>> : MachineLearningResource<T>,
     AbstractAbstractMutableEntityResourceImpl<T, String>() {
 
     @Autowired

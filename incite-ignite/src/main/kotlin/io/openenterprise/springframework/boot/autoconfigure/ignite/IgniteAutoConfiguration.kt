@@ -83,7 +83,7 @@ class IgniteAutoConfiguration : org.apache.ignite.springframework.boot.autoconfi
         igniteJdbcThinDataSource.password = "ignite"
         igniteJdbcThinDataSource.username = "ignite"
         igniteJdbcThinDataSource.setUrl(
-            "jdbc:ignite:thin://localhost:${clientConnectorPort}/${sqlSchema}?lazy=true"
+            "jdbc:ignite:thin://127.0.0.1:${clientConnectorPort}/${sqlSchema}?lazy=true"
         )
 
         return igniteJdbcThinDataSource

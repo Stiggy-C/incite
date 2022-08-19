@@ -81,6 +81,7 @@ open class RecommendationServiceImpl(
                 buildAlsModel(
                     dataset,
                     algorithm.implicitPreference,
+                    algorithm.itemColumn,
                     algorithm.maxIteration,
                     algorithm.numberOfItemBlocks,
                     algorithm.numberOfUserBlocks,
@@ -126,6 +127,7 @@ open class RecommendationServiceImpl(
     private fun buildAlsModel(
         dataset: Dataset<Row>,
         implicitPreference: Boolean = false,
+        itemColumn: String = AlternatingLeastSquares.ITEM_COLUMN_DEFAULT,
         maxIteration: Int = 10,
         numberOfItemBlocks: Int = 10,
         numberOfUserBlocks: Int = 10,
@@ -133,6 +135,7 @@ open class RecommendationServiceImpl(
     ): ALSModel {
         val als = ALS()
         als.implicitPrefs = implicitPreference
+        als.itemCol = itemColumn
         als.maxIter = maxIteration
         als.numItemBlocks = numberOfItemBlocks
         als.numUserBlocks = numberOfUserBlocks

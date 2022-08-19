@@ -1,18 +1,14 @@
 package io.openenterprise.incite.ml.service
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import io.openenterprise.incite.data.domain.IgniteSink
-import io.openenterprise.incite.data.domain.JdbcSource
+import io.openenterprise.incite.data.domain.AlternatingLeastSquares
 import io.openenterprise.incite.data.domain.Recommendation
 import io.openenterprise.service.AbstractMutableEntityService
+import org.apache.ignite.IgniteException
 import org.apache.ignite.cache.query.annotations.QuerySqlFunction
 import org.apache.spark.ml.recommendation.ALSModel
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
 import java.util.*
-import javax.json.Json
-import javax.json.JsonObject
-import javax.json.JsonValue
 import javax.persistence.EntityNotFoundException
 
 interface RecommendationService : MachineLearningService<Recommendation>,
@@ -51,36 +47,20 @@ interface RecommendationService : MachineLearningService<Recommendation>,
             sinkTable: String,
             primaryKeyColumns: String
         ): UUID {
-            val objectMapper = getBean(ObjectMapper::class.java)
+            val algorithm = mergeParamsIntoAlgorithm(
+                Recommendation.SupportedAlgorithm.valueOf(algo).clazz.getDeclaredConstructor()
+                    .newInstance() as Recommendation.Algorithm, algoSpecificParams
+            )
+            val recommendation = setUpMachineLearning(
+                RecommendationService::class.java,
+                Recommendation(),
+                algorithm,
+                sourceSql,
+                sinkTable,
+                primaryKeyColumns
+            )
 
-            var algorithm =
-                Recommendation.SupportedAlgorithm.valueOf(algo).clazz.newInstance() as Recommendation.Algorithm
-            var algorithmAsJsonObject: JsonValue = objectMapper.convertValue(algorithm, JsonObject::class.java)
-            val algorithmSpecificParamsAsJsonObject = objectMapper.readValue(algoSpecificParams, JsonObject::class.java)
-            val jsonMergePatch = Json.createMergePatch(algorithmSpecificParamsAsJsonObject)
-
-            algorithmAsJsonObject = jsonMergePatch.apply(algorithmAsJsonObject)
-            algorithm = objectMapper.convertValue(algorithmAsJsonObject, algorithm::class.java)
-
-            val recommendationService = getBean(RecommendationService::class.java) as RecommendationServiceImpl
-
-            val embeddedIgniteRdbmsDatabase = recommendationService.buildEmbeddedIgniteRdbmsDatabase()
-
-            val jdbcSource = JdbcSource()
-            jdbcSource.rdbmsDatabase = embeddedIgniteRdbmsDatabase
-            jdbcSource.query = sourceSql
-
-            val jdbcSink = IgniteSink()
-            jdbcSink.rdbmsDatabase = embeddedIgniteRdbmsDatabase
-            jdbcSink.table = sinkTable
-            jdbcSink.primaryKeyColumns = primaryKeyColumns
-
-            val recommendation = Recommendation()
-            recommendation.algorithm = algorithm
-            recommendation.sources = mutableListOf(jdbcSource)
-            recommendation.sinks = mutableListOf(jdbcSink)
-
-            recommendationService.create(recommendation)
+            getBean(RecommendationService::class.java).create(recommendation)
 
             return UUID.fromString(recommendation.id)
         }
@@ -93,13 +73,16 @@ interface RecommendationService : MachineLearningService<Recommendation>,
          * @throws EntityNotFoundException If no such [Recommendation]
          */
         @JvmStatic
-        @Throws(EntityNotFoundException::class)
+        @Throws(IgniteException::class)
         @QuerySqlFunction(alias = "build_recommendation_model")
         fun train(id: String): UUID {
             val recommendationService = getBean(RecommendationService::class.java)
             val collaborativeFiltering = recommendationService.retrieve(id)
-                ?: throw EntityNotFoundException("CollaborativeFiltering with ID, $id, is not found")
-            val sparkModel: ALSModel = recommendationService.train(collaborativeFiltering)
+                ?: throw IgniteException(EntityNotFoundException("Recommendation (ID $id) is not found"))
+            val sparkModel = when (collaborativeFiltering.algorithm) {
+                is AlternatingLeastSquares -> recommendationService.train<ALSModel>(collaborativeFiltering)
+                else -> throw IgniteException(UnsupportedOperationException())
+            }
 
             return recommendationService.persistModel(collaborativeFiltering, sparkModel)
         }
