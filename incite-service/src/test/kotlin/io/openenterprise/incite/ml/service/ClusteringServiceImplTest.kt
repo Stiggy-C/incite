@@ -23,11 +23,9 @@ import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.test.context.junit4.SpringRunner
+import org.springframework.transaction.support.TransactionCallback
 import org.springframework.transaction.support.TransactionTemplate
-import org.testcontainers.containers.KafkaContainer
-import org.testcontainers.containers.PostgreSQLContainer
 import java.util.*
-import javax.inject.Inject
 
 @RunWith(SpringRunner::class)
 class ClusteringServiceImplTest : AbstractMachineLearningServiceImplTest() {
@@ -41,7 +39,7 @@ class ClusteringServiceImplTest : AbstractMachineLearningServiceImplTest() {
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
 
-    @Inject
+    @Autowired
     private lateinit var kafkaTemplate: KafkaTemplate<UUID, Map<String, Any>>
 
     @Before
@@ -94,7 +92,7 @@ class ClusteringServiceImplTest : AbstractMachineLearningServiceImplTest() {
         clustering.id = UUID.randomUUID().toString()
         clustering.sources = Lists.list(jdbcSource)
 
-        givenClusteringIdReturnClusteringEntity(clustering)
+        givenClusteringIdReturnClustering(clustering)
 
         val bisectingKMeansModel: BisectingKMeansModel = clusteringService.train(clustering)
 
@@ -116,7 +114,7 @@ class ClusteringServiceImplTest : AbstractMachineLearningServiceImplTest() {
         clustering.id = UUID.randomUUID().toString()
         clustering.sources = Lists.list(jdbcSource)
 
-        givenClusteringIdReturnClusteringEntity(clustering)
+        givenClusteringIdReturnClustering(clustering)
 
         val kMeansModel: KMeansModel = clusteringService.train(clustering)
 
@@ -167,16 +165,40 @@ class ClusteringServiceImplTest : AbstractMachineLearningServiceImplTest() {
         kafkaTemplate.send(topic, UUID.randomUUID(), message4).get()
         kafkaTemplate.send(topic, UUID.randomUUID(), message5).get()
 
-        givenClusteringIdReturnClusteringEntity(clustering)
+        givenClusteringIdReturnClustering(clustering)
 
-        val bisectingKMeansModel: BisectingKMeansModel = clusteringService.train(clustering)
+        val bisectingKMeansModel: KMeansModel = clusteringService.train(clustering)
 
         Assert.assertNotNull(bisectingKMeansModel)
         Assert.assertTrue(bisectingKMeansModel.clusterCenters().isNotEmpty())
         Assert.assertTrue(bisectingKMeansModel.hasSummary())
     }
 
-    private fun givenClusteringIdReturnClusteringEntity(clustering: Clustering) {
+    @Test
+    fun testPrediction() {
+        val jdbcSource = jdbcSource("select g.id, g.age, g.sex from guest g")
+
+        val algorithm = BisectingKMeans()
+        algorithm.featureColumns = Sets.newHashSet("age", "sex")
+        algorithm.k = 4
+
+        val clustering = Clustering()
+        clustering.algorithm = algorithm
+        clustering.id = UUID.randomUUID().toString()
+        clustering.sources = Lists.list(jdbcSource)
+
+        givenClusteringIdReturnClustering(clustering)
+
+        val bisectingKMeansModel: BisectingKMeansModel = clusteringService.train(clustering)
+        clusteringService.persistModel(clustering, bisectingKMeansModel)
+
+        val json = "{\"id\": \"10\", \"age\": 18, \"sex\": 0}"
+        val result = clusteringService.predict(clustering, json)
+
+        Assert.assertEquals(1, result.count())
+    }
+
+    private fun givenClusteringIdReturnClustering(clustering: Clustering) {
         Mockito.`when`(clusteringService.retrieve(clustering.id.toString())).thenReturn(clustering)
     }
 

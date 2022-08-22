@@ -3,6 +3,7 @@ package io.openenterprise.incite.ml.service
 import io.openenterprise.incite.data.domain.BisectingKMeans
 import io.openenterprise.incite.data.domain.Clustering
 import io.openenterprise.incite.data.domain.KMeans
+import io.openenterprise.incite.data.domain.MachineLearning
 import io.openenterprise.incite.service.PipelineService
 import io.openenterprise.incite.service.PipelineServiceImpl
 import io.openenterprise.incite.spark.sql.service.DatasetService
@@ -56,16 +57,17 @@ open class ClusteringServiceImpl(
         val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val sparkModel: Model<*> =
             when (entity.algorithm) {
-                is BisectingKMeans -> getFromCache<BisectingKMeansModel>(UUID.fromString(model.id))
-                is KMeans -> getFromCache<KMeansModel>(UUID.fromString(model.id))
+                is BisectingKMeans -> getFromCache(UUID.fromString(model.id), BisectingKMeansModel::class.java)
+                is KMeans -> getFromCache(UUID.fromString(model.id), KMeansModel::class.java)
                 else -> throw UnsupportedOperationException()
             }
 
-        val dataset = predict(sparkModel, jsonOrSql)
+        val dataset = postProcessLoadedDataset(entity.algorithm, sparkModel, loadDataset(jsonOrSql))
+        val result = predict(sparkModel, dataset)
 
-        datasetService.write(dataset, entity.sinks, false)
+        datasetService.write(result, entity.sinks, false)
 
-        return dataset
+        return result
     }
 
     override fun <M : Model<M>> train(entity: Clustering): M {
@@ -143,5 +145,20 @@ open class ClusteringServiceImpl(
                 .transform(dataset)
 
         return algorithm.fit(transformedDataset)
+    }
+
+    override fun <A : MachineLearning.Algorithm, M : Model<*>> postProcessLoadedDataset(
+        algorithm: A,
+        model: M,
+        dataset: Dataset<Row>
+    ): Dataset<Row> = when (algorithm) {
+        is Clustering.FeatureColumnsBasedAlgorithm -> {
+            val featuresColumns = algorithm.featureColumns
+
+            VectorAssembler().setInputCols(featuresColumns.toTypedArray())
+                .setOutputCol(((model as HasFeaturesCol).featuresCol))
+                .transform(dataset)
+        }
+        else -> throw UnsupportedOperationException()
     }
 }

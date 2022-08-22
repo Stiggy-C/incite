@@ -35,7 +35,7 @@ open class RecommendationServiceImpl(
         val model = recommendation.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val result = when (recommendation.algorithm) {
             is AlternatingLeastSquares -> {
-                val alsModel: ALSModel = getFromCache(UUID.fromString(model.id))
+                val alsModel = getFromCache(UUID.fromString(model.id), ALSModel::class.java)
 
                 recommendForAllUsers(alsModel, numberOfItems)
             }
@@ -59,7 +59,7 @@ open class RecommendationServiceImpl(
 
         val result = when (recommendation.algorithm) {
             is AlternatingLeastSquares -> {
-                val alsModel: ALSModel = getFromCache(UUID.fromString(model.id))
+                val alsModel = getFromCache(UUID.fromString(model.id), ALSModel::class.java)
 
                 recommendForUsersSubset(alsModel, jsonOrSql, numberOfItems)
             }
@@ -113,11 +113,12 @@ open class RecommendationServiceImpl(
 
         val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val sparkModel: Model<*> = when (val algorithm = entity.algorithm) {
-            is AlternatingLeastSquares -> getFromCache<ALSModel>(UUID.fromString(model.id))
+            is AlternatingLeastSquares -> getFromCache(UUID.fromString(model.id), ALSModel::class.java)
             else -> throw UnsupportedOperationException()
         }
 
-        val result = predict(sparkModel, jsonOrSql)
+        val dataset = postProcessLoadedDataset(entity.algorithm, sparkModel, loadDataset(jsonOrSql))
+        val result = predict(sparkModel, dataset)
 
         datasetService.write(result, entity.sinks, false)
 

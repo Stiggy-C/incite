@@ -15,7 +15,7 @@ import javax.json.JsonValue
 
 interface MachineLearningService<T : MachineLearning<*, *>> {
 
-    fun <M : Model<M>> getFromCache(modelId: UUID): M
+    fun <M : Model<M>> getFromCache(modelId: UUID, clazz: Class<M>): M
 
     fun persistModel(entity: T, sparkModel: MLWritable): UUID
 

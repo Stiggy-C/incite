@@ -59,15 +59,16 @@ open class ClassificationServiceImpl(
 
         val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val sparkModel: Model<*> = when (entity.algorithm) {
-            is LogisticRegression -> getFromCache<LogisticRegressionModel>(UUID.fromString(model.id))
+            is LogisticRegression -> getFromCache(UUID.fromString(model.id), LogisticRegressionModel::class.java)
             else -> throw UnsupportedOperationException()
         }
 
-        val dataset = predict(sparkModel, jsonOrSql)
+        val dataset = postProcessLoadedDataset(entity.algorithm, sparkModel, loadDataset(jsonOrSql))
+        val result = predict(sparkModel, dataset)
 
-        datasetService.write(dataset, entity.sinks, false)
+        datasetService.write(result, entity.sinks, false)
 
-        return dataset
+        return result
     }
 
     override fun <M : Model<M>> train(entity: Classification): M {

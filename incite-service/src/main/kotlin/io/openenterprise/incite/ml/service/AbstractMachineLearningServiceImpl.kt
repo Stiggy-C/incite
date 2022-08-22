@@ -1,10 +1,7 @@
 package io.openenterprise.incite.ml.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import io.openenterprise.incite.data.domain.FrequentPatternMining
-import io.openenterprise.incite.data.domain.JdbcSource
-import io.openenterprise.incite.data.domain.MachineLearning
-import io.openenterprise.incite.data.domain.RdbmsDatabase
+import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.service.PipelineService
 import io.openenterprise.incite.service.PipelineServiceImpl
 import io.openenterprise.incite.spark.sql.service.DatasetService
@@ -54,14 +51,14 @@ abstract class AbstractMachineLearningServiceImpl<T : MachineLearning<*, *>>(
     protected lateinit var sparkSession: SparkSession
 
     @Suppress("UNCHECKED_CAST")
-    override fun <M : Model<M>> getFromCache(modelId: UUID): M {
+    override fun <M : Model<M>> getFromCache(modelId: UUID, clazz: Class<M>): M {
         val path = "${FileUtils.getTempDirectoryPath()}/incite/ml/$modelId"
         val directory = File(path)
         val zipFile = modelsCache.get(modelId)
 
         ZipUtil.unpack(zipFile, directory)
 
-        return MethodUtils.invokeStaticMethod(Model::class.java, "load", directory.path) as M
+        return MethodUtils.invokeStaticMethod(clazz, "load", directory.path) as M
     }
 
     override fun putToCache(model: MLWritable): UUID {
@@ -130,6 +127,12 @@ abstract class AbstractMachineLearningServiceImpl<T : MachineLearning<*, *>>(
         return true
     }
 
+    protected fun loadDataset(jsonOrSql: String): Dataset<Row> = if (isJson(jsonOrSql)) {
+        loadDatasetFromJson(jsonOrSql)
+    } else {
+        loadDatasetFromSql(jsonOrSql)
+    }
+
     /**
      * TODO Refactor to take advantage of DatasetService
      */
@@ -137,13 +140,16 @@ abstract class AbstractMachineLearningServiceImpl<T : MachineLearning<*, *>>(
         val tempJsonFilePath = "${FileUtils.getTempDirectoryPath()}/incite/ml/temp/${UUID.randomUUID()}.json"
         val tempJsonFile = File(tempJsonFilePath)
 
-        val fileWriter = FileWriterWithEncoding(tempJsonFile, Charsets.UTF_8, false)
-        IOUtils.write(json, fileWriter)
+        if (!tempJsonFile.parentFile.exists()) {
+            tempJsonFile.parentFile.mkdir()
+        }
+
+        FileUtils.write(tempJsonFile, json, Charsets.UTF_8)
 
         try {
             return sparkSession.read().json(tempJsonFilePath)
         } finally {
-            FileUtils.deleteQuietly(tempJsonFile)
+            FileUtils.forceDeleteOnExit(tempJsonFile)
         }
     }
 
@@ -155,22 +161,20 @@ abstract class AbstractMachineLearningServiceImpl<T : MachineLearning<*, *>>(
         return datasetService.load(jdbcSource)
     }
 
-    protected open fun postProcessLoadedDataset(
-        algorithm: FrequentPatternMining.Algorithm,
+    protected open fun <A : MachineLearning.Algorithm, M : Model<*>> postProcessLoadedDataset(
+        algorithm: A,
+        model: M,
         dataset: Dataset<Row>
-    ): Dataset<Row> =
-        dataset
+    ): Dataset<Row> = dataset
+
+    protected open fun <A : MachineLearning.Algorithm> postProcessLoadedDataset(
+        algorithm: A,
+        dataset: Dataset<Row>
+    ): Dataset<Row> = dataset
 
     protected open fun <M : Model<M>> postProcessLoadedDataset(model: Model<M>, dataset: Dataset<Row>): Dataset<Row> =
         dataset
 
-    protected fun <M : Model<M>> predict(model: Model<M>, jsonOrSql: String): Dataset<Row> {
-        val dataset = if (isJson(jsonOrSql)) {
-            loadDatasetFromJson(jsonOrSql)
-        } else {
-            loadDatasetFromSql(jsonOrSql)
-        }
-
-        return model.transform(postProcessLoadedDataset(model, dataset))
-    }
+    protected fun <M : Model<M>> predict(model: Model<M>, dataset: Dataset<Row>): Dataset<Row> =
+        model.transform(dataset)
 }

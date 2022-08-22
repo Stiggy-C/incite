@@ -2,6 +2,7 @@ package io.openenterprise.incite.ml.service
 
 import io.openenterprise.incite.data.domain.FPGrowth
 import io.openenterprise.incite.data.domain.FrequentPatternMining
+import io.openenterprise.incite.data.domain.MachineLearning
 import io.openenterprise.incite.service.PipelineService
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import org.apache.spark.ml.Model
@@ -47,15 +48,16 @@ class FrequentPatternMiningServiceImpl(
 
         val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val sparkModel: Model<*> = when (entity.algorithm) {
-            is FPGrowth -> getFromCache<FPGrowthModel>(UUID.fromString(model.id))
+            is FPGrowth -> getFromCache(UUID.fromString(model.id), FPGrowthModel::class.java)
             else -> throw UnsupportedOperationException()
         }
 
-        val dataset = predict(sparkModel, jsonOrSql)
+        val dataset = postProcessLoadedDataset(entity.algorithm, sparkModel, loadDataset(jsonOrSql))
+        val result = predict(sparkModel, dataset)
 
-        datasetService.write(dataset, entity.sinks, false)
+        datasetService.write(result, entity.sinks, false)
 
-        return dataset
+        return result
     }
 
     override fun <M : Model<M>> train(entity: FrequentPatternMining): M {
@@ -86,8 +88,8 @@ class FrequentPatternMiningServiceImpl(
         return fpGrowth.fit(dataset)
     }
 
-    override fun postProcessLoadedDataset(
-        algorithm: FrequentPatternMining.Algorithm,
+    override fun <A : MachineLearning.Algorithm> postProcessLoadedDataset(
+        algorithm: A,
         dataset: Dataset<Row>
     ): Dataset<Row> {
         return when (algorithm) {
