@@ -28,7 +28,7 @@ class FrequentPatternMiningServiceImpl(
 ) {
 
     override fun persistModel(entity: FrequentPatternMining, sparkModel: MLWritable): UUID {
-        val modelId = putToCache(sparkModel)
+        val modelId = putToS3(sparkModel)
         val model = FrequentPatternMining.Model()
         model.id = modelId.toString()
 
@@ -48,7 +48,7 @@ class FrequentPatternMiningServiceImpl(
 
         val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val sparkModel: Model<*> = when (entity.algorithm) {
-            is FPGrowth -> getFromCache(UUID.fromString(model.id), FPGrowthModel::class.java)
+            is FPGrowth -> getFromS3(UUID.fromString(model.id), FPGrowthModel::class.java)
             else -> throw UnsupportedOperationException()
         }
 

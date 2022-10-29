@@ -6,8 +6,10 @@ import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.SparkSession
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
@@ -18,7 +20,7 @@ import org.springframework.context.annotation.Primary
 @ComponentScan("io.openenterprise.incite.spark.sql.streaming")
 @ConditionalOnClass(SparkContext::class)
 @EnableConfigurationProperties(SparkProperties::class)
-class SparkAutoConfiguration: io.openenterprise.springframework.boot.autoconfigure.spark.SparkAutoConfiguration() {
+class SparkAutoConfiguration : io.openenterprise.springframework.boot.autoconfigure.spark.SparkAutoConfiguration() {
 
     @Autowired
     protected lateinit var streamingQueryListener: StreamingQueryListener

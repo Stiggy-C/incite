@@ -34,7 +34,7 @@ open class ClusteringServiceImpl(
     AbstractMachineLearningServiceImpl<Clustering>(datasetService, pipelineService) {
 
     override fun persistModel(entity: Clustering, sparkModel: MLWritable): UUID {
-        val modelId = putToCache(sparkModel)
+        val modelId = putToS3(sparkModel)
         val model = Clustering.Model()
         model.id = modelId.toString()
 
@@ -57,8 +57,8 @@ open class ClusteringServiceImpl(
         val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val sparkModel: Model<*> =
             when (entity.algorithm) {
-                is BisectingKMeans -> getFromCache(UUID.fromString(model.id), BisectingKMeansModel::class.java)
-                is KMeans -> getFromCache(UUID.fromString(model.id), KMeansModel::class.java)
+                is BisectingKMeans -> getFromS3(UUID.fromString(model.id), BisectingKMeansModel::class.java)
+                is KMeans -> getFromS3(UUID.fromString(model.id), KMeansModel::class.java)
                 else -> throw UnsupportedOperationException()
             }
 

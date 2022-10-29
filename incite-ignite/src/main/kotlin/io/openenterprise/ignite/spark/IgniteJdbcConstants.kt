@@ -1,6 +1,6 @@
 package io.openenterprise.ignite.spark
 
-sealed class IgniteJdbcConstants {
+class IgniteJdbcConstants {
 
     companion object {
 
@@ -8,7 +8,7 @@ sealed class IgniteJdbcConstants {
         val CASE_SENSITIVE = "caseSensitive"
 
         @JvmStatic
-        val FORMAT = "ignite"
+        val IGNITE_FORMAT = "ignite"
 
         @JvmStatic
         val PRIMARY_KEY_COLUMNS = "primaryKeyFields"

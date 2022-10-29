@@ -15,13 +15,13 @@ import javax.json.JsonValue
 
 interface MachineLearningService<T : MachineLearning<*, *>> {
 
-    fun <M : Model<M>> getFromCache(modelId: UUID, clazz: Class<M>): M
+    fun <M : Model<M>> getFromS3(modelId: UUID, clazz: Class<M>): M
 
     fun persistModel(entity: T, sparkModel: MLWritable): UUID
 
     fun predict(entity: T, jsonOrSql: String): Dataset<Row>
 
-    fun putToCache(model: MLWritable): UUID
+    fun putToS3(model: MLWritable): UUID
 
     fun <M : Model<M>> train(entity: T): M
 

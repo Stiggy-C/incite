@@ -1,57 +1,49 @@
 package io.openenterprise.incite.ml.service
 
-import com.fasterxml.jackson.annotation.JsonInclude
+import com.amazonaws.ClientConfiguration
+import com.amazonaws.Protocol
+import com.amazonaws.auth.AWSStaticCredentialsProvider
+import com.amazonaws.auth.BasicAWSCredentials
+import com.amazonaws.client.builder.AwsClientBuilder
+import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.fasterxml.jackson.core.type.TypeReference
-import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.SerializationFeature
 import com.google.common.collect.ImmutableMap
 import com.google.common.collect.Sets
+import io.openenterprise.incite.TestUtils
 import io.openenterprise.incite.data.domain.*
-import io.openenterprise.incite.data.repository.AggregateRepository
-import io.openenterprise.incite.service.PipelineService
-import io.openenterprise.incite.service.PipelineServiceImpl
 import io.openenterprise.incite.spark.service.DatasetServiceImplTest
-import io.openenterprise.incite.spark.sql.service.DatasetService
-import io.openenterprise.incite.spark.sql.service.DatasetServiceImpl
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import org.apache.ignite.Ignite
-import org.apache.ignite.IgniteCluster
-import org.apache.ignite.Ignition
+import io.openenterprise.incite.spark.sql.streaming.StreamingQueryListener
 import org.apache.ignite.cache.CachingProvider
-import org.apache.ignite.cluster.ClusterState
-import org.apache.ignite.configuration.IgniteConfiguration
-import org.apache.ignite.configuration.SqlConfiguration
-import org.apache.ignite.indexing.IndexingQueryEngineConfiguration
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.UUIDSerializer
 import org.apache.spark.sql.SparkSession
-import org.mockito.Mockito
-import org.postgresql.ds.PGSimpleDataSource
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Value
+import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.test.context.TestConfiguration
-import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.ComponentScan
+import org.springframework.context.annotation.DependsOn
+import org.springframework.context.annotation.Import
+import org.springframework.context.annotation.Primary
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
-import org.springframework.expression.spel.standard.SpelExpressionParser
-import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.kafka.core.DefaultKafkaProducerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.core.ProducerFactory
 import org.springframework.kafka.support.serializer.JsonSerializer
-import org.springframework.transaction.support.TransactionTemplate
+import org.testcontainers.Testcontainers
+import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.KafkaContainer
+import org.testcontainers.containers.Network
 import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.containers.localstack.LocalStackContainer
 import org.testcontainers.utility.DockerImageName
 import java.io.File
 import java.util.*
 import javax.cache.Cache
 import javax.cache.configuration.MutableConfiguration
-import javax.sql.DataSource
 
 abstract class AbstractMachineLearningServiceImplTest {
 
@@ -84,17 +76,18 @@ abstract class AbstractMachineLearningServiceImplTest {
         return kafkaSource
     }
 
-    private fun kafkaCluster(): KafkaCluster {
+    protected fun kafkaCluster(): KafkaCluster {
         val kafkaCluster = KafkaCluster()
-        kafkaCluster.servers = kafkaContainer.bootstrapServers
+        kafkaCluster.servers = TestUtils.manipulateKafkaBootstrapServers(kafkaContainer)
+
 
         return kafkaCluster
     }
 
-    private fun rdbmsDatabase(): RdbmsDatabase {
+    protected fun rdbmsDatabase(): RdbmsDatabase {
         val rdbmsDatabase = RdbmsDatabase()
         rdbmsDatabase.driverClass = postgreSQLContainer.driverClassName
-        rdbmsDatabase.url = postgreSQLContainer.jdbcUrl
+        rdbmsDatabase.url = "jdbc:postgresql://host.testcontainers.internal:5432/${postgreSQLContainer.databaseName}"
         rdbmsDatabase.username = postgreSQLContainer.username
         rdbmsDatabase.password = postgreSQLContainer.password
 
@@ -102,80 +95,46 @@ abstract class AbstractMachineLearningServiceImplTest {
     }
 
     @TestConfiguration
-    @ComponentScan(
-        value = [
-            "io.openenterprise.incite.spark.sql.service", "io.openenterprise.springframework.context"
-        ]
-    )
+    @Import(io.openenterprise.incite.TestConfiguration::class)
     class Configuration {
 
         @Bean
-        protected fun aggregateRepository(): AggregateRepository = Mockito.mock(AggregateRepository::class.java)
-
-        @Bean
-        protected fun coroutineScope(): CoroutineScope = CoroutineScope(Dispatchers.Default)
-
-        @Bean
-        protected fun datasetService(
-            coroutineScope: CoroutineScope,
-            @Value("\${io.openenterprise.incite.spark.checkpoint-location-root:./spark-checkpoints}")
-            sparkCheckpointLocation: String,
-            sparkSession: SparkSession,
-            spelExpressionParser: SpelExpressionParser
-        ): DatasetService =
-            DatasetServiceImpl(coroutineScope, sparkCheckpointLocation, sparkSession, spelExpressionParser)
-
-        @Bean
-        protected fun dataSource(postgreSQLContainer: PostgreSQLContainer<*>): DataSource {
-            val datasource = PGSimpleDataSource()
-            datasource.setUrl(postgreSQLContainer.jdbcUrl)
-
-            datasource.user = postgreSQLContainer.username
-            datasource.password = postgreSQLContainer.password
-
-            return datasource
-        }
-
-        @Bean
-        protected fun ignite(applicationContext: ApplicationContext): Ignite {
-            val indexingQueryEngineConfiguration = IndexingQueryEngineConfiguration()
-            indexingQueryEngineConfiguration.isDefault = true
-
-            val sqlConfiguration = SqlConfiguration()
-            sqlConfiguration.setQueryEnginesConfiguration(indexingQueryEngineConfiguration)
-
-            val igniteConfiguration = IgniteConfiguration()
-            igniteConfiguration.igniteInstanceName = this::class.java.simpleName
-            igniteConfiguration.sqlConfiguration = sqlConfiguration
-
-            return Ignition.getOrStart(igniteConfiguration)
-        }
-
-        @Bean
-        protected fun igniteCluster(ignite: Ignite): IgniteCluster {
-            val igniteCluster = ignite.cluster()
-
-            try {
-                return igniteCluster
-            } finally {
-                igniteCluster.state(ClusterState.ACTIVE)
-            }
-        }
-
-        @Bean
-        protected fun jdbcTemplate(datasource: DataSource): JdbcTemplate = JdbcTemplate(datasource)
-
-        @Bean
-        protected fun kafkaContainer(): KafkaContainer {
-            val kafkaContainer = KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:latest"))
-            kafkaContainer.start()
-
-            return kafkaContainer
-        }
+        protected fun amazonS3(localStackContainer: LocalStackContainer): AmazonS3 = AmazonS3ClientBuilder.standard()
+            .withClientConfiguration(ClientConfiguration().withProtocol(Protocol.HTTP))
+            .withCredentials(
+                AWSStaticCredentialsProvider(
+                    BasicAWSCredentials(localStackContainer.accessKey, localStackContainer.secretKey)
+                )
+            )
+            .withEndpointConfiguration(
+                AwsClientBuilder.EndpointConfiguration(
+                    "host.testcontainers.internal:4566",
+                    localStackContainer.region
+                )
+            )
+            .withPathStyleAccessEnabled(true)
+            .build()
 
         @Bean
         protected fun kafkaTemplate(producerFactory: ProducerFactory<UUID, Map<String, Any>>): KafkaTemplate<UUID, Map<String, Any>> =
             KafkaTemplate(producerFactory)
+
+        @Bean
+        @Order(Ordered.HIGHEST_PRECEDENCE + 1)
+        protected fun localStackContainer(network: Network): LocalStackContainer {
+            val localStackContainer = LocalStackContainer(DockerImageName.parse("localstack/localstack:1.2.0"))
+                .withExposedPorts(4566)
+                .withNetwork(network)
+                .withNetworkAliases("aws")
+                .withNetworkMode("host")
+                .withServices(LocalStackContainer.Service.S3)
+
+            localStackContainer.portBindings = listOf("4566:4566")
+
+            localStackContainer.start().apply { Testcontainers.exposeHostPorts(4566) }
+
+            return localStackContainer
+        }
 
         @Bean("mlModelsCache")
         fun mlModelsCache(): Cache<UUID, File> {
@@ -187,36 +146,13 @@ abstract class AbstractMachineLearningServiceImplTest {
         }
 
         @Bean
-        fun objectMapper(): ObjectMapper = ObjectMapper()
-            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-            .findAndRegisterModules()
-            .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
-
-        @Bean
-        protected fun pipelineService(datasetService: DatasetService, ignite: Ignite): PipelineService =
-            PipelineServiceImpl(datasetService, ignite)
-
-        @Bean
-        protected fun postgreSQLContainer(): PostgreSQLContainer<*> {
-            val postgreSQLContainer: PostgreSQLContainer<*> =
-                PostgreSQLContainer<PostgreSQLContainer<*>>("postgres:latest")
-            postgreSQLContainer.withPassword("test_password")
-            postgreSQLContainer.withUsername("test_user")
-
-            postgreSQLContainer.start()
-
-            return postgreSQLContainer
-        }
-
-        @Bean
         protected fun producerFactory(
-            kafkaContainer: KafkaContainer,
-            objectMapper: ObjectMapper
+            kafkaContainer: io.openenterprise.testcontainers.containers.KafkaContainer, objectMapper: ObjectMapper
         ): ProducerFactory<UUID, Map<String, Any>> {
+            val bootstrapServers = TestUtils.manipulateKafkaBootstrapServers(kafkaContainer)
+
             val configurations = ImmutableMap.builder<String, Any>()
-                .put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.bootstrapServers)
-                .build()
+                .put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers).build()
 
             return DefaultKafkaProducerFactory(
                 configurations,
@@ -226,23 +162,45 @@ abstract class AbstractMachineLearningServiceImplTest {
         }
 
         @Bean
-        @Order(Ordered.HIGHEST_PRECEDENCE)
-        protected fun sparkSession(): SparkSession {
-            return SparkSession.builder()
+        @ConditionalOnBean(LocalStackContainer::class)
+        @DependsOn("sparkWorkerContainer")
+        @Primary
+        protected fun sparkSession(
+            @Qualifier("sparkMasterContainer") genericContainer: GenericContainer<*>,
+            localStackContainer: LocalStackContainer,
+            streamingQueryListener: StreamingQueryListener
+        ): SparkSession {
+            /* val userDir = System.getProperty("user.dir")
+            val inciteIgniteJar = "${userDir}/../incite-ignite/target/incite-ignite-0.0.1-SNAPSHOT.jar"
+            val inciteServiceJar = "${userDir}/../incite-service/target/incite-service-0.0.1-SNAPSHOT.jar"
+
+            val userHome = System.getProperty("user.home")
+            val apacheCommonsPool2Jar = "${userHome}/.m2/repository/org/apache/commons/commons-pool2/2.11.1/commons-pool2-2.11.1.jar"
+            val apacheKafkaClientJar = "${userHome}/.m2/repository/org/apache/kafka/kafka-clients/3.1.2/kafka-clients-3.1.2.jar"
+            val apacheSparkSqlKafkaJar = "${userHome}/.m2/repository/org/apache/spark/spark-sql-kafka-0-10_2.12/3.3.0/spark-sql-kafka-0-10_2.12-3.3.0.jar"
+            val apacheSparkTokenProviderJar = "${userHome}/.m2/repository/org/apache/spark/spark-token-provider-kafka-0-10_2.12/3.3.0/spark-token-provider-kafka-0-10_2.12-3.3.0.jar"*/
+
+            val sparkSession = SparkSession.builder()
                 .appName(DatasetServiceImplTest::class.java.simpleName)
-                .master("local[*]")
+                .master("spark://127.0.0.1:7077")
                 .config("spark.executor.memory", "512m")
                 .config("spark.executor.memoryOverhead", "512m")
-                .config("spark.memory.offHeap.enabled", true)
+                .config("spark.hadoop.fs.s3a.access.key", localStackContainer.accessKey)
+                .config("spark.hadoop.fs.s3a.secret.key", localStackContainer.secretKey)
+                .config("spark.hadoop.fs.s3a.connection.ssl.enabled", false)
+                .config("spark.hadoop.fs.s3a.endpoint", "host.testcontainers.internal:4566")
+                .config("spark.hadoop.fs.s3a.path.style.access", true)
+                /*.config("spark.jars", "$apacheCommonsPool2Jar, $apacheKafkaClientJar, $apacheSparkSqlKafkaJar," +
+                        " $apacheSparkTokenProviderJar, $inciteIgniteJar, $inciteServiceJar")*/
+                .config("spark.memory.offHeap.enabled", "true")
                 .config("spark.memory.offHeap.size", "512m")
-                .config("spark.sql.streaming.schemaInference", true)
+                .config("spark.sql.streaming.schemaInference", "true")
+                .config("spark.submit.deployMode", "client")
                 .orCreate
+
+            sparkSession.streams().addListener(streamingQueryListener)
+
+            return sparkSession
         }
-
-        @Bean
-        protected fun spelExpressionParser(): SpelExpressionParser = SpelExpressionParser()
-
-        @Bean
-        protected fun transactionTemplate(): TransactionTemplate = Mockito.mock(TransactionTemplate::class.java)
     }
 }

@@ -1,15 +1,19 @@
 package io.openenterprise.incite.ml.service
 
+import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.s3control.model.NotFoundException
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ArrayNode
+import io.awspring.cloud.core.io.s3.SimpleStorageResource
 import io.openenterprise.incite.data.domain.*
 import io.openenterprise.incite.service.PipelineService
 import io.openenterprise.incite.service.PipelineServiceImpl
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import io.openenterprise.service.AbstractAbstractMutableEntityServiceImpl
+import org.apache.commons.collections4.IteratorUtils
 import org.apache.commons.io.FileUtils
-import org.apache.commons.io.IOUtils
-import org.apache.commons.io.output.FileWriterWithEncoding
 import org.apache.commons.lang3.ArrayUtils
+import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.reflect.MethodUtils
 import org.apache.ignite.Ignite
 import org.apache.ignite.IgniteJdbcThinDriver
@@ -19,12 +23,15 @@ import org.apache.ignite.indexing.IndexingQueryEngineConfiguration
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.Encoders
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.SparkSession
-import org.zeroturnaround.zip.ZipUtil
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.core.task.SyncTaskExecutor
 import java.io.File
 import java.io.IOException
 import java.util.*
+import java.util.stream.Collectors
 import javax.cache.Cache
 import javax.inject.Inject
 import javax.inject.Named
@@ -32,45 +39,57 @@ import javax.inject.Named
 abstract class AbstractMachineLearningServiceImpl<T : MachineLearning<*, *>>(
     private val datasetService: DatasetService,
     private val pipelineService: PipelineService
-
 ) :
     MachineLearningService<T>,
     AbstractAbstractMutableEntityServiceImpl<T, String>() {
 
     @Inject
-    protected lateinit var ignite: Ignite
+    protected lateinit var amazonS3: AmazonS3
 
     @Inject
+    protected lateinit var ignite: Ignite
+
+    /*@Inject
     @Named("mlModelsCache")
-    protected lateinit var modelsCache: Cache<UUID, File>
+    protected lateinit var modelsCache: Cache<UUID, File>*/
 
     @Inject
     protected lateinit var objectMapper: ObjectMapper
+
+    @Value("\${incite.aws.s3.bucket:incite}")
+    protected lateinit var s3Bucket: String
 
     @Inject
     protected lateinit var sparkSession: SparkSession
 
     @Suppress("UNCHECKED_CAST")
-    override fun <M : Model<M>> getFromCache(modelId: UUID, clazz: Class<M>): M {
-        val path = "${FileUtils.getTempDirectoryPath()}/incite/ml/$modelId"
-        val directory = File(path)
-        val zipFile = modelsCache.get(modelId)
+    override fun <M : Model<M>> getFromS3(modelId: UUID, clazz: Class<M>): M {
+        if (!amazonS3.doesBucketExistV2(s3Bucket)) {
+            throw NotFoundException("Bucket, $s3Bucket, is not exist")
+        }
 
-        ZipUtil.unpack(zipFile, directory)
+        val s3path = "ml/models/$modelId"
+        val s3Resource = SimpleStorageResource(amazonS3, s3Bucket, s3path, SyncTaskExecutor())
+        val s3Uri = s3Resource.s3Uri
 
-        return MethodUtils.invokeStaticMethod(clazz, "load", directory.path) as M
+        return MethodUtils.invokeStaticMethod(
+            clazz, "load",
+            StringUtils.replace(s3Uri.toString(), "s3", "s3a")
+        ) as M
     }
 
-    override fun putToCache(model: MLWritable): UUID {
+    override fun putToS3(model: MLWritable): UUID {
+        if (!amazonS3.doesBucketExistV2(s3Bucket)) {
+            amazonS3.createBucket(s3Bucket)
+        }
+
         val modelId = UUID.randomUUID()
-        val path = "${FileUtils.getTempDirectoryPath()}/incite/ml/$modelId"
-        val directory = File(path)
-        val zipFile = File("$path.zip")
 
-        model.write().overwrite().save(path)
-        ZipUtil.pack(directory, zipFile)
+        val s3path = "ml/models/$modelId"
+        val s3Resource = SimpleStorageResource(amazonS3, s3Bucket, s3path, SyncTaskExecutor())
+        val s3Uri = s3Resource.s3Uri
 
-        modelsCache.put(modelId, zipFile)
+        model.write().overwrite().save(StringUtils.replace(s3Uri.toString(), "s3", "s3a"))
 
         return modelId
     }
@@ -133,24 +152,20 @@ abstract class AbstractMachineLearningServiceImpl<T : MachineLearning<*, *>>(
         loadDatasetFromSql(jsonOrSql)
     }
 
-    /**
-     * TODO Refactor to take advantage of DatasetService
-     */
-    protected fun loadDatasetFromJson(json: String): Dataset<Row> {
-        val tempJsonFilePath = "${FileUtils.getTempDirectoryPath()}/incite/ml/temp/${UUID.randomUUID()}.json"
-        val tempJsonFile = File(tempJsonFilePath)
-
-        if (!tempJsonFile.parentFile.exists()) {
-            tempJsonFile.parentFile.mkdir()
+    protected fun loadDatasetFromJson(jsonString: String): Dataset<Row> {
+        val jsonNode = objectMapper.readTree(jsonString)
+        val jsonData = if (jsonNode.isArray) {
+            IteratorUtils.toList((jsonNode as ArrayNode).elements())
+        } else {
+            listOf(jsonNode)
         }
 
-        FileUtils.write(tempJsonFile, json, Charsets.UTF_8)
-
-        try {
-            return sparkSession.read().json(tempJsonFilePath)
-        } finally {
-            FileUtils.forceDeleteOnExit(tempJsonFile)
-        }
+        return sparkSession.read().json(
+            sparkSession.createDataset(
+                jsonData.stream().map { it.toString() }.collect(Collectors.toList()),
+                Encoders.STRING()
+            )
+        )
     }
 
     protected fun loadDatasetFromSql(sql: String): Dataset<Row> {

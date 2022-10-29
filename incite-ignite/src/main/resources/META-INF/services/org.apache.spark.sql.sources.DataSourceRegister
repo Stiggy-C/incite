@@ -1,1 +1,1 @@
-io.openenterprise.ignite.spark.impl.IgniteRelationProvider
+io.openenterprise.ignite.spark.sql.execution.datasources.jdbc.IgniteH2RelationProvider

@@ -15,12 +15,12 @@ class JCacheConfiguration {
     @Autowired
     lateinit var cacheManager: CacheManager
 
-    @Bean("mlModelsCache")
+    /*@Bean("mlModelsCache")
     fun mlModelsCache(): Cache<UUID, File> {
         val mutableConfiguration: MutableConfiguration<UUID, File> =
             MutableConfiguration<UUID, File>()
         mutableConfiguration.setTypes(UUID::class.java, File::class.java)
 
         return cacheManager.createCache("mlModels", mutableConfiguration)
-    }
+    }*/
 }

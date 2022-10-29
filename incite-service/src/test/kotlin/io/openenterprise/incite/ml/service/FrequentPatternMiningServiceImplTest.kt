@@ -1,16 +1,15 @@
 package io.openenterprise.incite.ml.service
 
-import io.openenterprise.incite.data.domain.Clustering
 import io.openenterprise.incite.data.domain.FPGrowth
 import io.openenterprise.incite.data.domain.FrequentPatternMining
-import io.openenterprise.incite.data.domain.JdbcSource
 import io.openenterprise.incite.data.repository.FrequentPatternMiningRepository
 import io.openenterprise.incite.service.PipelineService
 import io.openenterprise.incite.spark.sql.service.DatasetService
 import org.apache.spark.ml.fpm.FPGrowthModel
-import org.junit.Assert
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito
@@ -23,12 +22,12 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.test.context.junit4.SpringRunner
 import org.springframework.transaction.support.TransactionTemplate
-import org.testcontainers.containers.KafkaContainer
-import org.testcontainers.containers.PostgreSQLContainer
 import java.util.*
 import javax.inject.Inject
 
+@Ignore
 @RunWith(SpringRunner::class)
+@Import(AbstractMachineLearningServiceImplTest.Configuration::class)
 class FrequentPatternMiningServiceImplTest : AbstractMachineLearningServiceImplTest() {
 
     @Autowired
@@ -98,12 +97,6 @@ class FrequentPatternMiningServiceImplTest : AbstractMachineLearningServiceImplT
     }
 
     @TestConfiguration
-    @ComponentScan(
-        value = [
-            "io.openenterprise.incite.spark.sql.service", "io.openenterprise.springframework.context"
-        ]
-    )
-    @Import(AbstractMachineLearningServiceImplTest.Configuration::class)
     class Configuration {
 
         @Bean

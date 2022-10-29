@@ -11,6 +11,7 @@ import org.assertj.core.util.Lists
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito
@@ -25,10 +26,12 @@ import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.containers.PostgreSQLContainer
 import java.util.*
 
+@Ignore
 @RunWith(SpringRunner::class)
-class ClassificationServiceImplTest {
+@Import(AbstractMachineLearningServiceImplTest.Configuration::class)
+class ClassificationServiceImplTest : AbstractMachineLearningServiceImplTest() {
 
-    private var classification = Classification()
+    private val classification = Classification()
 
     @Autowired
     private lateinit var classificationRepository: ClassificationRepository
@@ -39,16 +42,9 @@ class ClassificationServiceImplTest {
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
 
-    @Autowired
-    private lateinit var postgreSQLContainer: PostgreSQLContainer<*>
-
     @Before
     fun before() {
-        val rdbmsDatabase = RdbmsDatabase()
-        rdbmsDatabase.driverClass = postgreSQLContainer.driverClassName
-        rdbmsDatabase.url = postgreSQLContainer.jdbcUrl
-        rdbmsDatabase.username = postgreSQLContainer.username
-        rdbmsDatabase.password = postgreSQLContainer.password
+        val rdbmsDatabase = rdbmsDatabase()
 
         val jdbcSource = JdbcSource()
         jdbcSource.query = "select g.id, g.age, g.sex, g.result from guest g"
@@ -115,12 +111,6 @@ class ClassificationServiceImplTest {
     }
 
     @TestConfiguration
-    @ComponentScan(
-        value = [
-            "io.openenterprise.incite.spark.sql.service", "io.openenterprise.springframework.context"
-        ]
-    )
-    @Import(AbstractMachineLearningServiceImplTest.Configuration::class)
     class Configuration {
 
         @Bean

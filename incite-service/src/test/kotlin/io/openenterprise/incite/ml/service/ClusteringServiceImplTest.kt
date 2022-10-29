@@ -12,22 +12,23 @@ import org.apache.spark.ml.clustering.KMeansModel
 import org.assertj.core.util.Lists
 import org.junit.Assert
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.test.context.junit4.SpringRunner
-import org.springframework.transaction.support.TransactionCallback
 import org.springframework.transaction.support.TransactionTemplate
 import java.util.*
 
+@Ignore
 @RunWith(SpringRunner::class)
+@Import(AbstractMachineLearningServiceImplTest.Configuration::class)
 class ClusteringServiceImplTest : AbstractMachineLearningServiceImplTest() {
 
     @Autowired
@@ -203,12 +204,6 @@ class ClusteringServiceImplTest : AbstractMachineLearningServiceImplTest() {
     }
 
     @TestConfiguration
-    @ComponentScan(
-        value = [
-            "io.openenterprise.incite.spark.sql.service", "io.openenterprise.springframework.context"
-        ]
-    )
-    @Import(AbstractMachineLearningServiceImplTest.Configuration::class)
     class Configuration {
 
         @Bean

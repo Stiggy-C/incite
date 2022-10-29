@@ -10,6 +10,8 @@ class SparkProperties {
 
     var executor: Properties = Properties()
 
+    var hadoop: Properties = Properties()
+
     var master: String? = null
 
     var memory: Properties = Properties()

@@ -7,6 +7,7 @@ import io.openenterprise.incite.spark.sql.service.DatasetService
 import org.apache.spark.ml.recommendation.ALSModel
 import org.junit.Assert.assertNotNull
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito
@@ -21,8 +22,12 @@ import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.containers.PostgreSQLContainer
 import java.util.*
 
+@Ignore
 @RunWith(SpringRunner::class)
-class RecommendationServiceImplTest {
+@Import(AbstractMachineLearningServiceImplTest.Configuration::class)
+class RecommendationServiceImplTest : AbstractMachineLearningServiceImplTest() {
+
+    private val recommendation: Recommendation = Recommendation()
 
     @Autowired
     private lateinit var recommendationRepository: RecommendationRepository
@@ -33,18 +38,9 @@ class RecommendationServiceImplTest {
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
 
-    @Autowired
-    private lateinit var postgreSQLContainer: PostgreSQLContainer<*>
-
-    private var recommendation: Recommendation = Recommendation()
-
     @Before
     fun before() {
-        val rdbmsDatabase = RdbmsDatabase()
-        rdbmsDatabase.driverClass = postgreSQLContainer.driverClassName
-        rdbmsDatabase.url = postgreSQLContainer.jdbcUrl
-        rdbmsDatabase.username = postgreSQLContainer.username
-        rdbmsDatabase.password = postgreSQLContainer.password
+        val rdbmsDatabase = rdbmsDatabase()
 
         val jdbcSource = JdbcSource()
         jdbcSource.query = "select r.\"user\", r.item, r.rating from rating r"
@@ -97,12 +93,6 @@ class RecommendationServiceImplTest {
     }
 
     @TestConfiguration
-    @ComponentScan(
-        value = [
-            "io.openenterprise.incite.spark.sql.service", "io.openenterprise.springframework.context"
-        ]
-    )
-    @Import(AbstractMachineLearningServiceImplTest.Configuration::class)
     class Configuration {
 
         @Bean

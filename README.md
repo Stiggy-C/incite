@@ -1,27 +1,37 @@
 
 # Incite
 
-## What is Incite?
-Incite is built on top of popular data related frameworks/tools in the Java ecosystem. A lot of SMBs may not be able to 
-afford having its own team of data engineers & data scientists. Incite aims to become a solution for such problem and 
-hopes to become an easy-to-use data hub by providing easier access of popular data related technologies to 
-non-developers (i.e. Data analyst) in an organization. As of now, Incite is in proof of concept stage and is not 
-recommended for production use.
+### Updates
+#### Oct 29, 2022
+* Incite has been updated to work with (& tested against) Apache Spark standalone cluster. 
+* Incite now requires a S3 compatible storage for storing built model as Incite will no longer store an archive of the
+model
+* [Reference Docker file](./Dockerfiles/spark/Dockerfile) provided to build incite compatible Apache Spark Docker image.
 
-### What can Incite do?
+## What is Incite?
+Incite is a distributed data platform which built on top of popular data related frameworks/tools in the Java ecosystem. 
+Many SMBs may not be able to afford having its own team of data engineers & data scientists. Incite aims to be the
+solution of such problem by providing an easy-to-use data hub which allows easier access of popular data related
+technologies to non-developers (i.e. business analyst) in an organization. As of now, Incite is in proof of concept 
+stage and is not recommended for production use.
+
+### What Incite can do?
 * Data pipeline ([streaming] aggregation & [streaming] transformation)
 * Enterprise integration/message bus
 * Hybrid transaction/analytical processing (HTAP) SQL database
 * Machine Learning as a service
 
-### What frameworks/libraries are being utilised by Incite?
-As of now, Incite is powered by the following frameworks/libraries,
+### What Incite is built upon?
+As of now, Incite is powered by the following frameworks/libraries/technologies,
 
-* Apache Camel 3.18.1 (Enterprise integration)
-* Apache Ignite 2.13.0 (Compute grid/In memory database/Message grid)
+* Apache Camel 3.18.2 (Enterprise integration)
+* Apache Ignite 2.14.0 (Compute grid/In memory database/Message grid)
 * Apache Spark 3.3.0 (Data analytic & machine learning)
 
 ![Component diagram](./component_diagram.png)
+
+### What Incite requires to run?
+* AWS S3 or compatible storage service
 
 ## Data [streaming] aggregation & [streaming] transformation
 Data aggregation is to compile and combine data from different data-sources for different kind of data-processing. 
@@ -214,7 +224,7 @@ select recommendation_predict('791ed421-4ba6-4fcb-8d09-22fda3d99696', 'select * 
 ## Roadmap
 
 * Apache Spark 3.2.x :white_check_mark:
-* Apache Spark 3.3.x
+* Apache Spark 3.3.x :white_check_mark:
 * Calcite based SQL engine (w/ Apache Ignite 2.13.x) :white_check_mark:
 * Completion of documentation
 * Completion of unit tests
@@ -231,7 +241,6 @@ select recommendation_predict('791ed421-4ba6-4fcb-8d09-22fda3d99696', 'select * 
 * RedisStreamSource
 * Spring Boot 2.7.x :white_check_mark:
 * SQL function to start data [streaming] aggregate
-
 
 ## Acknowledgment
 

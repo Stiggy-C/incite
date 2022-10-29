@@ -38,6 +38,16 @@
             <version>${jackson.version}</version>
         </dependency>
         <dependency>
+            <groupId>com.github.luben</groupId>
+            <artifactId>zstd-jni</artifactId>
+            <version>1.5.2-1</version>
+        </dependency>
+        <dependency>
+            <groupId>io.awspring.cloud</groupId>
+            <artifactId>spring-cloud-aws-core</artifactId>
+            <version>2.4.2</version>
+        </dependency>
+        <dependency>
             <groupId>io.openenterprise</groupId>
             <artifactId>incite-camel</artifactId>
             <version>${project.version}</version>
@@ -45,7 +55,23 @@
         </dependency>
         <dependency>
             <groupId>io.openenterprise</groupId>
+            <artifactId>incite-data</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.openenterprise</groupId>
             <artifactId>incite-ignite</artifactId>
+            <version>${project.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.luben</groupId>
+                    <artifactId>zstd-jni</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.openenterprise</groupId>
+            <artifactId>incite-spark</artifactId>
             <version>${project.version}</version>
             <exclusions>
                 <exclusion>
@@ -57,11 +83,6 @@
                     <artifactId>commons-compiler</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>io.openenterprise</groupId>
-            <artifactId>incite-data</artifactId>
-            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.camel</groupId>
@@ -161,7 +182,7 @@
                         <plugin>all-open</plugin>
                         <plugin>spring</plugin>
                     </compilerPlugins>
-                    <jvmTarget>1.8</jvmTarget>
+                    <jvmTarget>${java.version}</jvmTarget>
                 </configuration>
                 <executions>
                     <execution>

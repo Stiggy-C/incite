@@ -37,7 +37,7 @@ open class ClassificationServiceImpl(
     ) {
 
     override fun persistModel(entity: Classification, sparkModel: MLWritable): UUID {
-        val modelId = putToCache(sparkModel)
+        val modelId = putToS3(sparkModel)
         val model = Classification.Model()
         model.id = modelId.toString()
 
@@ -59,7 +59,7 @@ open class ClassificationServiceImpl(
 
         val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val sparkModel: Model<*> = when (entity.algorithm) {
-            is LogisticRegression -> getFromCache(UUID.fromString(model.id), LogisticRegressionModel::class.java)
+            is LogisticRegression -> getFromS3(UUID.fromString(model.id), LogisticRegressionModel::class.java)
             else -> throw UnsupportedOperationException()
         }
 

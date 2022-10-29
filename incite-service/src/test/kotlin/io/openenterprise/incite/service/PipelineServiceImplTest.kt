@@ -1,67 +1,43 @@
 package io.openenterprise.incite.service
 
-import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.core.type.TypeReference
-import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.SerializationFeature
 import com.google.common.collect.ImmutableMap
-import com.google.common.collect.Maps
-import io.openenterprise.incite.PipelineContext
+import io.openenterprise.incite.TestUtils
 import io.openenterprise.incite.data.domain.*
-import io.openenterprise.incite.data.repository.AggregateRepository
-import io.openenterprise.incite.spark.sql.service.DatasetService
-import io.openenterprise.incite.spark.service.DatasetServiceImplTest
-import io.openenterprise.incite.spark.sql.service.DatasetServiceImpl
 import io.openenterprise.incite.spark.sql.streaming.DataStreamWriterHolder
-import io.openenterprise.incite.spark.sql.streaming.StreamingQueryListener
+import io.openenterprise.testcontainers.containers.KafkaContainer
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.apache.ignite.Ignite
-import org.apache.ignite.IgniteCluster
 import org.apache.ignite.IgniteJdbcThinDriver
-import org.apache.ignite.Ignition
-import org.apache.ignite.cluster.ClusterState
-import org.apache.ignite.configuration.IgniteConfiguration
-import org.apache.ignite.configuration.SqlConfiguration
-import org.apache.ignite.indexing.IndexingQueryEngineConfiguration
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.UUIDSerializer
-import org.apache.spark.sql.SparkSession
 import org.assertj.core.util.Lists
-import org.junit.Assert.*
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.FixMethodOrder
+import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.Mockito
+import org.junit.runners.MethodSorters
 import org.mockito.internal.util.collections.Sets
-import org.postgresql.ds.PGSimpleDataSource
-import org.springframework.beans.factory.annotation.Qualifier
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.test.context.TestConfiguration
-import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.ComponentScan
-import org.springframework.core.Ordered
-import org.springframework.core.annotation.Order
-import org.springframework.expression.spel.standard.SpelExpressionParser
+import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.kafka.core.DefaultKafkaProducerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.core.ProducerFactory
 import org.springframework.kafka.support.serializer.JsonSerializer
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
-import org.springframework.transaction.support.TransactionTemplate
-import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.containers.PostgreSQLContainer
-import org.testcontainers.utility.DockerImageName
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
-import javax.sql.DataSource
-import kotlin.collections.HashMap
 
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
+@Ignore
 @RunWith(SpringJUnit4ClassRunner::class)
 class PipelineServiceImplTest {
 
@@ -236,7 +212,7 @@ class PipelineServiceImplTest {
         pipelineId: String, embeddedIgniteSinkId: UUID, igniteTable: String, kafkaTopic: String
     ): Pipeline {
         val rdbmsDatabase0 = RdbmsDatabase()
-        rdbmsDatabase0.url = postgreSQLContainer.jdbcUrl
+        rdbmsDatabase0.url = "jdbc:postgresql://host.testcontainers.internal:5432/${postgreSQLContainer.databaseName}"
         rdbmsDatabase0.driverClass = "org.postgresql.Driver"
         rdbmsDatabase0.password = postgreSQLContainer.password
         rdbmsDatabase0.username = postgreSQLContainer.username
@@ -247,7 +223,7 @@ class PipelineServiceImplTest {
             "select g.id as guest_id, g.membership_number, g.created_date_time, g.last_login_date_time from guest g order by last_login_date_time desc"
 
         val kafkaCluster = KafkaCluster()
-        kafkaCluster.servers = kafkaContainer.bootstrapServers
+        kafkaCluster.servers = TestUtils.manipulateKafkaBootstrapServers(kafkaContainer)
 
         val kafkaSource = KafkaSource()
         kafkaSource.fields = Sets.newSet(
@@ -266,7 +242,7 @@ class PipelineServiceImplTest {
 
         val rdbmsDatabase1 = RdbmsDatabase()
         rdbmsDatabase1.driverClass = IgniteJdbcThinDriver::class.java.name
-        rdbmsDatabase1.url = "jdbc:ignite:thin://localhost:10800?lazy=true&queryEngine=h2"
+        rdbmsDatabase1.url = "jdbc:ignite:thin://host.testcontainers.internal:10800?lazy=true&queryEngine=h2"
         rdbmsDatabase1.username = "ignite"
         rdbmsDatabase1.password = "ignite"
 
@@ -300,105 +276,21 @@ class PipelineServiceImplTest {
     )
 
     @TestConfiguration
-    @ComponentScan(
-        value = ["io.openenterprise.incite.spark.sql.service", "io.openenterprise.incite.spark.sql.streaming", "io.openenterprise.springframework.context"]
-    )
+    @Import(io.openenterprise.incite.TestConfiguration::class)
     class Configuration {
 
         @Bean
-        protected fun aggregateRepository(): AggregateRepository = Mockito.mock(AggregateRepository::class.java)
-
-        @Bean
-        protected fun coroutineScope(): CoroutineScope = CoroutineScope(Dispatchers.Default)
-
-        @Bean
-        protected fun datasetService(
-            coroutineScope: CoroutineScope,
-            @Value("\${io.openenterprise.incite.spark.checkpoint-location-root:./spark-checkpoints}") sparkCheckpointLocation: String,
-            sparkSession: SparkSession,
-            spelExpressionParser: SpelExpressionParser
-        ): DatasetService =
-            DatasetServiceImpl(coroutineScope, sparkCheckpointLocation, sparkSession, spelExpressionParser)
-
-        @Bean
-        protected fun dataSource(postgreSQLContainer: PostgreSQLContainer<*>): DataSource {
-            val datasource = PGSimpleDataSource()
-            datasource.setUrl(postgreSQLContainer.jdbcUrl)
-
-            datasource.user = postgreSQLContainer.username
-            datasource.password = postgreSQLContainer.password
-
-            return datasource
-        }
-
-        @Bean
-        protected fun ignite(applicationContext: ApplicationContext): Ignite {
-            val indexingQueryEngineConfiguration = IndexingQueryEngineConfiguration()
-            indexingQueryEngineConfiguration.isDefault = true
-
-            val sqlConfiguration = SqlConfiguration()
-            sqlConfiguration.setQueryEnginesConfiguration(indexingQueryEngineConfiguration)
-
-            val igniteConfiguration = IgniteConfiguration()
-            igniteConfiguration.igniteInstanceName = this::class.java.simpleName
-            igniteConfiguration.sqlConfiguration = sqlConfiguration
-
-            return Ignition.getOrStart(igniteConfiguration)
-        }
-
-        @Bean
-        protected fun igniteCluster(ignite: Ignite): IgniteCluster {
-            val igniteCluster = ignite.cluster()
-
-            try {
-                return igniteCluster
-            } finally {
-                igniteCluster.state(ClusterState.ACTIVE)
-            }
-        }
-
-        @Bean
-        protected fun jdbcTemplate(datasource: DataSource): JdbcTemplate = JdbcTemplate(datasource)
-
-        @Bean
-        protected fun kafkaContainer(): KafkaContainer {
-            val kafkaContainer = KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:latest"))
-            kafkaContainer.start()
-
-            return kafkaContainer
-        }
-
-        @Bean
-        protected fun kafkaTemplate(producerFactory: ProducerFactory<UUID, AwsDmsMessage>): KafkaTemplate<UUID, AwsDmsMessage> =
+        protected fun kafkaTemplate(producerFactory: ProducerFactory<UUID, PipelineServiceImplTest.AwsDmsMessage>): KafkaTemplate<UUID, PipelineServiceImplTest.AwsDmsMessage> =
             KafkaTemplate(producerFactory)
-
-        @Bean
-        fun objectMapper(): ObjectMapper = ObjectMapper().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).findAndRegisterModules()
-            .setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL)
-
-        @Bean
-        protected fun pipelineService(datasetService: DatasetService, ignite: Ignite): PipelineService =
-            PipelineServiceImpl(datasetService, ignite)
-
-        @Bean
-        protected fun postgreSQLContainer(): PostgreSQLContainer<*> {
-            val postgreSQLContainer: PostgreSQLContainer<*> =
-                PostgreSQLContainer<PostgreSQLContainer<*>>("postgres:latest")
-            postgreSQLContainer.withPassword("test_password")
-            postgreSQLContainer.withUsername("test_user")
-
-            postgreSQLContainer.start()
-
-            return postgreSQLContainer
-        }
 
         @Bean
         protected fun producerFactory(
             kafkaContainer: KafkaContainer, objectMapper: ObjectMapper
         ): ProducerFactory<UUID, AwsDmsMessage> {
+            val bootstrapServers = TestUtils.manipulateKafkaBootstrapServers(kafkaContainer)
+
             val configurations = ImmutableMap.builder<String, Any>()
-                .put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.bootstrapServers).build()
+                .put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers).build()
 
             return DefaultKafkaProducerFactory(
                 configurations,
@@ -407,28 +299,5 @@ class PipelineServiceImplTest {
             )
         }
 
-        @Bean
-        @Order(Ordered.HIGHEST_PRECEDENCE)
-        protected fun sparkSession(streamingQueryListener: StreamingQueryListener): SparkSession {
-            val sparkSession = SparkSession.builder()
-                .appName(DatasetServiceImplTest::class.java.simpleName)
-                .master("local[*]")
-                .config("spark.executor.memory", "512m")
-                .config("spark.executor.memoryOverhead", "512m")
-                .config("spark.memory.offHeap.enabled", true)
-                .config("spark.memory.offHeap.size", "512m")
-                .config("spark.sql.streaming.schemaInference", true)
-                .orCreate
-
-            sparkSession.streams().addListener(streamingQueryListener)
-
-            return sparkSession
-        }
-
-        @Bean
-        protected fun spelExpressionParser(): SpelExpressionParser = SpelExpressionParser()
-
-        @Bean
-        protected fun transactionTemplate(): TransactionTemplate = Mockito.mock(TransactionTemplate::class.java)
     }
 }

@@ -35,7 +35,7 @@ open class RecommendationServiceImpl(
         val model = recommendation.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val result = when (recommendation.algorithm) {
             is AlternatingLeastSquares -> {
-                val alsModel = getFromCache(UUID.fromString(model.id), ALSModel::class.java)
+                val alsModel = getFromS3(UUID.fromString(model.id), ALSModel::class.java)
 
                 recommendForAllUsers(alsModel, numberOfItems)
             }
@@ -59,7 +59,7 @@ open class RecommendationServiceImpl(
 
         val result = when (recommendation.algorithm) {
             is AlternatingLeastSquares -> {
-                val alsModel = getFromCache(UUID.fromString(model.id), ALSModel::class.java)
+                val alsModel = getFromS3(UUID.fromString(model.id), ALSModel::class.java)
 
                 recommendForUsersSubset(alsModel, jsonOrSql, numberOfItems)
             }
@@ -93,7 +93,7 @@ open class RecommendationServiceImpl(
     }
 
     override fun persistModel(entity: Recommendation, sparkModel: MLWritable): UUID {
-        val modelId = putToCache(sparkModel)
+        val modelId = putToS3(sparkModel)
         val model = Recommendation.Model()
         model.id = modelId.toString()
 
@@ -113,7 +113,7 @@ open class RecommendationServiceImpl(
 
         val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
         val sparkModel: Model<*> = when (val algorithm = entity.algorithm) {
-            is AlternatingLeastSquares -> getFromCache(UUID.fromString(model.id), ALSModel::class.java)
+            is AlternatingLeastSquares -> getFromS3(UUID.fromString(model.id), ALSModel::class.java)
             else -> throw UnsupportedOperationException()
         }
 

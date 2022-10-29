@@ -36,6 +36,10 @@ class SparkAutoConfiguration {
             sparkConf.set("spark.executor.${it.key}", it.value.toString())
         }
 
+        sparkProperties.hadoop.entries.stream().forEach {
+            sparkConf.set("spark.hadoop.${it.key}", it.value.toString())
+        }
+
         sparkProperties.memory.entries.stream().forEach {
             sparkConf.set("spark.memory.${it.key}", it.value.toString())
         }

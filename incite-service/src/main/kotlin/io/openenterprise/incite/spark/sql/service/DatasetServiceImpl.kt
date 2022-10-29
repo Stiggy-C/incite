@@ -142,7 +142,7 @@ open class DatasetServiceImpl(
         var dataFrameWriter = when (sink) {
             is IgniteSink -> {
                 dataset.write()
-                    .format(IgniteJdbcConstants.FORMAT)
+                    .format(IgniteJdbcConstants.IGNITE_FORMAT)
                     .option(IgniteJdbcConstants.PRIMARY_KEY_COLUMNS, sink.primaryKeyColumns)
             }
             is JdbcSink -> {
@@ -271,11 +271,13 @@ open class DatasetServiceImpl(
         var dataset: Dataset<Row> = if (kafkaSource.streamingRead) sparkSession.readStream()
             .format("kafka")
             .option("kafka.bootstrap.servers", kafkaSource.kafkaCluster.servers)
+            .option("kafka.listeners", kafkaSource.kafkaCluster.servers)
             .option("startingOffsets", kafkaSource.startingOffset.name.lowercase())
             .option("subscribe", kafkaSource.topic)
             .load()
         else sparkSession.read().format("kafka")
             .option("kafka.bootstrap.servers", kafkaSource.kafkaCluster.servers)
+            .option("kafka.listeners", kafkaSource.kafkaCluster.servers)
             .option("startingOffsets", "earliest")
             .option("subscribe", kafkaSource.topic)
             .load()

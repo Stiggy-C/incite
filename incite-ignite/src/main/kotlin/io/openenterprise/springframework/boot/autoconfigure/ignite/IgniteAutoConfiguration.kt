@@ -1,8 +1,8 @@
 package io.openenterprise.springframework.boot.autoconfigure.ignite
 
-import org.apache.commons.lang.BooleanUtils
-import org.apache.commons.lang.StringUtils
 import org.apache.commons.lang3.ArrayUtils
+import org.apache.commons.lang3.BooleanUtils
+import org.apache.commons.lang3.StringUtils
 import org.apache.ignite.*
 import org.apache.ignite.configuration.ClientConnectorConfiguration
 import org.apache.ignite.configuration.IgniteConfiguration

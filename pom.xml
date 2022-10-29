@@ -13,40 +13,40 @@
 
 	<modules>
 		<module>incite-util</module>
-		<module>incite-camel</module>
 		<module>incite-spark</module>
 		<module>incite-ignite</module>
+		<module>incite-camel</module>
 		<module>incite-data</module>
 		<module>incite-service</module>
         <module>incite-rs</module>
 		<module>incite-distro</module>
-	</modules>
+    </modules>
 
 	<properties>
-		<java.version>8</java.version>
+		<java.version>1.8</java.version>
 		<maven.compiler.source>${java.version}</maven.compiler.source>
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<javax.el.version>3.0.0</javax.el.version>
 		<javax.json-api.version>1.1.4</javax.json-api.version>
-		<camel.version><!--3.11.6--><!--3.14.4-->3.18.1</camel.version>
+		<camel.version><!--3.11.6--><!--3.14.4-->3.18.2</camel.version>
 		<commons-collections4.version>4.4</commons-collections4.version>
 		<commons-lagn3.version>3.12.0</commons-lagn3.version>
 		<flyway.version><!--7.11.4-->8.5.13</flyway.version>
-		<hadoop.version>3.3.2</hadoop.version>
-		<ignite.version>2.13.0</ignite.version>
-		<jackson.version><!--2.12.6-->2.13.3</jackson.version>
+		<hadoop.version>3.3.4</hadoop.version>
+		<ignite.version>2.14.0</ignite.version>
+		<jackson.version><!--2.12.6-->2.13.4</jackson.version>
 		<junit.version>4.13.2</junit.version>
 		<kotlin.code.style>official</kotlin.code.style>
 		<kotlin.version><!--1.5.32-->1.6.21</kotlin.version>
 		<kotlin-coroutines.version><!--1.5.2-native-mt-->1.6.1-native-mt</kotlin-coroutines.version>
-		<mockito.version><!--4.3.1-->4.6.1</mockito.version>
-		<postgresql-jdbc.version>42.3.5</postgresql-jdbc.version>
+		<mockito.version><!--4.3.1-->4.8.1</mockito.version>
+		<postgresql-jdbc.version>42.5.0</postgresql-jdbc.version>
 		<reflections.version>0.10.2</reflections.version>
-		<snakeyaml.version>1.30</snakeyaml.version>
+		<snakeyaml.version>1.33</snakeyaml.version>
 		<spark.version><!--2.4.8-->3.3.0</spark.version>
-		<spring-boot.version><!--2.5.14-->2.7.2</spring-boot.version>
-		<testcontainers.version>1.17.3</testcontainers.version>
+		<spring-boot.version><!--2.5.14-->2.7.5</spring-boot.version>
+		<testcontainers.version>1.17.5</testcontainers.version>
 		<zeroturnaround.version>1.15</zeroturnaround.version>
 	</properties>
 
