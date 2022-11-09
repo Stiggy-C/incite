@@ -11,8 +11,8 @@ import javax.ws.rs.core.MediaType
 
 @Path("/classifications")
 @Component
-class ClassificationResourceImpl : ClassificationResource,
-    AbstractMachineLearningResourceImpl<Classification>() {
+class ClassificationResourceImpl : AbstractMachineLearningResourceImpl<Classification, Classification.Model>(),
+    ClassificationResource {
 
     @GET
     @Path("/{id}/model")

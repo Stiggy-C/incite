@@ -2,7 +2,6 @@ package io.openenterprise.incite.data.domain
 
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
-import io.openenterprise.data.domain.AbstractEntity
 import io.openenterprise.data.domain.AbstractJsonAttributeConverter
 import java.time.OffsetDateTime
 import java.util.*
@@ -17,6 +16,11 @@ class Recommendation: MachineLearning<Recommendation.Algorithm, Recommendation.M
     @OneToMany
     @OrderBy("createdDateTime DESC")
     override var models: SortedSet<Model> = TreeSet()
+
+    @Transient
+    override fun newModelInstance(): Model {
+        return Model()
+    }
 
     @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
@@ -35,7 +39,7 @@ class Recommendation: MachineLearning<Recommendation.Algorithm, Recommendation.M
 
     @Entity
     @Table(name = "recommendation_model")
-    class Model : AbstractEntity<String>(), Comparable<Model> {
+    class Model : MachineLearning.Model<Model>() {
 
         var rootMeanSquaredError: Double? = null
 
@@ -46,7 +50,7 @@ class Recommendation: MachineLearning<Recommendation.Algorithm, Recommendation.M
         }
     }
 
-    enum class SupportedAlgorithm(val clazz: Class<*>) {
+    enum class SupportedAlgorithm(val clazz: Class<out MachineLearning.Algorithm>) {
 
         ALTERNATING_LEAST_SQUARES(AlternatingLeastSquares::class.java)
     }

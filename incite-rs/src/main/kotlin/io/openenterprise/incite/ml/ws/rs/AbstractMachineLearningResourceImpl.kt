@@ -11,14 +11,14 @@ import org.springframework.beans.factory.annotation.Autowired
 import javax.persistence.EntityNotFoundException
 import javax.ws.rs.container.AsyncResponse
 
-abstract class AbstractMachineLearningResourceImpl<T : MachineLearning<*, *>> : MachineLearningResource<T>,
-    AbstractAbstractMutableEntityResourceImpl<T, String>() {
+abstract class AbstractMachineLearningResourceImpl<T : MachineLearning<out MachineLearning.Algorithm, out MachineLearning.Model<M>>, M : MachineLearning.Model<M>> :
+    AbstractAbstractMutableEntityResourceImpl<T, String>(), MachineLearningResource<T, M> {
 
     @Autowired
     lateinit var datasetService: DatasetService
 
     @Autowired
-    lateinit var machineLearningService: MachineLearningService<T>
+    lateinit var machineLearningService: MachineLearningService<T, out MachineLearning.Algorithm, out MachineLearning.Model<M>>
 
     override fun buildModel(id: String, asyncResponse: AsyncResponse) {
         coroutineScope.launch {

@@ -17,6 +17,10 @@ class Classification: MachineLearning<Classification.Algorithm, Classification.M
     @OneToMany
     @OrderBy("createdDateTime DESC")
     override var models: SortedSet<Model> = TreeSet()
+    @Transient
+    override fun newModelInstance(): Model {
+        return Model()
+    }
 
     @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
@@ -33,7 +37,6 @@ class Classification: MachineLearning<Classification.Algorithm, Classification.M
         var featureColumns: Set<String> = mutableSetOf()
 
         var labelColumn: String = "label"
-
     }
 
     @Converter
@@ -41,7 +44,7 @@ class Classification: MachineLearning<Classification.Algorithm, Classification.M
 
     @Entity
     @Table(name = "classification_model")
-    class Model : AbstractEntity<String>(), Comparable<Model> {
+    class Model : MachineLearning.Model<Model>() {
 
         var accuracy: Double? = 0.0
 
@@ -53,7 +56,7 @@ class Classification: MachineLearning<Classification.Algorithm, Classification.M
         }
     }
 
-    enum class SupportedAlgorithm(val clazz: Class<*>) {
+    enum class SupportedAlgorithm(val clazz: Class<out MachineLearning.Algorithm>) {
 
         LOGISTIC_REGRESSION(LogisticRegression::class.java)
     }

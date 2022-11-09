@@ -1,20 +1,21 @@
 package io.openenterprise.incite.ml.service
 
-import io.openenterprise.incite.data.domain.AlternatingLeastSquares
+import io.openenterprise.incite.data.domain.MachineLearning
 import io.openenterprise.incite.data.domain.Recommendation
 import io.openenterprise.service.AbstractMutableEntityService
 import org.apache.ignite.IgniteException
 import org.apache.ignite.cache.query.annotations.QuerySqlFunction
-import org.apache.spark.ml.recommendation.ALSModel
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
 import java.util.*
 import javax.persistence.EntityNotFoundException
 
-interface RecommendationService : MachineLearningService<Recommendation>,
+interface RecommendationService :
+    MachineLearningService<Recommendation, Recommendation.Algorithm, Recommendation.Model>,
     AbstractMutableEntityService<Recommendation, String> {
 
-    companion object : MachineLearningService.BaseCompanionObject() {
+    companion object :
+        MachineLearningService.BaseCompanionObject<Recommendation, Recommendation.Algorithm, Recommendation.Model, RecommendationService>() {
 
         /**
          * Perform classification defined by the given [io.openenterprise.incite.data.domain.Recommendation]
@@ -27,43 +28,17 @@ interface RecommendationService : MachineLearningService<Recommendation>,
          */
         @JvmStatic
         @QuerySqlFunction(alias = "recommendation_predict")
-        fun predict(id: String, jsonOrSql: String): Long {
-            val recommendationService = getBean(RecommendationService::class.java)
-            val collaborativeFiltering = recommendationService.retrieve(id)
-                ?: throw EntityNotFoundException("Classification with ID, $id, is not found")
-            val result = recommendationService.predict(collaborativeFiltering, jsonOrSql)
-
-            writeToSinks(result, collaborativeFiltering.sinks)
-
-            return result.count()
-        }
+        override fun predict(id: String, jsonOrSql: String): Long = super.predict(id, jsonOrSql)
 
         @JvmStatic
         @QuerySqlFunction(alias = "set_up_recommendation")
-        fun setUp(
+        override fun setUp(
             algo: String,
             algoSpecificParams: String,
             sourceSql: String,
             sinkTable: String,
             primaryKeyColumns: String
-        ): UUID {
-            val algorithm = mergeParamsIntoAlgorithm(
-                Recommendation.SupportedAlgorithm.valueOf(algo).clazz.getDeclaredConstructor()
-                    .newInstance() as Recommendation.Algorithm, algoSpecificParams
-            )
-            val recommendation = setUpMachineLearning(
-                RecommendationService::class.java,
-                Recommendation(),
-                algorithm,
-                sourceSql,
-                sinkTable,
-                primaryKeyColumns
-            )
-
-            getBean(RecommendationService::class.java).create(recommendation)
-
-            return UUID.fromString(recommendation.id)
-        }
+        ): UUID = super.setUp(algo, algoSpecificParams, sourceSql, sinkTable, primaryKeyColumns)
 
         /**
          * Train a model for the given [Recommendation] if there is such an entity.
@@ -74,18 +49,14 @@ interface RecommendationService : MachineLearningService<Recommendation>,
          */
         @JvmStatic
         @Throws(IgniteException::class)
-        @QuerySqlFunction(alias = "build_recommendation_model")
-        fun train(id: String): UUID {
-            val recommendationService = getBean(RecommendationService::class.java)
-            val collaborativeFiltering = recommendationService.retrieve(id)
-                ?: throw IgniteException(EntityNotFoundException("Recommendation (ID $id) is not found"))
-            val sparkModel = when (collaborativeFiltering.algorithm) {
-                is AlternatingLeastSquares -> recommendationService.train<ALSModel>(collaborativeFiltering)
-                else -> throw IgniteException(UnsupportedOperationException())
-            }
+        @QuerySqlFunction(alias = "train_recommendation_model")
+        override fun train(id: String): UUID = super.train(id)
+        override fun getMachineLearningClass(): Class<Recommendation> = Recommendation::class.java
 
-            return recommendationService.persistModel(collaborativeFiltering, sparkModel)
-        }
+        override fun getMachineLearningAlgorithmClass(algo: String): Class<out MachineLearning.Algorithm> =
+            Recommendation.SupportedAlgorithm.valueOf(algo).clazz
+
+        override fun getMachineLearningService(): RecommendationService = getBean(RecommendationService::class.java)
     }
 
     fun recommendForAllUsers(recommendation: Recommendation, numberOfItems: Int): Dataset<Row>

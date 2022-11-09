@@ -1,5 +1,6 @@
 package io.openenterprise.incite.data.domain
 
+import io.openenterprise.data.domain.AbstractEntity
 import io.openenterprise.data.domain.AbstractJsonAttributeConverter
 import io.openenterprise.data.domain.AbstractMutableEntity
 import java.time.OffsetDateTime
@@ -53,7 +54,13 @@ abstract class MachineLearning<A: MachineLearning.Algorithm, M>: Pipeline() {
 
     abstract var models: SortedSet<M>
 
+    @Transient
+    abstract fun newModelInstance(): M
+
     abstract class Algorithm
+
+    @MappedSuperclass
+    abstract class Model<M> : AbstractEntity<String>(), Comparable<M>
 }
 
 @Converter

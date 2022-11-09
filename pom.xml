@@ -29,7 +29,7 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<javax.el.version>3.0.0</javax.el.version>
 		<javax.json-api.version>1.1.4</javax.json-api.version>
-		<camel.version><!--3.11.6--><!--3.14.4-->3.18.2</camel.version>
+		<camel.version><!--3.11.6--><!--3.14.4-->3.18.3</camel.version>
 		<commons-collections4.version>4.4</commons-collections4.version>
 		<commons-lagn3.version>3.12.0</commons-lagn3.version>
 		<flyway.version><!--7.11.4-->8.5.13</flyway.version>
@@ -44,7 +44,7 @@
 		<postgresql-jdbc.version>42.5.0</postgresql-jdbc.version>
 		<reflections.version>0.10.2</reflections.version>
 		<snakeyaml.version>1.33</snakeyaml.version>
-		<spark.version><!--2.4.8-->3.3.0</spark.version>
+		<spark.version><!--2.4.8-->3.3.1</spark.version>
 		<spring-boot.version><!--2.5.14-->2.7.5</spring-boot.version>
 		<testcontainers.version>1.17.5</testcontainers.version>
 		<zeroturnaround.version>1.15</zeroturnaround.version>

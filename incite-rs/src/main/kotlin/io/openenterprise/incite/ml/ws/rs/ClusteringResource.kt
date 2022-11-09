@@ -1,5 +1,9 @@
 package io.openenterprise.incite.ml.ws.rs
 
 import io.openenterprise.incite.data.domain.Clustering
+import org.springframework.stereotype.Component
+import javax.ws.rs.Path
 
-interface ClusteringResource: MachineLearningResource<Clustering>
+@Path("/cluster-analyses")
+@Component
+interface ClusteringResource: MachineLearningResource<Clustering, Clustering.Model>

@@ -1,22 +1,17 @@
 package io.openenterprise.incite.ml.service
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.openenterprise.incite.data.domain.*
 import io.openenterprise.service.AbstractMutableEntityService
 import org.apache.ignite.IgniteException
 import org.apache.ignite.cache.query.annotations.QuerySqlFunction
-import org.apache.spark.ml.clustering.BisectingKMeansModel
-import org.apache.spark.ml.clustering.KMeansModel
 import java.util.*
-import javax.json.Json
-import javax.json.JsonObject
-import javax.json.JsonValue
 import javax.persistence.EntityNotFoundException
 
-interface ClusteringService : MachineLearningService<Clustering>,
+interface ClusteringService : MachineLearningService<Clustering, Clustering.Algorithm, Clustering.Model>,
     AbstractMutableEntityService<Clustering, String> {
 
-    companion object : MachineLearningService.BaseCompanionObject() {
+    companion object :
+        MachineLearningService.BaseCompanionObject<Clustering, Clustering.Algorithm, Clustering.Model, ClusteringService>() {
 
         /**
          * Make predictions for the given [Clustering] with the latest [Clustering.Model] if there is any and write the
@@ -28,16 +23,7 @@ interface ClusteringService : MachineLearningService<Clustering>,
          */
         @JvmStatic
         @QuerySqlFunction(alias = "clustering_predict")
-        fun predict(id: String, jsonOrSql: String): Long {
-            val clusteringService = getBean(ClusteringService::class.java)
-            val clusterAnalysis = clusteringService.retrieve(id)
-                ?: throw EntityNotFoundException("ClusterAnalysis with ID, $id, is not found")
-            val result = clusteringService.predict(clusterAnalysis, jsonOrSql)
-
-            writeToSinks(result, clusterAnalysis.sinks)
-
-            return result.count()
-        }
+        override fun predict(id: String, jsonOrSql: String): Long = super.predict(id, jsonOrSql)
 
         /**
          * Set up a [Clustering] with the given input for performing cluster-analysis later.
@@ -47,34 +33,17 @@ interface ClusteringService : MachineLearningService<Clustering>,
          * @param k The desired number of clusters
          * @param sourceSql The select query to build dataset
          * @param sinkTable The table to store the predictions
-         * @param primaryKeyColumn The primary key of the table to store the predictions
+         * @param primaryKeyColumns The primary key of the table to store the predictions
          */
         @JvmStatic
         @QuerySqlFunction(alias = "set_up_clustering")
-        fun setUp(
+        override fun setUp(
             algo: String,
             algoSpecificParams: String,
             sourceSql: String,
             sinkTable: String,
             primaryKeyColumns: String
-        ): UUID {
-            val algorithm: Clustering.Algorithm = mergeParamsIntoAlgorithm(
-                Clustering.SupportedAlgorithm.valueOf(algo).clazz.getDeclaredConstructor()
-                    .newInstance() as Clustering.Algorithm, algoSpecificParams
-            )
-            val clustering = setUpMachineLearning(
-                ClusteringService::class.java,
-                Clustering(),
-                algorithm,
-                sourceSql,
-                sinkTable,
-                primaryKeyColumns
-            )
-
-            getBean(ClusteringService::class.java).create(clustering)
-
-            return UUID.fromString(clustering.id)
-        }
+        ): UUID = super.setUp(algo, algoSpecificParams, sourceSql, sinkTable, primaryKeyColumns)
 
         /**
          * Train a model for the given [Clustering] if it exists.
@@ -86,17 +55,15 @@ interface ClusteringService : MachineLearningService<Clustering>,
         @JvmStatic
         @Throws(IgniteException::class)
         @QuerySqlFunction(alias = "train_clustering_model")
-        fun train(id: String): UUID {
-            val clusteringService = getBean(ClusteringService::class.java)
-            val clusterAnalysis = clusteringService.retrieve(id)
-                ?: throw IgniteException(EntityNotFoundException("ClusterAnalysis (ID: $id) is not found"))
-            val sparkModel = when (clusterAnalysis.algorithm) {
-                is BisectingKMeans -> clusteringService.train<BisectingKMeansModel>(clusterAnalysis)
-                is KMeans -> clusteringService.train<KMeansModel>(clusterAnalysis)
-                else -> throw IgniteException(UnsupportedOperationException())
-            }
+        override fun train(id: String): UUID = super.train(id)
 
-            return clusteringService.persistModel(clusterAnalysis, sparkModel)
+        override fun getMachineLearningClass(): Class<Clustering> = Clustering::class.java
+
+        override fun getMachineLearningAlgorithmClass(algo: String): Class<out MachineLearning.Algorithm> {
+            return Clustering.SupportedAlgorithm.valueOf(algo).clazz
         }
+
+        override fun getMachineLearningService(): ClusteringService =
+            getBean(ClusteringService::class.java)
     }
 }

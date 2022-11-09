@@ -28,6 +28,7 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.SparkSession
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.task.SyncTaskExecutor
+import org.springframework.transaction.support.TransactionTemplate
 import java.io.File
 import java.io.IOException
 import java.util.*
@@ -35,13 +36,12 @@ import java.util.stream.Collectors
 import javax.cache.Cache
 import javax.inject.Inject
 import javax.inject.Named
+import javax.persistence.EntityNotFoundException
 
-abstract class AbstractMachineLearningServiceImpl<T : MachineLearning<*, *>>(
+abstract class AbstractMachineLearningServiceImpl<T : MachineLearning<A, M>, M : MachineLearning.Model<M>, A : MachineLearning.Algorithm>(
     private val datasetService: DatasetService,
     private val pipelineService: PipelineService
-) :
-    MachineLearningService<T>,
-    AbstractAbstractMutableEntityServiceImpl<T, String>() {
+) : AbstractAbstractMutableEntityServiceImpl<T, String>(), MachineLearningService<T, A, M> {
 
     @Inject
     protected lateinit var amazonS3: AmazonS3
@@ -62,6 +62,9 @@ abstract class AbstractMachineLearningServiceImpl<T : MachineLearning<*, *>>(
     @Inject
     protected lateinit var sparkSession: SparkSession
 
+    @Inject
+    protected lateinit var transactionTemplate: TransactionTemplate
+
     @Suppress("UNCHECKED_CAST")
     override fun <M : Model<M>> getFromS3(modelId: UUID, clazz: Class<M>): M {
         if (!amazonS3.doesBucketExistV2(s3Bucket)) {
@@ -78,6 +81,36 @@ abstract class AbstractMachineLearningServiceImpl<T : MachineLearning<*, *>>(
         ) as M
     }
 
+    override fun predict(entity: T, jsonOrSql: String): Dataset<Row> {
+        if (entity.models.isEmpty()) {
+            throw IllegalStateException("No models have been built")
+        }
+
+        assert(pipelineService is PipelineServiceImpl)
+
+        val sparkModel: Model<*> = getSparkModel(entity)
+        val dataset = postProcessLoadedDataset(entity.algorithm, sparkModel, loadDataset(jsonOrSql))
+        val result = predict(sparkModel, dataset)
+
+        datasetService.write(result, entity.sinks, false)
+
+        return result
+    }
+
+    override fun persistModel(entity: T, sparkModel: MLWritable): UUID {
+        val modelId = putToS3(sparkModel)
+        val model = entity.newModelInstance()
+        model.id = modelId.toString()
+
+        entity.models.add(model)
+
+        transactionTemplate.execute {
+            update(entity)
+        }
+
+        return modelId
+    }
+
     override fun putToS3(model: MLWritable): UUID {
         if (!amazonS3.doesBucketExistV2(s3Bucket)) {
             amazonS3.createBucket(s3Bucket)
@@ -92,6 +125,12 @@ abstract class AbstractMachineLearningServiceImpl<T : MachineLearning<*, *>>(
         model.write().overwrite().save(StringUtils.replace(s3Uri.toString(), "s3", "s3a"))
 
         return modelId
+    }
+
+    override fun <SM : Model<SM>> train(entity: T): SM {
+        val dataset = getAggregatedDataset(entity)
+
+        return buildSparkModel(entity, dataset)
     }
 
     internal fun buildEmbeddedIgniteRdbmsDatabase(): RdbmsDatabase {
@@ -135,6 +174,10 @@ abstract class AbstractMachineLearningServiceImpl<T : MachineLearning<*, *>>(
 
         return (pipelineService as PipelineServiceImpl).aggregate(datasets, entity.joins)
     }
+
+    protected abstract fun <M : Model<M>> buildSparkModel(entity: T, dataset: Dataset<Row>): M
+
+    protected abstract fun getSparkModel(algorithm: MachineLearning.Algorithm, modelId: String): Model<*>
 
     protected fun isJson(string: String): Boolean {
         try {
@@ -192,4 +235,11 @@ abstract class AbstractMachineLearningServiceImpl<T : MachineLearning<*, *>>(
 
     protected fun <M : Model<M>> predict(model: Model<M>, dataset: Dataset<Row>): Dataset<Row> =
         model.transform(dataset)
+
+    private fun getSparkModel(entity: T): Model<*> =
+        getSparkModel(
+            entity.algorithm,
+            entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }.id
+                ?: throw IllegalStateException()
+        )
 }

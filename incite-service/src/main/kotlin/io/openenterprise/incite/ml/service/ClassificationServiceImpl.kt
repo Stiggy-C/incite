@@ -2,6 +2,8 @@ package io.openenterprise.incite.ml.service
 
 import io.openenterprise.incite.data.domain.Classification
 import io.openenterprise.incite.data.domain.LogisticRegression
+import io.openenterprise.incite.data.domain.MachineLearning
+import io.openenterprise.incite.data.domain.Pipeline
 import io.openenterprise.incite.service.PipelineService
 import io.openenterprise.incite.service.PipelineServiceImpl
 import io.openenterprise.incite.spark.sql.service.DatasetService
@@ -27,16 +29,15 @@ import javax.persistence.EntityNotFoundException
 @Named
 open class ClassificationServiceImpl(
     @Inject private val datasetService: DatasetService,
-    @Inject private val pipelineService: PipelineService,
-    @Inject private val transactionTemplate: TransactionTemplate
+    @Inject private val pipelineService: PipelineService
 ) :
     ClassificationService,
-    AbstractMachineLearningServiceImpl<Classification>(
+    AbstractMachineLearningServiceImpl<Classification, Classification.Model, Classification.Algorithm>(
         datasetService,
         pipelineService
     ) {
 
-    override fun persistModel(entity: Classification, sparkModel: MLWritable): UUID {
+    /*override fun persistModel(entity: Classification, sparkModel: MLWritable): UUID {
         val modelId = putToS3(sparkModel)
         val model = Classification.Model()
         model.id = modelId.toString()
@@ -48,9 +49,9 @@ open class ClassificationServiceImpl(
         }
 
         return modelId
-    }
+    }*/
 
-    override fun predict(entity: Classification, jsonOrSql: String): Dataset<Row> {
+    /*override fun predict(entity: Classification, jsonOrSql: String): Dataset<Row> {
         if (entity.models.isEmpty()) {
             throw IllegalStateException("No models have been built")
         }
@@ -69,9 +70,9 @@ open class ClassificationServiceImpl(
         datasetService.write(result, entity.sinks, false)
 
         return result
-    }
+    }*/
 
-    override fun <M : Model<M>> train(entity: Classification): M {
+    /*override fun <M : Model<M>> train(entity: Classification): M {
         val dataset = getAggregatedDataset(entity)
 
         @Suppress("UNCHECKED_CAST")
@@ -91,7 +92,32 @@ open class ClassificationServiceImpl(
             else ->
                 throw UnsupportedOperationException()
         } as M
-    }
+    }*/
+
+    @Suppress("UNCHECKED_CAST")
+    override fun <SM : Model<SM>> buildSparkModel(entity: Classification, dataset: Dataset<Row>): SM =
+        when (entity.algorithm) {
+            is LogisticRegression -> {
+            val logisticRegression = entity.algorithm as LogisticRegression
+
+            buildLogisticRegressionModel(
+                dataset,
+                logisticRegression.featureColumns.stream().collect(Collectors.joining(",")),
+                logisticRegression.labelColumn,
+                logisticRegression.elasticNetMixing,
+                logisticRegression.maxIterations,
+                logisticRegression.regularization
+            )
+        }
+            else ->
+            throw UnsupportedOperationException()
+        } as SM
+
+    override fun getSparkModel(algorithm: MachineLearning.Algorithm, modelId: String): Model<*> =
+        when (algorithm) {
+            is LogisticRegression -> getFromS3(UUID.fromString(modelId), LogisticRegressionModel::class.java)
+            else -> throw UnsupportedOperationException()
+        }
 
     private fun buildLogisticRegressionModel(
         dataset: Dataset<Row>,
@@ -124,4 +150,6 @@ open class ClassificationServiceImpl(
 
         return algorithm.fit(transformedDataset1)
     }
+
+
 }

@@ -102,9 +102,8 @@ class RecommendationServiceImplTest : AbstractMachineLearningServiceImplTest() {
         @Bean
         protected fun recommendationService(
             datasetService: DatasetService,
-            pipelineService: PipelineService,
-            transactionTemplate: TransactionTemplate
+            pipelineService: PipelineService
         ): RecommendationService =
-            RecommendationServiceImpl(datasetService, pipelineService, transactionTemplate)
+            RecommendationServiceImpl(datasetService, pipelineService)
     }
 }

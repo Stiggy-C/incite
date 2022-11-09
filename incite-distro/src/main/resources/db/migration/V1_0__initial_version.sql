@@ -70,6 +70,29 @@ create table if not exists clustering_model(
     primary key(id, clustering_id)
 ) with "template=default,affinity_key=clustering_id";
 
+create table if not exists frequent_pattern_mining(
+    id UUID primary key,
+    algorithm varchar,
+    description varchar,
+    fixedDelay bigint,
+    joins varchar,
+    lastRunDateTime timestamp,
+    -- sinks varchar,
+    -- sources varchar,
+    created_by varchar(320) not null,
+    created_date_time timestamp not null,
+    updated_by varchar(320),
+    updated_date_time timestamp
+)  with "template=default";
+
+create table if not exists frequent_pattern_mining_model(
+    id UUID,
+    frequent_pattern_mining_id UUID,
+    created_by varchar(320) not null,
+    created_date_time timestamp not null,
+    primary key(id, frequent_pattern_mining_id)
+) with "template=default,affinity_key=frequent_pattern_mining_id";
+
 create table if not exists recommendation(
     id UUID primary key,
     algorithm varchar,
@@ -93,6 +116,30 @@ create table if not exists recommendation_model(
     created_date_time timestamp not null,
     primary key(id, recommendation_id)
 ) with "template=default,affinity_key=recommendation_id";
+
+create table if not exists regression(
+    id UUID primary key,
+    algorithm varchar,
+    description varchar,
+    fixedDelay bigint,
+    joins varchar,
+    lastRunDateTime timestamp,
+    -- sinks varchar,
+    -- sources varchar,
+    created_by varchar(320) not null,
+    created_date_time timestamp not null,
+    updated_by varchar(320),
+    updated_date_time timestamp
+)  with "template=default";
+
+create table if not exists regression_model(
+    id UUID,
+    regression_id UUID,
+    root_mean_squared_error double,
+    created_by varchar(320) not null,
+    created_date_time timestamp not null,
+    primary key(id, regression_id)
+) with "template=default,affinity_key=regression_id";
 
 create table if not exists route(
     id UUID primary key,

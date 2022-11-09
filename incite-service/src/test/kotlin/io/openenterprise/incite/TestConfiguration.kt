@@ -15,7 +15,6 @@ import io.openenterprise.incite.spark.sql.streaming.StreamingQueryListener
 import io.openenterprise.testcontainers.containers.KafkaContainer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import org.apache.commons.lang3.StringUtils
 import org.apache.ignite.Ignite
 import org.apache.ignite.IgniteCluster
 import org.apache.ignite.Ignition
@@ -153,7 +152,7 @@ class TestConfiguration {
     @Order(Ordered.HIGHEST_PRECEDENCE)
     @Qualifier("sparkMasterContainer")
     protected fun sparkMasterContainer(network: Network): GenericContainer<*> {
-        val dockerImage = DockerImageName.parse("incite/spark")
+        val dockerImage = DockerImageName.parse("incite/spark:3.3.1")
         val genericContainer = GenericContainer(dockerImage)
             .waitingFor(Wait.forLogMessage(".*Master: I have been elected leader! New state: ALIVE.*", 1))
             .withCommand("/opt/bitnami/spark/sbin/start-master.sh")
@@ -180,7 +179,7 @@ class TestConfiguration {
                 ?: throw IllegalStateException()
         val sparkMasterIpAddress = sparkMasterContainerContainerNetwork.ipAddress
 
-        val dockerImage = DockerImageName.parse("incite/spark")
+        val dockerImage = DockerImageName.parse("incite/spark:3.3.1")
         val genericContainer = GenericContainer(dockerImage)
             .waitingFor(Wait.forLogMessage(".*Worker: Successfully registered with master.*", 1))
             .withAccessToHost(true)

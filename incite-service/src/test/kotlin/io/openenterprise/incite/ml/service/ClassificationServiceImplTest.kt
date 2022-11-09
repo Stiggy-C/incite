@@ -120,9 +120,8 @@ class ClassificationServiceImplTest : AbstractMachineLearningServiceImplTest() {
         @Bean
         protected fun classificationService(
             datasetService: DatasetService,
-            pipelineService: PipelineService,
-            transactionTemplate: TransactionTemplate
+            pipelineService: PipelineService
         ): ClassificationService =
-            ClassificationServiceImpl(datasetService, pipelineService, transactionTemplate)
+            ClassificationServiceImpl(datasetService, pipelineService)
     }
 }

@@ -90,7 +90,7 @@ class IgniteAutoConfiguration : org.apache.ignite.springframework.boot.autoconfi
     }
 
     @Bean
-    fun igniteMessaging(ignite: Ignite, igniteCluster: IgniteCluster): IgniteMessaging {
+    protected fun igniteMessaging(ignite: Ignite, igniteCluster: IgniteCluster): IgniteMessaging {
         val clusterGroup = igniteCluster.forPredicate { node -> !node.isClient }.forPredicate { node -> !node.isDaemon }
 
         return ignite.message(clusterGroup)

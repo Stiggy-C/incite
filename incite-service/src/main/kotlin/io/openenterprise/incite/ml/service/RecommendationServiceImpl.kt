@@ -1,6 +1,7 @@
 package io.openenterprise.incite.ml.service
 
 import io.openenterprise.incite.data.domain.AlternatingLeastSquares
+import io.openenterprise.incite.data.domain.MachineLearning
 import io.openenterprise.incite.data.domain.Recommendation
 import io.openenterprise.incite.service.PipelineService
 import io.openenterprise.incite.spark.sql.service.DatasetService
@@ -19,10 +20,12 @@ import javax.persistence.EntityNotFoundException
 @Named
 open class RecommendationServiceImpl(
     @Inject private val datasetService: DatasetService,
-    @Inject private val pipelineService: PipelineService,
-    @Inject private val transactionTemplate: TransactionTemplate
-) : RecommendationService,
-    AbstractMachineLearningServiceImpl<Recommendation>(datasetService, pipelineService) {
+    @Inject private val pipelineService: PipelineService
+) : AbstractMachineLearningServiceImpl<Recommendation, Recommendation.Model, Recommendation.Algorithm>(
+    datasetService,
+    pipelineService
+),
+    RecommendationService {
 
     override fun recommendForAllUsers(
         recommendation: Recommendation,
@@ -39,6 +42,7 @@ open class RecommendationServiceImpl(
 
                 recommendForAllUsers(alsModel, numberOfItems)
             }
+
             else -> throw UnsupportedOperationException()
         }
 
@@ -63,16 +67,49 @@ open class RecommendationServiceImpl(
 
                 recommendForUsersSubset(alsModel, jsonOrSql, numberOfItems)
             }
+
             else -> throw UnsupportedOperationException()
         }
 
         datasetService.write(result, recommendation.sinks, false)
 
         return result
-
     }
 
-    override fun <M : Model<M>> train(entity: Recommendation): M {
+    /*override fun persistModel(entity: Recommendation, sparkModel: MLWritable): UUID {
+        val modelId = putToS3(sparkModel)
+        val model = Recommendation.Model()
+        model.id = modelId.toString()
+
+        entity.models.add(model)
+
+        transactionTemplate.execute {
+            update(entity)
+        }
+
+        return modelId
+    }*/
+
+    /*override fun predict(entity: Recommendation, jsonOrSql: String): Dataset<Row> {
+        if (entity.models.isEmpty()) {
+            throw IllegalStateException("No models have been built")
+        }
+
+        val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
+        val sparkModel: Model<*> = when (val algorithm = entity.algorithm) {
+            is AlternatingLeastSquares -> getFromS3(UUID.fromString(model.id), ALSModel::class.java)
+            else -> throw UnsupportedOperationException()
+        }
+
+        val dataset = postProcessLoadedDataset(entity.algorithm, sparkModel, loadDataset(jsonOrSql))
+        val result = predict(sparkModel, dataset)
+
+        datasetService.write(result, entity.sinks, false)
+
+        return result
+    }*/
+
+    /*override fun <M : Model<M>> train(entity: Recommendation): M {
         val dataset = getAggregatedDataset(entity)
 
         @Suppress("UNCHECKED_CAST")
@@ -90,40 +127,31 @@ open class RecommendationServiceImpl(
             }
             else -> throw UnsupportedOperationException()
         } as M
-    }
+    }*/
 
-    override fun persistModel(entity: Recommendation, sparkModel: MLWritable): UUID {
-        val modelId = putToS3(sparkModel)
-        val model = Recommendation.Model()
-        model.id = modelId.toString()
+    @Suppress("UNCHECKED_CAST")
+    override fun <SM : Model<SM>> buildSparkModel(entity: Recommendation, dataset: Dataset<Row>): SM =
+        when (val algorithm = entity.algorithm) {
+            is AlternatingLeastSquares -> {
+                buildAlsModel(
+                    dataset,
+                    algorithm.implicitPreference,
+                    algorithm.itemColumn,
+                    algorithm.maxIteration,
+                    algorithm.numberOfItemBlocks,
+                    algorithm.numberOfUserBlocks,
+                    algorithm.regularization
+                )
+            }
 
-        entity.models.add(model)
+            else -> throw UnsupportedOperationException()
+        } as SM
 
-        transactionTemplate.execute {
-            update(entity)
-        }
-
-        return modelId
-    }
-
-    override fun predict(entity: Recommendation, jsonOrSql: String): Dataset<Row> {
-        if (entity.models.isEmpty()) {
-            throw IllegalStateException("No models have been built")
-        }
-
-        val model = entity.models.stream().findFirst().orElseThrow { EntityNotFoundException() }
-        val sparkModel: Model<*> = when (val algorithm = entity.algorithm) {
-            is AlternatingLeastSquares -> getFromS3(UUID.fromString(model.id), ALSModel::class.java)
+    override fun getSparkModel(algorithm: MachineLearning.Algorithm, modelId: String): Model<*> =
+        when (algorithm) {
+            is AlternatingLeastSquares -> getFromS3(UUID.fromString(modelId), ALSModel::class.java)
             else -> throw UnsupportedOperationException()
         }
-
-        val dataset = postProcessLoadedDataset(entity.algorithm, sparkModel, loadDataset(jsonOrSql))
-        val result = predict(sparkModel, dataset)
-
-        datasetService.write(result, entity.sinks, false)
-
-        return result
-    }
 
     private fun buildAlsModel(
         dataset: Dataset<Row>,

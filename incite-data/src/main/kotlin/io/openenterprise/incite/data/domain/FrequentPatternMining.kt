@@ -2,7 +2,6 @@ package io.openenterprise.incite.data.domain
 
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
-import io.openenterprise.data.domain.AbstractEntity
 import io.openenterprise.data.domain.AbstractJsonAttributeConverter
 import java.time.OffsetDateTime
 import java.util.*
@@ -17,6 +16,10 @@ class FrequentPatternMining: MachineLearning<FrequentPatternMining.Algorithm, Fr
     @OneToMany
     @OrderBy("createdDateTime DESC")
     override var models: SortedSet<Model> = TreeSet()
+    @Transient
+    override fun newModelInstance(): Model {
+        return Model()
+    }
 
     @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
@@ -35,7 +38,7 @@ class FrequentPatternMining: MachineLearning<FrequentPatternMining.Algorithm, Fr
 
     @Entity
     @Table(name = "frequent_pattern_mining_model")
-    class Model: AbstractEntity<String>(), Comparable<Model> {
+    class Model: MachineLearning.Model<Model>() {
 
         override fun compareTo(other: Model): Int {
             return Comparator.comparing<Model?, OffsetDateTime?> {
@@ -45,7 +48,7 @@ class FrequentPatternMining: MachineLearning<FrequentPatternMining.Algorithm, Fr
         }
     }
 
-    enum class SupportedAlgorithm(val clazz: Class<*>) {
+    enum class SupportedAlgorithm(val clazz: Class<out MachineLearning.Algorithm>) {
 
         FP_GROWTH(FPGrowth::class.java)
 

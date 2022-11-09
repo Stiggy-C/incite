@@ -11,8 +11,8 @@ import javax.ws.rs.core.MediaType
 
 @Path("/recommendations")
 @Component
-class RecommendationResourceImpl : RecommendationResource,
-    AbstractMachineLearningResourceImpl<Recommendation>() {
+class RecommendationResourceImpl : AbstractMachineLearningResourceImpl<Recommendation, Recommendation.Model>(),
+    RecommendationResource {
 
     @GET
     @Path("/{id}/model")

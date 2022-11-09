@@ -213,10 +213,9 @@ class ClusteringServiceImplTest : AbstractMachineLearningServiceImplTest() {
         @Bean
         protected fun clusteringService(
             datasetService: DatasetService,
-            pipelineService: PipelineService,
-            transactionTemplate: TransactionTemplate
+            pipelineService: PipelineService
         ): ClusteringService {
-            return ClusteringServiceImpl(datasetService, pipelineService, transactionTemplate)
+            return ClusteringServiceImpl(datasetService, pipelineService)
         }
     }
 }

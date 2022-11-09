@@ -27,13 +27,14 @@ import javax.persistence.EntityNotFoundException
 @Named
 open class ClusteringServiceImpl(
     @Inject private val datasetService: DatasetService,
-    @Inject private val pipelineService: PipelineService,
-    @Inject private val transactionTemplate: TransactionTemplate
-) :
-    ClusteringService,
-    AbstractMachineLearningServiceImpl<Clustering>(datasetService, pipelineService) {
+    @Inject private val pipelineService: PipelineService
+) : AbstractMachineLearningServiceImpl<Clustering, Clustering.Model, Clustering.Algorithm>(
+    datasetService,
+    pipelineService
+),
+    ClusteringService {
 
-    override fun persistModel(entity: Clustering, sparkModel: MLWritable): UUID {
+    /*override fun persistModel(entity: Clustering, sparkModel: MLWritable): UUID {
         val modelId = putToS3(sparkModel)
         val model = Clustering.Model()
         model.id = modelId.toString()
@@ -45,9 +46,9 @@ open class ClusteringServiceImpl(
         }
 
         return modelId
-    }
+    }*/
 
-    override fun predict(entity: Clustering, jsonOrSql: String): Dataset<Row> {
+    /*override fun predict(entity: Clustering, jsonOrSql: String): Dataset<Row> {
         if (entity.models.isEmpty()) {
             throw IllegalStateException("No models have been built")
         }
@@ -68,9 +69,9 @@ open class ClusteringServiceImpl(
         datasetService.write(result, entity.sinks, false)
 
         return result
-    }
+    }*/
 
-    override fun <M : Model<M>> train(entity: Clustering): M {
+    /*override fun <M : Model<M>> train(entity: Clustering): M {
         val dataset = getAggregatedDataset(entity)
 
         @Suppress("UNCHECKED_CAST")
@@ -100,6 +101,61 @@ open class ClusteringServiceImpl(
             }
             else -> throw UnsupportedOperationException()
         } as M
+    }*/
+
+    @Suppress("UNCHECKED_CAST")
+    override fun <SM : Model<SM>> buildSparkModel(entity: Clustering, dataset: Dataset<Row>): SM =
+        when (val algorithm = entity.algorithm) {
+            is Clustering.FeatureColumnsBasedAlgorithm -> {
+                when (algorithm) {
+                    is BisectingKMeans -> {
+                        buildBisectingKMeansModel(
+                            dataset,
+                            algorithm.featureColumns.stream().collect((Collectors.joining(","))),
+                            algorithm.k,
+                            algorithm.maxIterations,
+                            algorithm.seed
+                        )
+                    }
+
+                    is KMeans -> {
+                        buildKMeansModel(
+                            dataset,
+                            algorithm.featureColumns.stream().collect((Collectors.joining(","))),
+                            algorithm.k,
+                            algorithm.maxIterations,
+                            algorithm.seed
+                        )
+                    }
+
+                    else -> throw UnsupportedOperationException()
+                }
+            }
+
+            else -> throw UnsupportedOperationException()
+        } as SM
+
+    override fun getSparkModel(algorithm: MachineLearning.Algorithm, modelId: String): Model<*> =
+        when (algorithm) {
+            is BisectingKMeans -> getFromS3(UUID.fromString(modelId), BisectingKMeansModel::class.java)
+            is KMeans -> getFromS3(UUID.fromString(modelId), KMeansModel::class.java)
+            else -> throw UnsupportedOperationException()
+        }
+
+    override fun <A : MachineLearning.Algorithm, M : Model<*>> postProcessLoadedDataset(
+        algorithm: A,
+        model: M,
+        dataset: Dataset<Row>
+    ): Dataset<Row> = when (algorithm) {
+        is Clustering.FeatureColumnsBasedAlgorithm -> {
+            val featuresColumns = algorithm.featureColumns
+
+            VectorAssembler().setInputCols(featuresColumns.toTypedArray())
+                .setOutputCol(((model as HasFeaturesCol).featuresCol))
+                .transform(dataset)
+        }
+
+        else -> throw UnsupportedOperationException()
     }
 
     private fun buildBisectingKMeansModel(
@@ -145,20 +201,5 @@ open class ClusteringServiceImpl(
                 .transform(dataset)
 
         return algorithm.fit(transformedDataset)
-    }
-
-    override fun <A : MachineLearning.Algorithm, M : Model<*>> postProcessLoadedDataset(
-        algorithm: A,
-        model: M,
-        dataset: Dataset<Row>
-    ): Dataset<Row> = when (algorithm) {
-        is Clustering.FeatureColumnsBasedAlgorithm -> {
-            val featuresColumns = algorithm.featureColumns
-
-            VectorAssembler().setInputCols(featuresColumns.toTypedArray())
-                .setOutputCol(((model as HasFeaturesCol).featuresCol))
-                .transform(dataset)
-        }
-        else -> throw UnsupportedOperationException()
     }
 }

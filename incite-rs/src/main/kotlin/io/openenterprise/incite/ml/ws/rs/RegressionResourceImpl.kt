@@ -1,23 +1,22 @@
 package io.openenterprise.incite.ml.ws.rs
 
-import io.openenterprise.incite.data.domain.Clustering
+import io.openenterprise.incite.data.domain.Regression
 import org.springframework.stereotype.Component
-import javax.inject.Named
 import javax.json.JsonMergePatch
 import javax.ws.rs.*
 import javax.ws.rs.container.AsyncResponse
 import javax.ws.rs.container.Suspended
 import javax.ws.rs.core.MediaType
 
-@Path("/cluster-analyses")
+@Path("/regressions")
 @Component
-class ClusteringResourceImpl : AbstractMachineLearningResourceImpl<Clustering, Clustering.Model>(), ClusteringResource {
+class RegressionResourceImpl : AbstractMachineLearningResourceImpl<Regression, Regression.Model>(), RegressionResource {
 
     @GET
     @Path("/{id}/model")
     @Produces(MediaType.APPLICATION_JSON)
     override fun buildModel(@PathParam("id") id: String, @Suspended asyncResponse: AsyncResponse) {
-       super.buildModel(id, asyncResponse)
+        super.buildModel(id, asyncResponse)
     }
 
     @POST
@@ -31,7 +30,7 @@ class ClusteringResourceImpl : AbstractMachineLearningResourceImpl<Clustering, C
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    override fun create(entity: Clustering, @Suspended asyncResponse: AsyncResponse) {
+    override fun create(entity: Regression, @Suspended asyncResponse: AsyncResponse) {
         super.create(entity, asyncResponse)
     }
 
@@ -51,11 +50,7 @@ class ClusteringResourceImpl : AbstractMachineLearningResourceImpl<Clustering, C
     @PATCH
     @Path("/{id}")
     @Consumes("application/merge-patch+json")
-    override fun update(
-        @PathParam("id") id: String,
-        jsonMergePatch: JsonMergePatch,
-        @Suspended asyncResponse: AsyncResponse
-    ) {
+    override fun update(@PathParam("id") id: String, jsonMergePatch: JsonMergePatch, @Suspended asyncResponse: AsyncResponse) {
         super.update(id, jsonMergePatch, asyncResponse)
     }
 }

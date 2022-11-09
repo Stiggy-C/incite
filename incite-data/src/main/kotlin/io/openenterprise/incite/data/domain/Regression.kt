@@ -6,10 +6,9 @@ import io.openenterprise.data.domain.AbstractJsonAttributeConverter
 import java.time.OffsetDateTime
 import java.util.*
 import javax.persistence.*
-import kotlin.Comparator
 
 @Entity
-class Clustering : MachineLearning<Clustering.Algorithm, Clustering.Model>() {
+class Regression : MachineLearning<Regression.Algorithm, Regression.Model>(){
 
     @Convert(converter = AlgorithmJsonAttributeConverter::class)
     override lateinit var algorithm: Algorithm
@@ -19,18 +18,8 @@ class Clustering : MachineLearning<Clustering.Algorithm, Clustering.Model>() {
     override var models: SortedSet<Model> = TreeSet()
 
     @Transient
-    var latestSilhouette: Double? = null
-
-    @Transient
     override fun newModelInstance(): Model {
         return Model()
-    }
-
-    override fun postLoad() {
-        super.postLoad()
-
-        latestSilhouette =
-            models.stream().filter { it.silhouette != null }.findFirst().map { it.silhouette }.orElse(null)
     }
 
     @JsonTypeInfo(
@@ -40,48 +29,38 @@ class Clustering : MachineLearning<Clustering.Algorithm, Clustering.Model>() {
     )
     @JsonSubTypes(
         value = [
-            JsonSubTypes.Type(value = BisectingKMeans::class, name = "BisectingKMeans"),
-            JsonSubTypes.Type(value = KMeans::class, name = "KMeans")
+            JsonSubTypes.Type(value = LinearRegression::class, name = "LinearRegression")
         ]
     )
-    abstract class Algorithm: MachineLearning.Algorithm() {
-
-        var k: Int = 0
-
-    }
+    abstract class Algorithm: MachineLearning.Algorithm()
 
     @Converter
     class AlgorithmJsonAttributeConverter : AbstractJsonAttributeConverter<Algorithm>()
 
-    abstract class FeatureColumnsBasedAlgorithm : Algorithm() {
-
-        var featureColumns: Set<String> = mutableSetOf()
-
-        var maxIterations: Int = 1
-
-        var seed: Long = 1L
-    }
-
     @Entity
-    @Table(name = "clustering_model")
+    @Table(name = "regression_model")
     class Model : MachineLearning.Model<Model>() {
 
-        var silhouette: Double? = null
+        var rootMeanSquaredError: Double? = null
 
         override fun compareTo(other: Model): Int {
             return Comparator.comparing<Model?, OffsetDateTime?> {
                 if (it.createdDateTime == null) OffsetDateTime.MIN else it.createdDateTime
-            }.reversed().compare(this, other)
+            }.reversed()
+                .compare(this, other)
         }
     }
 
     enum class SupportedAlgorithm(val clazz: Class<out MachineLearning.Algorithm>) {
 
-        BISECTING_K_MEANS(BisectingKMeans::class.java),
-        K_MEANS(KMeans::class.java)
+        LINEAR_REGRESSION(LinearRegression::class.java)
     }
 }
 
-class BisectingKMeans : Clustering.FeatureColumnsBasedAlgorithm()
+class LinearRegression : Regression.Algorithm() {
 
-class KMeans : Clustering.FeatureColumnsBasedAlgorithm()
+    var epsilon: Double = 1.35
+
+    var maxIterations: Int = 1
+
+}

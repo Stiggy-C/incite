@@ -106,9 +106,8 @@ class FrequentPatternMiningServiceImplTest : AbstractMachineLearningServiceImplT
         @Bean
         protected fun frequentPatternMiningService(
             datasetService: DatasetService,
-            pipelineService: PipelineService,
-            transactionTemplate: TransactionTemplate
+            pipelineService: PipelineService
         ): FrequentPatternMiningService =
-            FrequentPatternMiningServiceImpl(datasetService, pipelineService, transactionTemplate)
+            FrequentPatternMiningServiceImpl(datasetService, pipelineService)
     }
 }
